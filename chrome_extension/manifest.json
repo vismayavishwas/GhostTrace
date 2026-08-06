@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "GhostTrace AI Shadow Mode Observer",
+  "version": "1.0.0",
+  "description": "Native Manifest v3 Chrome Extension sidecar capturing rich cross-application telemetry (DOM selector, XPath, Bounding Box, Scroll, Masked Input) for GhostTrace AI.",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting",
+    "tabs"
+  ],
+  "host_permissions": [
+    "<all_urls>",
+    "http://127.0.0.1:8000/*",
+    "http://localhost:8000/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "all_frames": true,
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "GhostTrace AI Observer"
+  }
+}

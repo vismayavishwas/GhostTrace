@@ -1,0 +1,22 @@
+{
+  "name": "ghosttrace-ai-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "GhostTrace AI - Enterprise Autonomous Process Intelligence Platform",
+  "scripts": {
+    "dev:backend": "cd backend && uvicorn app.main:app --reload --port 8000",
+    "dev:frontend": "cd frontend && npm run dev",
+    "build:frontend": "cd frontend && npm run build",
+    "lint:frontend": "cd frontend && npm run lint"
+  },
+  "keywords": [
+    "process-intelligence",
+    "agentic-ai",
+    "langgraph",
+    "fastapi",
+    "nextjs",
+    "playwright"
+  ],
+  "author": "GhostTrace AI Team",
+  "license": "UNLICENSED"
+}
