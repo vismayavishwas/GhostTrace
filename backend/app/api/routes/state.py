@@ -131,38 +131,27 @@ async def get_current_state():
         target_app = getattr(first_event, "active_tab", None) or (first_event.get("active_tab") if isinstance(first_event, dict) else "Target App")
         candidate_name = f"{source_app} -> {target_app}"
 
-    from app.agents.pattern_discovery.semantic_deviation_detector import semantic_deviation_detector
-    from app.agents.pattern_discovery.outlier_detector import OutlierDetector
+    from app.agents.telemetry.transfer_builder import global_transfer_builder
+    from app.agents.pattern_discovery.mapping_memory import global_mapping_memory
+    from app.agents.pattern_discovery.learning_planner import global_learning_planner
+    from app.agents.pattern_discovery.deviation_detector import global_deviation_detector
 
-    detector = OutlierDetector()
-    
-    raw_occurrences = []
-    if pd and hasattr(pd, "matcher") and pd.matcher._pattern_index:
-        for occs in pd.matcher._pattern_index.values():
-            if len(occs) >= 2:
-                raw_occs = [[getattr(e, "raw_event", e) for e in seq] for seq in occs]
-                raw_occurrences.extend(raw_occs)
-                
-    detected_outliers = detector.detect_outliers(raw_occurrences, events)
-    semantic_deviations = semantic_deviation_detector.detect_semantic_deviations(raw_occurrences, events)
+    transfers = global_transfer_builder.process_telemetry_events(events)
+    for xfer in transfers:
+        global_mapping_memory.record_transfer(xfer)
+        global_learning_planner.evaluate_learning_state(xfer)
+
+    detected_deviations = global_deviation_detector.detect_deviations(transfers)
     
     outlier_items = []
-    for idx, out in enumerate(detected_outliers):
-        sel = out.get("selector", "element")
-        outlier_items.append({
-            "id": f"out-{idx+1}",
-            "label": out.get("label") or f"Action on {sel}",
-            "selector": sel,
-            "reason": out.get("reason", "Observed 1x across sequence repetitions")
-        })
-
-    for idx, dev in enumerate(semantic_deviations):
+    for idx, dev in enumerate(detected_deviations):
         outlier_items.append({
             "id": f"dev-{idx+1}",
-            "label": dev.get("label") or f"Field ({dev.get('source_entity', 'source').upper()}) pasted into Field ({dev.get('destination_entity', 'dest').upper()})",
-            "selector": f"#target-{dev.get('destination_entity', 'dest')}",
-            "reason": "Accidental cross-field transfer observed and corrected"
+            "label": dev.get("label") or f"Field ({dev.get('source_entity', 'source').upper()}) pasted into Field ({dev.get('observed_destination', 'dest').upper()})",
+            "selector": f"#target-{dev.get('observed_destination', 'dest')}",
+            "reason": dev.get("reason", "Expected destination mismatch observed")
         })
+
 
     return {
         **current_graph_state,

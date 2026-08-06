@@ -1,0 +1,52 @@
+import logging
+from typing import List, Dict, Any, Optional
+from app.agents.telemetry.transfer_builder import SemanticTransfer
+from app.agents.pattern_discovery.mapping_memory import global_mapping_memory
+
+logger = logging.getLogger("ghosttrace.pattern_discovery.deviation_detector")
+
+
+class DeviationDetector:
+    """
+    Expected vs Observed Mismatch Deviation Detector.
+    
+    Algorithm:
+    Compares the Expected Destination Entity from StableMappingMemory against the Observed Destination Entity
+    in the current SemanticTransfer.
+    
+    If Expected Destination != Observed Destination -> DEVIATION DETECTED!
+    Zero AI guessing, zero regexes, 100% deterministic mismatch detection.
+    """
+    def detect_deviations(self, transfers: List[SemanticTransfer]) -> List[Dict[str, Any]]:
+        """Detects deviations by comparing expected stable mappings against observed transfers."""
+        deviations: List[Dict[str, Any]] = []
+
+        for xfer in transfers:
+            if xfer.is_immediate_correction:
+                # Immediate correction within same window was already resolved
+                continue
+
+            expected_dest = global_mapping_memory.get_expected_destination(xfer.source_entity)
+            observed_dest = xfer.destination_entity.lower()
+
+            # If a stable mapping exists for source_entity and observed_dest != expected_dest
+            if expected_dest and expected_dest != observed_dest:
+                logger.info(
+                    f"DeviationDetector Mismatch: Source '{xfer.source_entity}' "
+                    f"Expected '{expected_dest}' but Observed '{observed_dest}'"
+                )
+                deviations.append({
+                    "id": f"dev-{len(deviations)+1}",
+                    "source_entity": xfer.source_entity,
+                    "expected_destination": expected_dest,
+                    "observed_destination": observed_dest,
+                    "label": f"Field ({xfer.source_entity.upper()}) was pasted into Field ({observed_dest.upper()})",
+                    "reason": f"Workflow Deviation Mismatch: Expected destination '{expected_dest.upper()}' but observed '{observed_dest.upper()}'",
+                    "transfer_id": xfer.transfer_id
+                })
+
+        logger.info(f"DeviationDetector evaluated {len(transfers)} transfers and identified {len(deviations)} expectation mismatches.")
+        return deviations
+
+
+global_deviation_detector = DeviationDetector()
