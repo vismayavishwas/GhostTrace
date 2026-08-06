@@ -32,9 +32,6 @@ _observer.publisher.subscribe(_continuous_observer.on_telemetry_event)
 _pattern_discovery.publisher.subscribe(_intent_agent.evaluate_candidate)
 _intent_agent.publisher.subscribe(_dna_agent.on_intent_decision)
 
-_dna_agent.publisher.subscribe(_compiler.compile_dna)
-_compiler.publisher.subscribe(_sandbox_agent.run_sandbox)
-_sandbox_agent.publisher.subscribe(_self_healing_agent.on_sandbox_result)
 
 
 def get_global_observer() -> ObserverAgent:
