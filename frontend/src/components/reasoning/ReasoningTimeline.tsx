@@ -117,7 +117,7 @@ export const ReasoningTimeline: React.FC<ReasoningTimelineProps> = ({
           if (isComplete) {
             setIsCompleted(true);
             const completeLog: ReasoningLog = {
-              id: `replay-complete-${Date.now()}`,
+              id: `replay-complete-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
               timestamp: timeStr,
               message: "Autonomous Execution Complete",
               status: "CHECK",
@@ -129,12 +129,13 @@ export const ReasoningTimeline: React.FC<ReasoningTimelineProps> = ({
             setActiveRecord(recordNum);
 
             const stepLog: ReasoningLog = {
-              id: `exec-step-${stepIndex}-${Date.now()}`,
+              id: `exec-step-${stepIndex}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
               timestamp: timeStr,
               message: `Record ${recordNum} / ${totalRecords}: ${activeStep.title}`,
               status: "REPLAY",
               meta: `Action: ${activeStep.actionType} on ${activeStep.selector} ✓`,
             };
+
 
             setLogs((prev) => {
               if (prev.length > 0 && prev[0].message.startsWith(`Record ${recordNum}`)) {
