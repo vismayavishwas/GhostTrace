@@ -63,9 +63,10 @@ class PatternDiscoveryAgent:
         for occ in occurrences:
             score = self.scorer.calculate_score(occ)
             
-            if score >= self.confidence_threshold:
+            if occ.repetition_count >= 2 or score >= self.confidence_threshold:
                 latest_seq = occ.occurrences[-1]
                 event_ids = [e.event_id for e in latest_seq]
+
                 
                 # Signature key for deduplication
                 sig_key = f"{occ.signature_tuple}_{occ.repetition_count}"

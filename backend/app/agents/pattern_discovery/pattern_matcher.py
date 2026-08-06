@@ -1,8 +1,6 @@
 from dataclasses import dataclass, field
 from typing import List, Dict, Tuple, Optional
 from app.models.telemetry import TelemetryEvent
-
-
 import re
 
 def get_event_signature(event: TelemetryEvent) -> Tuple[str, str, str, str]:
@@ -11,8 +9,10 @@ def get_event_signature(event: TelemetryEvent) -> Tuple[str, str, str, str]:
     evt_str = str(raw_type).upper()
 
     raw_selector = str(event.target_selector or "")
-    normalized_selector = re.sub(r"\d+", "N", raw_selector)
-    normalized_selector = re.sub(r'="\d+"', '="N"', normalized_selector)
+    # Normalize dynamic table/row indexes (e.g. tr:nth-child(2) -> tr:nth-child(N), data-row="2" -> data-row="N")
+    # Preserve specific field IDs (#source-f1, #target-f1, #source-f2, etc.) to prevent intra-record collisions
+    normalized_selector = re.sub(r"nth-child\(\d+\)", "nth-child(N)", raw_selector)
+    normalized_selector = re.sub(r'data-row="\d+"', 'data-row="N"', normalized_selector)
     
     return (
         evt_str,
@@ -20,9 +20,6 @@ def get_event_signature(event: TelemetryEvent) -> Tuple[str, str, str, str]:
         str(event.element_tag or "").upper(),
         str(event.app_title or "")
     )
-
-
-
 
 
 @dataclass
@@ -42,15 +39,11 @@ class PatternOccurrence:
             return []
         return [e.event_id for e in self.occurrences[-1]]
 
-    def clear(self):
-        """Clears pattern index."""
-        self._pattern_index.clear()
-
 
 class PatternMatcher:
     """
     Incremental pattern matcher.
-    Evaluates newly arrived events against recent buffer suffixes without full $O(n^2)$ window rescans.
+    Evaluates newly arrived events against recent buffer suffixes without full O(n^2) window rescans.
     """
     def __init__(
         self,
@@ -64,6 +57,10 @@ class PatternMatcher:
         
         # Incremental index: signature_tuple -> list of occurrences (each occurrence is a list of TelemetryEvents)
         self._pattern_index: Dict[Tuple[Tuple[str, str, str, str], ...], List[List[TelemetryEvent]]] = {}
+
+    def clear(self):
+        """Clears pattern index."""
+        self._pattern_index.clear()
 
     def process_incremental_event(
         self,
@@ -88,13 +85,15 @@ class PatternMatcher:
             if sig_tuple not in self._pattern_index:
                 self._pattern_index[sig_tuple] = [subseq]
             else:
-                # Check for non-overlapping addition or updating latest occurrence
+                # Check for non-overlapping addition
                 existing_occurrences = self._pattern_index[sig_tuple]
                 last_occ = existing_occurrences[-1]
                 
-                # Check if this new subseq overlaps with the previous occurrence
+                # Check if this new subseq is non-overlapping with the previous occurrence
                 if subseq[0].timestamp >= last_occ[-1].timestamp and subseq[0].event_id != last_occ[0].event_id:
-                    existing_occurrences.append(subseq)
+                    # Ensure first event ID doesn't overlap with last occurrence's first event ID
+                    if subseq[0].event_id not in [e.event_id for e in last_occ]:
+                        existing_occurrences.append(subseq)
 
             occurrences = self._pattern_index[sig_tuple]
             if len(occurrences) >= self.min_repetitions:
@@ -107,8 +106,3 @@ class PatternMatcher:
                 )
 
         return matched_candidates
-
-    def clear(self) -> None:
-        """Clears the incremental pattern index."""
-        self._pattern_index.clear()
-
