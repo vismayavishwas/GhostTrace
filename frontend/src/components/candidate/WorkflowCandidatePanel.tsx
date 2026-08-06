@@ -43,7 +43,7 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
   confidenceScore = 0.0,
   candidateName = "Enterprise Data Transfer Workflow",
   businessProcess,
-  outliers = DEFAULT_OUTLIERS,
+  outliers = [],
   onAnalyzeTrigger,
   onObserveFurther,
 }) => {
@@ -52,13 +52,22 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
   const [feedbackMsg, setFeedbackMsg] = useState<string>("");
   const [outlierList, setOutlierList] = useState<OutlierItem[]>(outliers);
   const [selectedOutlierIds, setSelectedOutlierIds] = useState<Set<string>>(new Set(outliers.map(o => o.id)));
-  const [isReviewPending, setIsReviewPending] = useState<boolean>(true);
+  const [isReviewPending, setIsReviewPending] = useState<boolean>(outliers.length > 0);
+
+  React.useEffect(() => {
+    setOutlierList(outliers);
+    setSelectedOutlierIds(new Set(outliers.map(o => o.id)));
+    if (outliers.length === 0) {
+      setIsReviewPending(false);
+    }
+  }, [outliers]);
 
   const effectiveScore = currentScore > 0 ? currentScore : confidenceScore;
   const confidencePct = Math.round(effectiveScore * 100);
   
-  // Rule: Only unlock Analyze button after outlier review is completed AND confidence >= 70%
-  const isAnalyzeEnabled = !isReviewPending && effectiveScore >= 0.70;
+  // Rule: Unlock Analyze button directly when no outliers exist OR after review
+  const isAnalyzeEnabled = (!isReviewPending || outlierList.length === 0) && effectiveScore >= 0.70;
+
 
   const title = businessProcess?.workflow_name || candidateName;
   const dept = businessProcess?.department || "Operations & IT";
@@ -171,8 +180,20 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
         </div>
       </div>
 
+      {/* Clean Workflow Stream Banner when 0 outliers exist */}
+      {outlierList.length === 0 && (
+        <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-3 text-xs shadow-lg">
+          <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+          <div>
+            <h4 className="font-bold text-emerald-300">Clean 100% Deterministic Workflow Stream</h4>
+            <p className="text-[10px] text-emerald-400/80">No anomalous actions detected during shadow mode telemetry observation.</p>
+          </div>
+        </div>
+      )}
+
       {/* Human-in-the-Loop Multi-Outlier Batch Checklist Review Panel */}
       {isReviewPending && outlierList.length > 0 && (
+
         <div className="flex flex-col gap-3 rounded-xl border border-amber-500/40 bg-amber-950/30 p-4 text-xs shadow-lg">
           <div className="flex items-center justify-between border-b border-amber-500/20 pb-2">
             <div className="flex items-center gap-2">

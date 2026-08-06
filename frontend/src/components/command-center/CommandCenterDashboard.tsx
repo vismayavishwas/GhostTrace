@@ -25,8 +25,8 @@ export const CommandCenterDashboard: React.FC = () => {
   const [noiseFilteredCount, setNoiseFilteredCount] = useState<number>(0);
   const [candidateName, setCandidateName] = useState<string>("Waiting for interaction events...");
   const [businessProcess, setBusinessProcess] = useState<any>(null);
+  const [outliers, setOutliers] = useState<any[]>([]);
   const [candidateDismissed, setCandidateDismissed] = useState<boolean>(false);
-
 
   useEffect(() => {
     // Poll graph state from backend
@@ -38,6 +38,7 @@ export const CommandCenterDashboard: React.FC = () => {
           if (state.noise_filtered_count !== undefined) setNoiseFilteredCount(state.noise_filtered_count);
           if (state.candidate_name) setCandidateName(state.candidate_name);
           if (state.business_process) setBusinessProcess(state.business_process);
+          if (state.outliers) setOutliers(state.outliers);
 
           // Milestone 3: Unlock ANALYZE stage when pattern is detected (repetition >= 2 or confidence >= 0.70)
           if ((state.repetition_count && state.repetition_count >= 2) || (state.confidence_score && state.confidence_score >= 0.70)) {
@@ -46,6 +47,7 @@ export const CommandCenterDashboard: React.FC = () => {
         }
       });
     }, 1000);
+
 
     return () => clearInterval(interval);
   }, []);
@@ -168,10 +170,12 @@ export const CommandCenterDashboard: React.FC = () => {
             confidenceScore={confidenceScore}
             candidateName={candidateName}
             businessProcess={businessProcess}
+            outliers={outliers}
             onAnalyzeTrigger={handleAnalyzeTrigger}
             onObserveFurther={handleObserveFurther}
           />
         )}
+
 
 
         {currentStage === "OPERATIONS" && (

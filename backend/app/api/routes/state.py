@@ -131,7 +131,27 @@ async def get_current_state():
         target_app = getattr(first_event, "active_tab", None) or (first_event.get("active_tab") if isinstance(first_event, dict) else "Target App")
         candidate_name = f"{source_app} -> {target_app}"
 
-
+    from app.agents.pattern_discovery.outlier_detector import OutlierDetector
+    detector = OutlierDetector()
+    
+    raw_occurrences = []
+    if pd and hasattr(pd, "matcher") and pd.matcher._pattern_index:
+        for occs in pd.matcher._pattern_index.values():
+            if len(occs) >= 2:
+                raw_occs = [[getattr(e, "raw_event", e) for e in seq] for seq in occs]
+                raw_occurrences.extend(raw_occs)
+                
+    detected_outliers = detector.detect_outliers(raw_occurrences, events)
+    
+    outlier_items = []
+    for idx, out in enumerate(detected_outliers):
+        sel = out.get("selector", "element")
+        outlier_items.append({
+            "id": f"out-{idx+1}",
+            "label": f"Action on {sel}",
+            "selector": sel,
+            "reason": out.get("reason", "Observed 1x across sequence repetitions")
+        })
 
     return {
         **current_graph_state,
@@ -142,7 +162,9 @@ async def get_current_state():
         "event_count": event_count,
         "workflow_dna": dna_dict,
         "business_process": business_process_dict,
+        "outliers": outlier_items,
     }
+
 
 
 
