@@ -64,6 +64,7 @@ def get_dynamic_state_data() -> Dict[str, Any]:
 
     event_count = len(events) or len(in_memory_events)
 
+    business_process_dict = None
     if event_count < 4:
         confidence = 0.0
         repetition_count = 0
@@ -80,9 +81,17 @@ def get_dynamic_state_data() -> Dict[str, Any]:
         target_app = first_event.get("active_tab") or first_event.get("app_title") or "Target App"
         candidate_name = f"{source_app} → {target_app}"
 
+        try:
+            from app.agents.business_process import business_process_agent
+            step_titles = [f"{e.get('event_type')} on {e.get('target_selector')}" for e in (events or in_memory_events)[:8]]
+            meta = business_process_agent.analyze_process(candidate_name, step_titles, source_app, target_app)
+            business_process_dict = meta.model_dump()
+            candidate_name = meta.workflow_name
+        except Exception as e:
+            logger.warning(f"Error extracting business process metadata: {e}")
+
     dna_dict = None
     if latest_graph_state and latest_graph_state.workflow_dna:
-
         dna_dict = latest_graph_state.workflow_dna.model_dump()
 
     return {
@@ -93,7 +102,9 @@ def get_dynamic_state_data() -> Dict[str, Any]:
         "candidate_name": candidate_name,
         "event_count": event_count,
         "workflow_dna": dna_dict,
+        "business_process": business_process_dict,
     }
+
 
 
 @router.get("")

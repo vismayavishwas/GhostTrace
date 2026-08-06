@@ -22,6 +22,7 @@ export const CommandCenterDashboard: React.FC = () => {
   const [repetitionCount, setRepetitionCount] = useState<number>(0);
   const [noiseFilteredCount, setNoiseFilteredCount] = useState<number>(0);
   const [candidateName, setCandidateName] = useState<string>("Waiting for interaction events...");
+  const [businessProcess, setBusinessProcess] = useState<any>(null);
 
   const handleResetShadowMode = () => {
     setCurrentStage("OBSERVE");
@@ -29,6 +30,7 @@ export const CommandCenterDashboard: React.FC = () => {
     setRepetitionCount(0);
     setNoiseFilteredCount(0);
     setCandidateName("Waiting for interaction events...");
+    setBusinessProcess(null);
   };
 
   useEffect(() => {
@@ -40,9 +42,11 @@ export const CommandCenterDashboard: React.FC = () => {
           if (state.repetition_count !== undefined) setRepetitionCount(state.repetition_count);
           if (state.noise_filtered_count !== undefined) setNoiseFilteredCount(state.noise_filtered_count);
           if (state.candidate_name) setCandidateName(state.candidate_name);
+          if (state.business_process) setBusinessProcess(state.business_process);
         }
       });
     }, 1000);
+
 
     return () => clearInterval(interval);
   }, []);
@@ -128,9 +132,11 @@ export const CommandCenterDashboard: React.FC = () => {
           <WorkflowCandidatePanel
             confidenceScore={confidenceScore}
             candidateName={candidateName}
+            businessProcess={businessProcess}
             onAnalyzeTrigger={handleAnalyzeTrigger}
           />
         )}
+
 
 
         {currentStage === "OPERATIONS" && (
