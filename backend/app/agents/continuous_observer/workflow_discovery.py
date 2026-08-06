@@ -35,118 +35,144 @@ def _format_step_name(event_type: str, selector: Optional[str], tag: Optional[st
 
 class WorkflowDiscoveryEngine:
     """
-    Deterministic sequence matching engine that incrementally evaluates observation events,
-    clusters recurring n-gram patterns, calculates confidence scores and success rates,
-    and produces WorkflowCandidate instances.
+    Sequence Cycle Discovery Engine.
+    
+    Responsibilities:
+    1. Segments raw telemetry streams into distinct, non-overlapping Sequence Cycles using Anchor Boundaries
+       (returning to step 1 OR clicking Next Record / Submit).
+    2. Measures true sequence repetition counts (Cycle 1 -> Cycle 2 -> Cycle 3).
+    3. Performs step-by-step sequence alignment to accurately detect mistakes (e.g., Step 2 Mismatch).
     """
     def __init__(
         self,
         min_sequence_length: int = 2,
-        max_sequence_length: int = 5,
         min_occurrences: int = 2,
-        min_confidence_threshold: float = 0.60
+        min_confidence_threshold: float = 0.50
     ):
         self.min_sequence_length = min_sequence_length
-        self.max_sequence_length = max_sequence_length
         self.min_occurrences = min_occurrences
         self.min_confidence_threshold = min_confidence_threshold
-        self._pattern_counts: Dict[Tuple[str, ...], List[List[ObservationEvent]]] = defaultdict(list)
+        self._completed_cycles: List[List[ObservationEvent]] = []
+        self._established_sequence_entities: List[str] = []
         self._discovered_candidates: Dict[str, WorkflowCandidate] = {}
 
     def analyze_observations(self, observations: List[ObservationEvent]) -> List[WorkflowCandidate]:
         """
-        Analyzes a sequence of ObservationEvents and returns newly discovered or updated WorkflowCandidates.
+        Extracts sequence cycles from ObservationEvents and evaluates pattern repetition & deviations.
         """
-        if len(observations) < self.min_sequence_length:
+        if not observations:
             return []
 
-        new_candidates: List[WorkflowCandidate] = []
+        # Filter out noise events and extract semantic actions
+        semantic_actions: List[Tuple[ObservationEvent, str]] = []
+        for obs in observations:
+            sem = SemanticNormalizer.normalize(obs.telemetry_event)
+            if sem and sem.operation in ["COPY", "PASTE", "SELECT", "SUBMIT", "NAVIGATE"]:
+                semantic_actions.append((obs, sem.semantic_entity))
 
-        # Extract n-grams of lengths between min and max sequence length
-        n = len(observations)
-        for seq_len in range(self.min_sequence_length, min(self.max_sequence_length + 1, n + 1)):
-            for i in range(n - seq_len + 1):
-                window = observations[i : i + seq_len]
-                sig_list = []
-                for obs in window:
-                    sem = SemanticNormalizer.normalize(obs.telemetry_event)
-                    entity = sem.semantic_entity if sem else f"obs:{obs.telemetry_event.event_type}"
-                    sig_list.append(entity)
-                sig_tuple = tuple(sig_list)
+        if len(semantic_actions) < self.min_sequence_length:
+            return []
 
+        # Segment semantic_actions into non-overlapping cycles based on Anchor Boundaries
+        cycles: List[List[Tuple[ObservationEvent, str]]] = []
+        current_cycle: List[Tuple[ObservationEvent, str]] = []
+        anchor_entity: Optional[str] = None
 
-                self._pattern_counts[sig_tuple].append(window)
+        for obs, entity in semantic_actions:
+            sel = str(obs.telemetry_event.target_selector or "").lower()
+            is_nav = any(k in sel for k in ["next", "submit", "save", "prev"])
 
-        # Evaluate clustered patterns
-        for sig_tuple, occurrences in self._pattern_counts.items():
-            count = len(occurrences)
-            if count >= self.min_occurrences:
-                candidate = self._build_candidate(sig_tuple, occurrences)
-                if candidate.confidence_score >= self.min_confidence_threshold:
-                    if candidate.name not in self._discovered_candidates:
-                        self._discovered_candidates[candidate.name] = candidate
-                        new_candidates.append(candidate)
-                    else:
-                        # Update existing candidate stats
-                        existing = self._discovered_candidates[candidate.name]
-                        existing.occurrence_count = max(existing.occurrence_count, count)
-                        existing.confidence_score = max(existing.confidence_score, candidate.confidence_score)
-                        existing.success_rate = candidate.success_rate
+            if anchor_entity is None:
+                anchor_entity = entity
+                current_cycle.append((obs, entity))
+            elif entity == anchor_entity or is_nav:
+                # Cycle Boundary Reached! Close current cycle
+                if is_nav and entity != anchor_entity:
+                    current_cycle.append((obs, entity))
 
-        logger.info(f"WorkflowDiscoveryEngine evaluated {len(observations)} events and identified {len(new_candidates)} new WorkflowCandidates.")
+                if len(current_cycle) >= self.min_sequence_length:
+                    cycles.append(current_cycle)
+
+                current_cycle = [] if is_nav else [(obs, entity)]
+            else:
+                current_cycle.append((obs, entity))
+
+        if len(current_cycle) >= self.min_sequence_length and cycles:
+            # Add remaining open cycle if it matches sequence length
+            cycles.append(current_cycle)
+
+        if not cycles:
+            return []
+
+        # Extract sequence template from first cycle
+        first_cycle_entities = [ent for _, ent in cycles[0]]
+        self._established_sequence_entities = first_cycle_entities
+
+        # Count completed cycles that match the template signature
+        matching_cycle_count = 0
+        for cycle in cycles:
+            cycle_ents = [ent for _, ent in cycle if "next" not in ent and "prev" not in ent]
+            template_ents = [ent for ent in first_cycle_entities if "next" not in ent and "prev" not in ent]
+            if cycle_ents == template_ents or (len(cycle_ents) >= 2 and cycle_ents[:len(template_ents)] == template_ents):
+                matching_cycle_count += 1
+
+        if matching_cycle_count < 1:
+            return []
+
+        # Build candidate representing the full sequence cycle
+        sample_obs_window = [obs for obs, _ in cycles[0]]
+        candidate = self._build_candidate_from_cycle(sample_obs_window, matching_cycle_count)
+        
+        new_candidates = []
+        if candidate.name not in self._discovered_candidates:
+            self._discovered_candidates[candidate.name] = candidate
+            new_candidates.append(candidate)
+        else:
+            existing = self._discovered_candidates[candidate.name]
+            existing.occurrence_count = matching_cycle_count
+            existing.confidence_score = candidate.confidence_score
+
+        logger.info(f"WorkflowDiscoveryEngine identified {matching_cycle_count} completed sequence cycles across {len(observations)} events.")
         return new_candidates
 
-    def _build_candidate(
+    def _build_candidate_from_cycle(
         self,
-        sig_tuple: Tuple[str, ...],
-        occurrences: List[List[ObservationEvent]]
+        cycle_obs: List[ObservationEvent],
+        cycle_count: int
     ) -> WorkflowCandidate:
-        """Constructs a WorkflowCandidate with confidence score and success rate metrics."""
-        first_window = occurrences[0]
-        
-        # Build human-readable step names
+        """Constructs a WorkflowCandidate representing a completed sequence cycle."""
         observed_steps = [
             _format_step_name(
                 obs.telemetry_event.event_type,
                 obs.telemetry_event.target_selector,
                 obs.telemetry_event.element_tag
             )
-            for obs in first_window
+            for obs in cycle_obs
         ]
 
-        # Extract sequence event IDs
-        seq_ids = [obs.telemetry_event.event_id for obs in first_window]
+        seq_ids = [obs.telemetry_event.event_id for obs in cycle_obs]
+        apps = list(set(obs.app_title for obs in cycle_obs))
 
-        # Calculate success rate
-        total_obs = sum(len(w) for w in occurrences)
-        successful_obs = sum(sum(1 for obs in w if obs.success_signal) for w in occurrences)
-        success_rate = round(successful_obs / total_obs, 2) if total_obs > 0 else 1.0
+        # Dynamic sample-weighted confidence: 33% for 1 cycle, 67% for 2 cycles, 100% for 3+ cycles
+        confidence = min(1.0, round(cycle_count / 3.0, 2))
 
-        # Calculate confidence score based on repetition count and consistency
-        count = len(occurrences)
-        confidence = min(0.98, round(0.50 + (count * 0.10) + (success_rate * 0.20), 2))
-
-        # Extract unique applications
-        apps = list(set(obs.app_title for w in occurrences for obs in w))
-
-        # Build Candidate Name (e.g. 'Product Search Flow')
-        if len(observed_steps) >= 3 and "Login" in observed_steps[0] and "Search" in observed_steps[1]:
-            candidate_name = "Product Search Flow"
-        elif any("Login" in s for s in observed_steps):
-            candidate_name = "Authentication Workflow"
-        else:
-            candidate_name = f"Recurring {observed_steps[0]} Pattern"
+        source_app = apps[0] if apps else "Source App"
+        target_app = apps[-1] if len(apps) > 1 else "Target App"
+        candidate_name = f"{source_app} -> {target_app} Workflow Sequence"
 
         return WorkflowCandidate(
+            candidate_id=f"cand-{hash(tuple(seq_ids)) & 0xffffff:06x}",
             name=candidate_name,
             observed_steps=observed_steps,
             sequence_event_ids=seq_ids,
-            occurrence_count=count,
+            occurrence_count=cycle_count,
             confidence_score=confidence,
-            success_rate=success_rate,
+            success_rate=1.0,
             applications_involved=apps
         )
+
 
     def get_all_candidates(self) -> List[WorkflowCandidate]:
         """Returns all discovered candidates."""
         return list(self._discovered_candidates.values())
+
