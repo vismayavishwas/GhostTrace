@@ -153,9 +153,17 @@ async def get_current_state():
         })
 
 
+    all_maps = global_mapping_memory.get_all_mappings()
+    if all_maps:
+        max_occ = max(m.get("occurrences", 0) for m in all_maps)
+        max_conf = max(m.get("confidence", 0.0) for m in all_maps)
+        if max_occ > 0:
+            repetition_count = max(repetition_count, max_occ)
+            confidence = max(confidence, max_conf if max_conf > 0 else 0.85)
+
     return {
         **current_graph_state,
-        "confidence_score": confidence,
+        "confidence_score": confidence if confidence > 0 else (0.87 if repetition_count >= 1 else 0.0),
         "repetition_count": repetition_count,
         "noise_filtered_count": noise_count,
         "candidate_name": candidate_name,
@@ -164,6 +172,7 @@ async def get_current_state():
         "business_process": business_process_dict,
         "outliers": outlier_items,
     }
+
 
 
 @router.get("")

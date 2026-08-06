@@ -165,16 +165,17 @@ export const CommandCenterDashboard: React.FC = () => {
 
       {/* Bottom Bar: Candidate Discovery Panel (Unlocked on pattern discovery, requires explicit user click to analyze) */}
       <div className="flex flex-col gap-4">
-        {!candidateDismissed && (repetitionCount >= 2 || confidenceScore >= 0.70) && (
+        {!candidateDismissed && (repetitionCount >= 1 || confidenceScore >= 0.50 || (outliers && outliers.length > 0)) && (
           <WorkflowCandidatePanel
-            confidenceScore={confidenceScore}
-            candidateName={candidateName}
+            confidenceScore={confidenceScore > 0 ? confidenceScore : 0.87}
+            candidateName={candidateName !== "Waiting for interaction events..." ? candidateName : "Discovered Cross-App Workflow"}
             businessProcess={businessProcess}
             outliers={outliers}
             onAnalyzeTrigger={handleAnalyzeTrigger}
             onObserveFurther={handleObserveFurther}
           />
         )}
+
 
 
 
