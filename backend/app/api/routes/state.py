@@ -159,7 +159,7 @@ async def get_current_state():
 
     return {
         **current_graph_state,
-        "confidence_score": confidence if confidence > 0 else (0.87 if repetition_count >= 1 else 0.0),
+        "confidence_score": round(confidence, 2),
         "repetition_count": repetition_count,
         "noise_filtered_count": noise_count,
         "candidate_name": candidate_name,
@@ -168,6 +168,7 @@ async def get_current_state():
         "business_process": business_process_dict,
         "outliers": outlier_items,
     }
+
 
 
 

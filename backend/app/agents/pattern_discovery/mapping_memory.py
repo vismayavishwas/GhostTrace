@@ -43,10 +43,13 @@ class StableMappingMemory:
 
         total_transfers_for_src = sum(self._source_destinations[src].values())
         dest_count = self._source_destinations[src][dest]
-        confidence = round(dest_count / total_transfers_for_src, 2)
+        consistency_ratio = dest_count / total_transfers_for_src
+        sample_weight = min(1.0, dest_count / self.min_lock_threshold)
+        confidence = round(consistency_ratio * sample_weight, 2)
 
         is_locked = (dest_count >= self.min_lock_threshold) and (len(self._source_destinations[src]) == 1)
         status = "STABLE_LOCKED" if is_locked else ("DEVIATED" if len(self._source_destinations[src]) > 1 else "OBSERVED")
+
 
         if key in self._table:
             self._table[key]["occurrences"] += 1
