@@ -1,32 +1,13 @@
 from dataclasses import dataclass, field
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Tuple, Optional, Any
 from app.models.telemetry import TelemetryEvent
+from app.agents.telemetry.semantic_normalizer import SemanticEvent, SemanticNormalizer
 import re
 
-def is_semantic_event(event: TelemetryEvent) -> bool:
-    """Filters out noise DOM clicks on generic wrapper elements (e.g. span, button, div) to focus on semantic workflow actions."""
-    evt_type = str(event.event_type.value if hasattr(event.event_type, "value") else event.event_type).upper()
-    selector = str(event.target_selector or "").lower()
-    
-    # 1. Always include explicit semantic operations
-    if any(k in evt_type for k in ["COPY", "PASTE", "TYPE", "SUBMIT"]):
-        return True
-        
-    # 2. Always include specific field selectors
-    if any(k in selector for k in ["source", "target", "input", "textarea", "field"]):
-        return True
-        
-    # 3. Exclude generic wrapper click noise (e.g. span, button.rounded-lg, div, #main)
-    if any(selector.startswith(k) for k in ["span", "button", "div", "h1", "#main", "body"]):
-        return False
-        
-    return True
-
-
-def get_event_signature(event: TelemetryEvent) -> Tuple[str, str, str, str]:
-    """Generates a structural signature tuple for deterministic comparison with row/index normalization."""
-    raw_type = event.event_type.value if hasattr(event.event_type, "value") else (event.event_type.name if hasattr(event.event_type, "name") else str(event.event_type))
-    evt_str = str(raw_type).upper()
+def get_semantic_signature(event: Any) -> Tuple[str, str, str, str]:
+    """Generates a structural signature tuple for normalized semantic events."""
+    evt_type = getattr(event, "semantic_type", None) or getattr(event, "event_type", "ACTION")
+    evt_str = str(evt_type.value if hasattr(evt_type, "value") else evt_type).upper()
 
     raw_selector = str(event.target_selector or "")
     # Normalize dynamic table/row indexes (e.g. tr:nth-child(2) -> tr:nth-child(N), data-row="2" -> data-row="N")
@@ -43,10 +24,10 @@ def get_event_signature(event: TelemetryEvent) -> Tuple[str, str, str, str]:
 
 @dataclass
 class PatternOccurrence:
-    """Stores a detected pattern candidate with event ID references and occurrences."""
+    """Stores a detected pattern candidate with normalized event ID references and occurrences."""
     signature_tuple: Tuple[Tuple[str, str, str, str], ...]
     sequence_length: int
-    occurrences: List[List[TelemetryEvent]] = field(default_factory=list)
+    occurrences: List[List[Any]] = field(default_factory=list)
     
     @property
     def repetition_count(self) -> int:
@@ -62,7 +43,7 @@ class PatternOccurrence:
 class PatternMatcher:
     """
     Incremental pattern matcher.
-    Evaluates newly arrived events against recent buffer suffixes without full O(n^2) window rescans.
+    Operates strictly on normalized SemanticEvent sequences for domain-agnostic workflow pattern discovery.
     """
     def __init__(
         self,
@@ -75,7 +56,7 @@ class PatternMatcher:
         self.min_repetitions = min_repetitions
         
         # Incremental index: signature_tuple -> list of occurrences
-        self._pattern_index: Dict[Tuple[Tuple[str, str, str, str], ...], List[List[TelemetryEvent]]] = {}
+        self._pattern_index: Dict[Tuple[Tuple[str, str, str, str], ...], List[List[Any]]] = {}
 
     def clear(self):
         """Clears pattern index."""
@@ -83,36 +64,38 @@ class PatternMatcher:
 
     def process_incremental_event(
         self,
-        new_event: TelemetryEvent,
-        full_window: List[TelemetryEvent]
+        new_raw_event: TelemetryEvent,
+        full_raw_window: List[TelemetryEvent]
     ) -> List[PatternOccurrence]:
         """
-        Evaluates pattern occurrences ending at new_event incrementally.
-        Filters out wrapper noise events to match pure semantic workflow sequences.
+        Evaluates pattern occurrences incrementally by normalizing raw telemetry window into SemanticEvents.
         """
         matched_candidates: List[PatternOccurrence] = []
         
-        # Filter window to semantic workflow events only
-        semantic_window = [e for e in full_window if is_semantic_event(e)]
+        # 1. Pipeline Stage: Normalize raw telemetry window into business SemanticEvents
+        semantic_window: List[SemanticEvent] = []
+        for raw_e in full_raw_window:
+            sem_e = SemanticNormalizer.normalize(raw_e)
+            if sem_e is not None:
+                semantic_window.append(sem_e)
+                
         n = len(semantic_window)
-        
         if n < self.min_sequence_length:
             return matched_candidates
 
-        # Evaluate suffix lengths ending at the latest event
+        # 2. Evaluate suffix lengths ending at the latest normalized semantic event
         for length in range(self.min_sequence_length, min(n + 1, self.max_sequence_length + 1)):
             subseq = semantic_window[-length:]
-            sig_tuple = tuple(get_event_signature(e) for e in subseq)
+            sig_tuple = tuple(get_semantic_signature(e) for e in subseq)
 
             # Record occurrence in index
             if sig_tuple not in self._pattern_index:
                 self._pattern_index[sig_tuple] = [subseq]
             else:
-                # Check for non-overlapping addition
                 existing_occurrences = self._pattern_index[sig_tuple]
                 last_occ = existing_occurrences[-1]
                 
-                # Ensure new subseq starts at or after last occurrence ended
+                # Non-overlapping occurrence check
                 if subseq[0].timestamp >= last_occ[-1].timestamp and subseq[0].event_id != last_occ[0].event_id:
                     if subseq[0].event_id not in [e.event_id for e in last_occ]:
                         existing_occurrences.append(subseq)

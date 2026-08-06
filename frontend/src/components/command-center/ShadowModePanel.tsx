@@ -29,6 +29,7 @@ export const ShadowModePanel: React.FC<ShadowModePanelProps> = ({
   onReset,
 }) => {
   const [actions, setActions] = useState<SemanticAction[]>([]);
+  const [viewMode, setViewMode] = useState<"WORKFLOW" | "RAW">("WORKFLOW");
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isResetting, setIsResetting] = useState<boolean>(false);
@@ -46,12 +47,18 @@ export const ShadowModePanel: React.FC<ShadowModePanelProps> = ({
       fetchTelemetryEvents()
         .then((data) => {
           if (Array.isArray(data)) {
+            const rawData = data;
             const semanticData = data.filter((item: any) => {
+              const evtType = (item.event_type || "").toUpperCase();
               const sel = (item.target_selector || "").toLowerCase();
+              if (["COPY", "PASTE", "TYPE", "SUBMIT"].some(k => evtType.includes(k))) return true;
+              if (["source", "target", "input", "field"].some(k => sel.includes(k))) return true;
               return !(sel.startsWith("span") || sel.startsWith("button.") || sel.startsWith("div") || sel.startsWith("h1") || sel.startsWith("#main"));
             });
 
-            const mapped: SemanticAction[] = (semanticData.length > 0 ? semanticData : data).map((item: any, idx: number) => {
+            const activeDataset = viewMode === "WORKFLOW" ? (semanticData.length > 0 ? semanticData : rawData) : rawData;
+
+            const mapped: SemanticAction[] = activeDataset.map((item: any, idx: number) => {
               const evtType = (item.event_type || "ACTION").toUpperCase();
               const selector = item.target_selector || item.element_tag || "element";
               return {
@@ -71,6 +78,7 @@ export const ShadowModePanel: React.FC<ShadowModePanelProps> = ({
         })
         .catch(() => setIsLoading(false));
     };
+
 
     syncTelemetry();
     const interval = setInterval(syncTelemetry, 1000);
@@ -170,9 +178,26 @@ export const ShadowModePanel: React.FC<ShadowModePanelProps> = ({
       {/* Clean High-Level User Actions Stream */}
       <div className="flex flex-col gap-2 flex-1">
         <div className="flex items-center justify-between">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Observed Action Stream</span>
-          <span className="text-[10px] font-mono text-slate-500">{actions.length} telemetry events</span>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Observed Action Stream</span>
+            <div className="flex items-center rounded-lg bg-slate-950 p-0.5 border border-slate-800">
+              <button
+                onClick={() => setViewMode("WORKFLOW")}
+                className={`px-2 py-0.5 text-[9px] font-bold rounded transition ${viewMode === "WORKFLOW" ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30" : "text-slate-500 hover:text-slate-300"}`}
+              >
+                ⚡ Semantic Workflow
+              </button>
+              <button
+                onClick={() => setViewMode("RAW")}
+                className={`px-2 py-0.5 text-[9px] font-bold rounded transition ${viewMode === "RAW" ? "bg-purple-500/20 text-purple-300 border border-purple-500/30" : "text-slate-500 hover:text-slate-300"}`}
+              >
+                🔍 Raw Telemetry
+              </button>
+            </div>
+          </div>
+          <span className="text-[10px] font-mono text-slate-500">{actions.length} events</span>
         </div>
+
         
         {isLoading ? (
           <div className="flex items-center justify-center py-8 text-xs text-slate-500 gap-2">
