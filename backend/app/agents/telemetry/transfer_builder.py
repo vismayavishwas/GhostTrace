@@ -91,6 +91,7 @@ class TransferBuilder:
                     "raw_events": [raw_e]
                 })
 
+                p = pending_transfers[-1]
                 t_obj = SemanticTransfer(**p)
                 logger.info(
                     f"[STAGE 1: TRANSFER_BUILDER] SemanticTransfer Created | ID={p['transfer_id']} | "
@@ -99,6 +100,7 @@ class TransferBuilder:
                     f"ImmediateCorrection={p['is_immediate_correction']}"
                 )
                 transfers.append(t_obj)
+
 
         logger.info(f"[STAGE 1: TRANSFER_BUILDER] Processed {len(events)} telemetry events into {len(transfers)} completed SemanticTransfers.")
         return transfers
