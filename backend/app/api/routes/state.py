@@ -24,13 +24,16 @@ current_graph_state: Dict[str, Any] = {
 
 active_orchestration_task: Optional[asyncio.Task] = None
 latest_graph_state: Optional[GhostTraceGraphState] = None
+_STORED_BUSINESS_PROCESS: Optional[Dict[str, Any]] = None
 
 
 def reset_graph_state():
-    global latest_graph_state, current_graph_state
+    global latest_graph_state, current_graph_state, _STORED_BUSINESS_PROCESS
     latest_graph_state = None
+    _STORED_BUSINESS_PROCESS = None
     current_graph_state["active_node"] = "OBSERVING"
     current_graph_state["execution_status"] = "IDLE"
+
 
 
 
