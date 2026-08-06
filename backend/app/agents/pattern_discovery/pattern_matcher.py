@@ -3,6 +3,26 @@ from typing import List, Dict, Tuple, Optional
 from app.models.telemetry import TelemetryEvent
 import re
 
+def is_semantic_event(event: TelemetryEvent) -> bool:
+    """Filters out noise DOM clicks on generic wrapper elements (e.g. span, button, div) to focus on semantic workflow actions."""
+    evt_type = str(event.event_type.value if hasattr(event.event_type, "value") else event.event_type).upper()
+    selector = str(event.target_selector or "").lower()
+    
+    # 1. Always include explicit semantic operations
+    if any(k in evt_type for k in ["COPY", "PASTE", "TYPE", "SUBMIT"]):
+        return True
+        
+    # 2. Always include specific field selectors
+    if any(k in selector for k in ["source", "target", "input", "textarea", "field"]):
+        return True
+        
+    # 3. Exclude generic wrapper click noise (e.g. span, button.rounded-lg, div, #main)
+    if any(selector.startswith(k) for k in ["span", "button", "div", "h1", "#main", "body"]):
+        return False
+        
+    return True
+
+
 def get_event_signature(event: TelemetryEvent) -> Tuple[str, str, str, str]:
     """Generates a structural signature tuple for deterministic comparison with row/index normalization."""
     raw_type = event.event_type.value if hasattr(event.event_type, "value") else (event.event_type.name if hasattr(event.event_type, "name") else str(event.event_type))
@@ -10,7 +30,6 @@ def get_event_signature(event: TelemetryEvent) -> Tuple[str, str, str, str]:
 
     raw_selector = str(event.target_selector or "")
     # Normalize dynamic table/row indexes (e.g. tr:nth-child(2) -> tr:nth-child(N), data-row="2" -> data-row="N")
-    # Preserve specific field IDs (#source-f1, #target-f1, #source-f2, etc.) to prevent intra-record collisions
     normalized_selector = re.sub(r"nth-child\(\d+\)", "nth-child(N)", raw_selector)
     normalized_selector = re.sub(r'data-row="\d+"', 'data-row="N"', normalized_selector)
     
@@ -55,7 +74,7 @@ class PatternMatcher:
         self.max_sequence_length = max_sequence_length
         self.min_repetitions = min_repetitions
         
-        # Incremental index: signature_tuple -> list of occurrences (each occurrence is a list of TelemetryEvents)
+        # Incremental index: signature_tuple -> list of occurrences
         self._pattern_index: Dict[Tuple[Tuple[str, str, str, str], ...], List[List[TelemetryEvent]]] = {}
 
     def clear(self):
@@ -69,16 +88,20 @@ class PatternMatcher:
     ) -> List[PatternOccurrence]:
         """
         Evaluates pattern occurrences ending at new_event incrementally.
-        Returns a list of PatternOccurrence candidates whose repetition count >= min_repetitions.
+        Filters out wrapper noise events to match pure semantic workflow sequences.
         """
         matched_candidates: List[PatternOccurrence] = []
-        n = len(full_window)
+        
+        # Filter window to semantic workflow events only
+        semantic_window = [e for e in full_window if is_semantic_event(e)]
+        n = len(semantic_window)
+        
         if n < self.min_sequence_length:
             return matched_candidates
 
-        # Evaluate suffix lengths ending at new_event
+        # Evaluate suffix lengths ending at the latest event
         for length in range(self.min_sequence_length, min(n + 1, self.max_sequence_length + 1)):
-            subseq = full_window[-length:]
+            subseq = semantic_window[-length:]
             sig_tuple = tuple(get_event_signature(e) for e in subseq)
 
             # Record occurrence in index
@@ -89,9 +112,8 @@ class PatternMatcher:
                 existing_occurrences = self._pattern_index[sig_tuple]
                 last_occ = existing_occurrences[-1]
                 
-                # Check if this new subseq is non-overlapping with the previous occurrence
+                # Ensure new subseq starts at or after last occurrence ended
                 if subseq[0].timestamp >= last_occ[-1].timestamp and subseq[0].event_id != last_occ[0].event_id:
-                    # Ensure first event ID doesn't overlap with last occurrence's first event ID
                     if subseq[0].event_id not in [e.event_id for e in last_occ]:
                         existing_occurrences.append(subseq)
 

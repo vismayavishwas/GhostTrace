@@ -46,7 +46,12 @@ export const ShadowModePanel: React.FC<ShadowModePanelProps> = ({
       fetchTelemetryEvents()
         .then((data) => {
           if (Array.isArray(data)) {
-            const mapped: SemanticAction[] = data.map((item: any, idx: number) => {
+            const semanticData = data.filter((item: any) => {
+              const sel = (item.target_selector || "").toLowerCase();
+              return !(sel.startsWith("span") || sel.startsWith("button.") || sel.startsWith("div") || sel.startsWith("h1") || sel.startsWith("#main"));
+            });
+
+            const mapped: SemanticAction[] = (semanticData.length > 0 ? semanticData : data).map((item: any, idx: number) => {
               const evtType = (item.event_type || "ACTION").toUpperCase();
               const selector = item.target_selector || item.element_tag || "element";
               return {
@@ -61,6 +66,7 @@ export const ShadowModePanel: React.FC<ShadowModePanelProps> = ({
             });
             setActions(mapped);
           }
+
           setIsLoading(false);
         })
         .catch(() => setIsLoading(false));
