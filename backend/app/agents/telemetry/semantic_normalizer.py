@@ -79,47 +79,38 @@ class SemanticNormalizer:
         
         Completely resilient to unlabeled enterprise UIs (textbox_17, input_3, aria-label="").
         """
-        app_title = str(raw_event.app_title or raw_event.active_tab or "App").strip()
+        app_title = str(raw_event.app_title or raw_event.active_tab or "Web App").strip()
         selector = str(raw_event.target_selector or "").strip()
         val = str(getattr(raw_event, "input_value", None) or getattr(raw_event, "input_masked", None) or "").strip()
-        
         raw_label = getattr(raw_event, "field_label", None) or getattr(raw_event, "aria_label", None) or ""
-        
-        # 1. Structural Value Payload Features (length bucket, digit/alpha ratio)
-        val_len = len(val)
-        digits = sum(c.isdigit() for c in val)
-        alphas = sum(c.isalpha() for c in val)
-        val_structure = f"len{val_len}_d{digits}_a{alphas}" if val_len > 0 else "empty"
-
-        # 2. Extract heading or container title if available
         heading = str(getattr(raw_event, "surrounding_heading", None) or "").strip()
 
-        # 3. Construct Multi-Signal Semantic Data Fingerprint
-        app_key = re.sub(r'[^a-zA-Z0-9]', '_', app_title.lower()).strip('_')
-        
-        if raw_label and not any(junk in raw_label.lower() for junk in ["textbox", "input", "field", "element", "span"]):
+        app_key = re.sub(r'[^a-zA-Z0-9]', '_', app_title.lower()).strip('_') or "app"
+
+        # 1. Highest Priority: Explicit Field Label or ARIA Label
+        if raw_label and not any(j in raw_label.lower() for j in ["textbox", "element", "span"]):
             clean_label = re.sub(r'[^a-zA-Z0-9]', '_', raw_label.lower()).strip('_')
-            fingerprint_token = f"{clean_label}_{val_structure}"
+            fingerprint_token = f"lbl_{clean_label}"
             display_title = raw_label
+        # 2. Second Priority: Surrounding Section Heading
         elif heading:
             clean_heading = re.sub(r'[^a-zA-Z0-9]', '_', heading.lower()).strip('_')
-            fingerprint_token = f"heading_{clean_heading}_{val_structure}"
+            fingerprint_token = f"hdg_{clean_heading}"
             display_title = f"{heading} Field"
+        # 3. Third Priority: DOM Element ID / Name / Attribute
         else:
-            # Unlabeled Enterprise UI Fallback (textbox_17, input_3, #target-f1, #target-f2)
-            # Extract clean field identifier from selector (e.g. #target-f1 -> target_f1)
             sel_clean = re.sub(r'[^a-zA-Z0-9]', '_', selector.lower()).strip('_')
-            # Extract field token like target_f1 or source_f1 or input_17
-            field_match = re.search(r'(source_[a-z0-9]+|target_[a-z0-9]+|input_[a-z0-9]+|field_[a-z0-9]+|f[0-9]+)', sel_clean)
-            clean_role = field_match.group(1) if field_match else ("source_field" if "source" in selector.lower() else ("target_field" if "target" in selector.lower() else "data_field"))
-            fingerprint_token = f"field_{clean_role}"
-            display_title = f"{clean_role.replace('_', ' ').title()}"
+            if not sel_clean:
+                sel_clean = "elem_" + re.sub(r'[^a-zA-Z0-9]', '_', str(raw_event.element_tag or "input").lower())
+            # Keep clean element token
+            fingerprint_token = f"elem_{sel_clean[:32]}"
+            display_title = f"{sel_clean[:20].replace('_', ' ').title()}"
 
-        semantic_entity = f"fingerprint:{app_key}:{fingerprint_token}"
-
+        semantic_entity = f"entity:{app_key}:{fingerprint_token}"
         display_label = f"{display_title} ({app_title})"
 
         return semantic_entity, display_label
+
 
 
 

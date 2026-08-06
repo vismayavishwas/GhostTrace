@@ -79,8 +79,9 @@ class WorkflowDiscoveryEngine:
         anchor_entity: Optional[str] = None
 
         for obs, entity in semantic_actions:
-            sel = str(obs.telemetry_event.target_selector or "").lower()
-            is_nav = any(k in sel for k in ["next", "submit", "save", "prev"])
+            tag = str(obs.telemetry_event.element_tag or "").upper()
+            sem_op = str(getattr(obs.telemetry_event, "event_type", "")).upper()
+            is_nav = sem_op in ["SUBMIT", "NAVIGATE"] or tag in ["BUTTON", "SUBMIT"]
 
             if anchor_entity is None:
                 anchor_entity = entity
@@ -97,6 +98,7 @@ class WorkflowDiscoveryEngine:
             else:
                 current_cycle.append((obs, entity))
 
+
         if len(current_cycle) >= self.min_sequence_length and cycles:
             # Add remaining open cycle if it matches sequence length
             cycles.append(current_cycle)
@@ -111,10 +113,11 @@ class WorkflowDiscoveryEngine:
         # Count completed cycles that match the template signature
         matching_cycle_count = 0
         for cycle in cycles:
-            cycle_ents = [ent for _, ent in cycle if "next" not in ent and "prev" not in ent]
-            template_ents = [ent for ent in first_cycle_entities if "next" not in ent and "prev" not in ent]
+            cycle_ents = [ent for _, ent in cycle]
+            template_ents = first_cycle_entities
             if cycle_ents == template_ents or (len(cycle_ents) >= 2 and cycle_ents[:len(template_ents)] == template_ents):
                 matching_cycle_count += 1
+
 
         if matching_cycle_count < 1:
             return []

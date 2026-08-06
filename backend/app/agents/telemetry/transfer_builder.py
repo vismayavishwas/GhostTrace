@@ -58,17 +58,18 @@ class TransferBuilder:
             if not sem_e:
                 continue
 
-            # Detect Start of Intent Window (COPY / SELECT_SOURCE)
-            if sem_e.operation in ["COPY", "SELECT"] and "source" in str(sem_e.target_selector or "").lower():
+            # Detect Start of Intent Window (COPY / SELECT)
+            if sem_e.operation in ["COPY", "SELECT"]:
                 self._active_source_event = sem_e
                 continue
 
-            # Detect PASTE into Target Application
-            if sem_e.operation == "PASTE" or ("target" in str(sem_e.target_selector or "").lower() and sem_e.operation != "CLICK"):
-                source_entity = self._active_source_event.semantic_entity if self._active_source_event else "semantic:source:unknown"
+            # Detect PASTE / TYPE into Target Field
+            if sem_e.operation in ["PASTE", "TYPE"]:
+                source_entity = self._active_source_event.semantic_entity if self._active_source_event else "entity:source:unknown"
                 source_app = self._active_source_event.app_title if self._active_source_event else "Source App"
                 dest_entity = sem_e.semantic_entity
                 dest_app = sem_e.app_title
+
 
                 # Check for Immediate Correction within the same Intent Window
                 if pending_transfers and pending_transfers[-1]["source_entity"] == source_entity:
