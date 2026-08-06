@@ -83,12 +83,20 @@ def get_dynamic_state_data() -> Dict[str, Any]:
 
         try:
             from app.agents.business_process import business_process_agent
-            step_titles = [f"{e.get('event_type')} on {e.get('target_selector')}" for e in (events or in_memory_events)[:8]]
-            meta = business_process_agent.analyze_process(candidate_name, step_titles, source_app, target_app)
+            step_titles = []
+            raw_items = events or in_memory_events
+            for e in raw_items[:8]:
+                evt_type = getattr(e, "event_type", None) or (e.get("event_type") if isinstance(e, dict) else "ACTION")
+                selector = getattr(e, "target_selector", None) or (e.get("target_selector") if isinstance(e, dict) else "element")
+                step_titles.append(f"{evt_type} on {selector}")
+
+            meta = business_process_agent.analyze_process(candidate_name, step_titles, source_app, target_app, repetition_count=repetition_count)
             business_process_dict = meta.model_dump()
             candidate_name = meta.workflow_name
         except Exception as e:
             logger.warning(f"Error extracting business process metadata: {e}")
+
+
 
     dna_dict = None
     if latest_graph_state and latest_graph_state.workflow_dna:

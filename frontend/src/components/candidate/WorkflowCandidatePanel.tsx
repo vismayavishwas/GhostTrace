@@ -7,10 +7,10 @@ export interface BusinessProcessData {
   workflow_name?: string;
   department?: string;
   business_goal?: string;
-  automation_score?: number;
-  estimated_time_saved?: string;
+  confidence?: number;
   repeatability?: string;
-  human_summary?: string;
+  automation_readiness?: string;
+  summary?: string;
 }
 
 export interface WorkflowCandidatePanelProps {
@@ -29,9 +29,10 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
   const confidencePct = Math.round(confidenceScore * 100);
 
   const title = businessProcess?.workflow_name || candidateName;
-  const dept = businessProcess?.department || "Finance & Operations";
-  const timeSaved = businessProcess?.estimated_time_saved || "2.4 hrs/day";
-  const summary = businessProcess?.human_summary || "Automates repetitive cross-app data entry.";
+  const dept = businessProcess?.department || "Operations & IT";
+  const readiness = businessProcess?.automation_readiness || "High Readiness";
+  const obsCount = businessProcess?.repeatability || "3 Observations";
+  const summaryText = businessProcess?.summary || "Automates repetitive cross-app data entry workflow.";
 
   return (
     <div className="flex flex-col md:flex-row items-center justify-between gap-4 rounded-2xl border border-cyan-500/40 bg-gradient-to-r from-cyan-950/80 via-slate-900/90 to-purple-950/80 p-5 shadow-2xl backdrop-blur-xl">
@@ -49,12 +50,16 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
               🏢 {dept}
             </span>
             <span className="rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-[10px] font-extrabold text-emerald-300 border border-emerald-500/30">
-              ⏱️ {timeSaved}
+              🔁 {obsCount}
+            </span>
+            <span className="rounded-full bg-amber-500/20 px-2.5 py-0.5 text-[10px] font-extrabold text-amber-300 border border-amber-500/30">
+              ⚡ {readiness}
             </span>
           </div>
-          <p className="text-xs text-slate-300 mt-1">{summary}</p>
+          <p className="text-xs text-slate-300 mt-1">{summaryText}</p>
         </div>
       </div>
+
 
 
       <button

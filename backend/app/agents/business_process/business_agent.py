@@ -12,61 +12,69 @@ class BusinessProcessMetadata(BaseModel):
     workflow_name: str = Field(default="Cross-Application Data Transfer", description="Human-readable business workflow name")
     department: str = Field(default="Operations", description="Target enterprise department")
     business_goal: str = Field(default="Automate manual cross-app data entry", description="Primary business goal")
-    automation_score: float = Field(default=0.95, description="Feasibility automation score (0.0 - 1.0)")
-    estimated_time_saved: str = Field(default="2.4 hours/day", description="Estimated operational time saved")
-    repeatability: str = Field(default="High", description="Observed repeatability score")
-    human_summary: str = Field(default="Automates repetitive data transfer between web portals and enterprise software.", description="Executive-level summary")
+    confidence: float = Field(default=0.92, description="Semantic classification confidence rating")
+    repeatability: str = Field(default="3 observations", description="Telemetry-backed repetition count")
+    automation_readiness: str = Field(default="High", description="Automation feasibility rating")
+    summary: str = Field(default="Recurring data entry workflow suitable for autonomous automation.", description="Executive-level summary")
 
 
 class BusinessProcessAgent:
     """
     ⭐ Business Process Understanding Agent ⭐
     Uses Google Gemini 3.1 Flash Lite to transform raw technical DOM action steps
-    into executive-grade enterprise business process intelligence.
+    into dynamic, context-aware business process intelligence backed by live telemetry.
     """
 
     def __init__(self):
-        logger.info("BusinessProcessAgent initialized with Gemini 3.1 Flash Lite intelligence.")
+        logger.info("BusinessProcessAgent initialized with dynamic telemetry reasoning.")
 
-    def analyze_process(self, candidate_name: str, steps: list, source_app: str, target_app: str) -> BusinessProcessMetadata:
+    def analyze_process(self, candidate_name: str, steps: list, source_app: str, target_app: str, repetition_count: int = 3, avg_duration_sec: float = 12.5) -> BusinessProcessMetadata:
         """
-        Calls GeminiService to classify the enterprise business process, department, and ROI metrics.
+        Calls GeminiService to dynamically classify the business process based on live runtime context.
+        Computes telemetry-backed repeatability and readiness metrics.
         """
         formatted_steps = "\n".join([f"Step {idx+1}: {step}" for idx, step in enumerate(steps[:10])])
+        obs_string = f"{repetition_count} observations"
 
-        prompt = f"""You are a Principal Enterprise Process Mining Architect & Automation Strategist.
-Analyze the following observed user interaction workflow sequence and provide executive-level business process intelligence.
+        prompt = f"""You are a Principal Enterprise Process Mining Architect.
+Analyze the following observed user interaction workflow sequence and classify it based STRICTLY on the live runtime applications and steps.
 
-WORKFLOW CONTEXT:
-- Candidate Name: {candidate_name}
-- Source Application: {source_app}
-- Target Application: {target_app}
-- Technical Steps Recorded:
+RUNTIME CONTEXT:
+- Observed Source Window/App: {source_app}
+- Observed Target Window/App: {target_app}
+- Repetitions Counted in Telemetry: {obs_string}
+- Observed Step Sequence:
 {formatted_steps}
 
-REQUIREMENT:
-Classify this workflow into an enterprise business process. Output MUST be valid JSON with the following exact keys:
+INSTRUCTIONS:
+1. Dynamically infer the exact business process name based ONLY on the actual applications involved:
+   - If Chrome -> Excel / Word Table: Name it "Spreadsheet Data Entry" or "Document Table Synthesis".
+   - If SAP / Portal -> Finance: Name it "Vendor Invoice Entry" or "ERP Data Intake".
+   - If Web -> CRM / Email: Name it "Lead Intake & Dispatch".
+   Do NOT output "Vendor Invoice Entry" unless SAP or Invoice portals are explicitly in the source/target apps.
+
+2. Output MUST be valid JSON with the following exact keys:
 {{
-  "workflow_name": "<Short professional name e.g. Vendor Invoice Entry, Lead Intake>",
-  "department": "<Finance | Operations | Customer Care | HR | Sales | IT>",
+  "workflow_name": "<Dynamic professional name derived strictly from the runtime apps>",
+  "department": "<Finance | Operations | Customer Support | HR | Sales | Engineering>",
   "business_goal": "<1-sentence summary of the business objective>",
-  "automation_score": <number between 0.80 and 0.99>,
-  "estimated_time_saved": "<e.g. 2.4 hours/day, 12.5 hours/week>",
-  "repeatability": "<High | Medium | Exceptional>",
-  "human_summary": "<Executive summary of what this automated digital employee accomplishes>"
+  "confidence": <number between 0.85 and 0.99>,
+  "repeatability": "{obs_string}",
+  "automation_readiness": "<High | Exceptional | Ready>",
+  "summary": "<1-sentence executive summary of the observed workflow>"
 }}
 
-Respond ONLY with valid JSON inside a code block. Do NOT include additional text outside the JSON.
+Respond ONLY with valid JSON inside a ```json code block.
 """
 
         fallback_meta = BusinessProcessMetadata(
-            workflow_name=f"{source_app} → {target_app} Automation",
-            department="Operations / Finance",
-            business_goal=f"Automates data transfer from {source_app} into {target_app}",
-            automation_score=0.92,
-            estimated_time_saved="2.1 hours/day",
-            repeatability="High",
-            human_summary=f"Automates repetitive manual copy-paste workflow between {source_app} and {target_app}."
+            workflow_name=f"{source_app} → {target_app} Data Flow",
+            department="Operations / IT",
+            business_goal=f"Transfer structured data between {source_app} and {target_app}",
+            confidence=0.88,
+            repeatability=obs_string,
+            automation_readiness="High",
+            summary=f"Automates repetitive manual interaction pattern between {source_app} and {target_app}."
         )
 
         def fallback_fn():
@@ -86,15 +94,19 @@ Respond ONLY with valid JSON inside a code block. Do NOT include additional text
                 cleaned_json = cleaned_json.split("```")[1].split("```")[0].strip()
 
             parsed = json.loads(cleaned_json)
+            # Guarantee empirical repeatability metric is preserved from telemetry
+            parsed["repeatability"] = obs_string
+
             meta = BusinessProcessMetadata(**parsed)
             logger.info(
-                f"BusinessProcessAgent classified workflow in {elapsed:.2f}s | "
-                f"Name: '{meta.workflow_name}' | Department: {meta.department} | Saved: {meta.estimated_time_saved}"
+                f"BusinessProcessAgent dynamically classified workflow in {elapsed:.2f}s | "
+                f"Name: '{meta.workflow_name}' | Dept: {meta.department} | Readiness: {meta.automation_readiness}"
             )
             return meta
         except Exception as e:
-            logger.warning(f"Error parsing BusinessProcessAgent JSON response ({e}). Using rule fallback.")
+            logger.warning(f"Error parsing BusinessProcessAgent JSON response ({e}). Using telemetry fallback.")
             return fallback_meta
+
 
 
 business_process_agent = BusinessProcessAgent()
