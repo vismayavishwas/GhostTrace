@@ -72,14 +72,26 @@ export const InteractiveSandboxApp: React.FC = () => {
     const handleGlobalClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       if (!target) return;
+
       const tag = target.tagName.toLowerCase();
       const id = target.id ? `#${target.id}` : "";
       const cls = target.className && typeof target.className === "string" ? `.${target.className.split(" ")[0]}` : "";
       const selector = id || (tag + cls) || "element";
-      const text = target.innerText || target.getAttribute("aria-label") || target.getAttribute("placeholder") || tag;
-      
+
+      // Ignore generic non-actionable layout container clicks (div, span, section, body, headers) unless it has an explicit #id
+      const isInteractive = ["input", "textarea", "select", "button", "a"].includes(tag) || 
+                            target.getAttribute("role") === "button" || 
+                            Boolean(target.id) ||
+                            target.onclick !== null;
+
+      if (!isInteractive) {
+        return; // Filter out background layout clicks
+      }
+
+      const text = (target as HTMLInputElement).value || target.innerText || target.getAttribute("aria-label") || target.getAttribute("placeholder") || tag;
       dispatchTelemetry("CLICK", selector, text.slice(0, 30));
     };
+
 
     const handleGlobalCopy = () => {
       const selection = window.getSelection()?.toString() || "";
