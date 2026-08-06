@@ -36,7 +36,7 @@ class BusinessProcessAgent:
         """
         obs_string = f"{repetition_count} observations"
         fallback_meta = BusinessProcessMetadata(
-            workflow_name=f"{source_app} → {target_app} Data Flow",
+            workflow_name=f"{source_app} -> {target_app} Data Flow",
             department="Operations / IT",
             business_goal=f"Transfer structured data between {source_app} and {target_app}",
             confidence=0.88,
@@ -44,6 +44,7 @@ class BusinessProcessAgent:
             automation_readiness="High",
             summary=f"Automates repetitive manual interaction pattern between {source_app} and {target_app}."
         )
+
 
         workflow_key = f"{source_app}->{target_app}"
         if not gemini_budget.can_call(workflow_key, "business"):
