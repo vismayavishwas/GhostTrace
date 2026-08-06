@@ -28,7 +28,22 @@ async def post_telemetry_event(payload: Dict[str, Any]):
 
     # Pass payload into global ObserverAgent to trigger TelemetryPublisher & PatternDiscovery
     global_observer = get_global_observer()
-    await global_observer.process_raw_event(payload)
+    raw_event = await global_observer.process_raw_event(payload)
+
+    # Record transfer into StableMappingMemory once per event
+    if raw_event:
+        try:
+            from app.agents.telemetry.transfer_builder import global_transfer_builder
+            from app.agents.pattern_discovery.mapping_memory import global_mapping_memory
+            from app.agents.pattern_discovery.learning_planner import global_learning_planner
+
+            transfers = global_transfer_builder.process_telemetry_events([raw_event])
+            for xfer in transfers:
+                global_mapping_memory.record_transfer(xfer)
+                global_learning_planner.evaluate_learning_state(xfer)
+        except Exception as e:
+            logger.warning(f"Error processing transfer memory for event: {e}")
+
 
 
     try:
@@ -124,10 +139,18 @@ async def reset_telemetry_state():
 
 
     try:
+        from app.agents.pattern_discovery.mapping_memory import global_mapping_memory
+        global_mapping_memory._table.clear()
+        global_mapping_memory._source_destinations.clear()
+    except Exception as e:
+        logger.warning(f"Error resetting mapping memory: {e}")
+
+    try:
         from app.services.call_budget import gemini_budget
         gemini_budget.reset()
     except Exception as e:
         logger.warning(f"Error resetting gemini budget: {e}")
+
 
     try:
         from app.api.routes.state import reset_graph_state

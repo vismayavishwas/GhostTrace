@@ -137,10 +137,6 @@ async def get_current_state():
     from app.agents.pattern_discovery.deviation_detector import global_deviation_detector
 
     transfers = global_transfer_builder.process_telemetry_events(events)
-    for xfer in transfers:
-        global_mapping_memory.record_transfer(xfer)
-        global_learning_planner.evaluate_learning_state(xfer)
-
     detected_deviations = global_deviation_detector.detect_deviations(transfers)
     
     outlier_items = []
@@ -152,14 +148,14 @@ async def get_current_state():
             "reason": dev.get("reason", "Expected destination mismatch observed")
         })
 
-
     all_maps = global_mapping_memory.get_all_mappings()
     if all_maps:
         max_occ = max(m.get("occurrences", 0) for m in all_maps)
         max_conf = max(m.get("confidence", 0.0) for m in all_maps)
         if max_occ > 0:
-            repetition_count = max(repetition_count, max_occ)
-            confidence = max(confidence, max_conf if max_conf > 0 else 0.85)
+            repetition_count = max_occ
+            confidence = max_conf
+
 
     return {
         **current_graph_state,
