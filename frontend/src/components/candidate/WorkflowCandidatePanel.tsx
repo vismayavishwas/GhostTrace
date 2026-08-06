@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+
 import { Sparkles, ArrowRight, Zap, Eye, AlertTriangle, CheckCircle2, ShieldAlert, CheckSquare, Square } from "lucide-react";
 import { refineCandidate } from "@/lib/api";
 
