@@ -111,12 +111,15 @@ async def get_current_state():
         business_process_dict = latest_graph_state.business_process
 
 
+    candidate_name = "Waiting for interaction events..."
+
     if event_count > 0:
         ref_event = events[-1]
         first_event = events[0]
         source_app = getattr(ref_event, "active_tab", None) or (ref_event.get("active_tab") if isinstance(ref_event, dict) else "Source App")
         target_app = getattr(first_event, "active_tab", None) or (first_event.get("active_tab") if isinstance(first_event, dict) else "Target App")
         candidate_name = f"{source_app} → {target_app}"
+
 
     return {
         **current_graph_state,
