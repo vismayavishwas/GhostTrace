@@ -143,8 +143,20 @@ async def get_current_state():
         if not xfer.is_immediate_correction:
             global_mapping_memory.record_transfer(xfer)
 
+    # Set dynamic sequence step template for positional alignment deviation check
+    if transfers:
+        # Template is extracted from the unique destination sequence of the first cycle
+        first_cycle_dests = []
+        for t in transfers:
+            if t.destination_entity not in first_cycle_dests:
+                first_cycle_dests.append(t.destination_entity)
+            else:
+                break
+        global_deviation_detector.set_sequence_template(first_cycle_dests)
+
     # 3. Detect expected vs observed destination deviations
     detected_deviations = global_deviation_detector.detect_deviations(transfers)
+
     
     outlier_items = []
     for idx, dev in enumerate(detected_deviations):
