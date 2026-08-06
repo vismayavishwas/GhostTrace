@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Play, Pause, RotateCcw, CheckCircle2, WifiOff } from "lucide-react";
-import { WebSocketStreamManager } from "@/lib/websocket";
+import { fetchTelemetryEvents } from "@/lib/api";
 
 export interface ReplayStep {
   title: string;
@@ -13,20 +13,34 @@ export const GhostReplay: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
   const [progress, setProgress] = useState<number>(0);
   const [speed, setSpeed] = useState<number>(1.0);
-  const [cursorPos, setCursorPos] = useState<{ x: number; y: number }>({ x: 50, y: 50 });
+  const [cursorPos, setCursorPos] = useState<{ x: number; y: number }>({ x: 45, y: 50 });
   const [steps, setSteps] = useState<ReplayStep[]>([]);
   const [isConnected, setIsConnected] = useState<boolean>(false);
 
   useEffect(() => {
+    // Initial fetch from REST API to construct recorded semantic steps
+    fetchTelemetryEvents().then((data) => {
+      if (Array.isArray(data) && data.length > 0) {
+        const constructed: ReplayStep[] = data.slice(0, 8).map((evt: any) => ({
+          title: `${evt.event_type || 'ACTION'} on ${evt.target_selector || 'element'}`,
+          done: false,
+        }));
+        setSteps(constructed);
+      }
+    });
+
     const wsManager = new WebSocketStreamManager(
       "replay",
       (msg) => {
         if (msg && msg.payload) {
           const frame = msg.payload;
           if (frame.x !== undefined && frame.y !== undefined) {
-            setCursorPos({ x: frame.x, y: frame.y });
+            // Normalize coordinates for canvas % placement
+            const normX = Math.min(90, Math.max(10, Math.round((frame.x % 800) / 8)));
+            const normY = Math.min(85, Math.max(15, Math.round((frame.y % 600) / 7)));
+            setCursorPos({ x: normX, y: normY });
           }
-          if (Array.isArray(frame.steps)) {
+          if (Array.isArray(frame.steps) && frame.steps.length > 0) {
             setSteps(frame.steps);
           }
         }
@@ -40,9 +54,26 @@ export const GhostReplay: React.FC = () => {
   useEffect(() => {
     if (!isPlaying || steps.length === 0) return;
     const interval = setInterval(() => {
-      setProgress((prev) => (prev >= 100 ? 0 : prev + 2 * speed));
+      setProgress((prev) => {
+        const next = prev >= 100 ? 0 : prev + 2 * speed;
+        // Animate cursor movement smoothly along canvas as progress advances
+        const stepIdx = Math.floor((next / 100) * steps.length);
+        const normX = Math.min(85, Math.max(15, 20 + ((stepIdx * 25) % 65)));
+        const normY = Math.min(80, Math.max(20, 25 + ((stepIdx * 35) % 55)));
+        setCursorPos({ x: normX, y: normY });
+
+        // Update step completion status
+        setSteps((prevSteps) =>
+          prevSteps.map((stg, i) => ({
+            ...stg,
+            done: i <= stepIdx,
+          }))
+        );
+        return next;
+      });
     }, 100);
     return () => clearInterval(interval);
+
   }, [isPlaying, speed, steps]);
 
   return (
@@ -119,10 +150,12 @@ export const GhostReplay: React.FC = () => {
         <div className="flex flex-col gap-2 rounded-xl border border-slate-800 bg-slate-950/60 p-4">
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Semantic Step Reconstruction</span>
           {steps.length === 0 ? (
-            <div className="flex items-center justify-center py-12 text-xs text-slate-500 text-center">
-              <span>No recorded steps in current replay frame.</span>
+            <div className="flex flex-col items-center justify-center py-12 text-xs text-slate-500 text-center gap-1">
+              <span>No telemetry actions recorded yet.</span>
+              <span className="text-[10px] text-slate-600">Perform clicks or copy-paste actions in your browser to build replay frames.</span>
             </div>
           ) : (
+
             <div className="flex flex-col gap-2 max-h-52 overflow-y-auto">
               {steps.map((stg, idx) => (
                 <div
