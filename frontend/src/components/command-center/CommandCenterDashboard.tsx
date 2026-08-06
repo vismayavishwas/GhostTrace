@@ -45,6 +45,11 @@ export const CommandCenterDashboard: React.FC = () => {
           if (state.noise_filtered_count !== undefined) setNoiseFilteredCount(state.noise_filtered_count);
           if (state.candidate_name) setCandidateName(state.candidate_name);
           if (state.business_process) setBusinessProcess(state.business_process);
+
+          // Milestone 3: Unlock ANALYZE stage when pattern is detected (repetition >= 2 or confidence >= 0.70)
+          if ((state.repetition_count && state.repetition_count >= 2) || (state.confidence_score && state.confidence_score >= 0.70)) {
+            setUnlockedStages((prev) => (prev.includes("ANALYZE") ? prev : [...prev, "ANALYZE"]));
+          }
         }
       });
     }, 1000);
@@ -130,9 +135,9 @@ export const CommandCenterDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Bottom Bar: Candidate Discovery Panel OR Digital Employee Status & ROI */}
+      {/* Bottom Bar: Candidate Discovery Panel (Unlocked on pattern discovery, requires explicit user click to analyze) */}
       <div className="flex flex-col gap-4">
-        {currentStage === "ANALYZE" && confidenceScore >= 0.50 && repetitionCount >= 1 && (
+        {(repetitionCount >= 2 || confidenceScore >= 0.70) && (
           <WorkflowCandidatePanel
             confidenceScore={confidenceScore}
             candidateName={candidateName}
@@ -140,8 +145,6 @@ export const CommandCenterDashboard: React.FC = () => {
             onAnalyzeTrigger={handleAnalyzeTrigger}
           />
         )}
-
-
 
         {currentStage === "OPERATIONS" && (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
