@@ -39,6 +39,10 @@ class PatternOccurrence:
             return []
         return [e.event_id for e in self.occurrences[-1]]
 
+    def clear(self):
+        """Clears pattern index."""
+        self._pattern_index.clear()
+
 
 class PatternMatcher:
     """

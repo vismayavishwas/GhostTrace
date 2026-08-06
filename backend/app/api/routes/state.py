@@ -84,11 +84,19 @@ async def get_current_state():
 
     events = get_global_observer().buffer.get_recent() or in_memory_events
     event_count = len(events)
-    repetition_count = max(0, event_count // 4)
-    noise_count = max(0, event_count // 6)
-    confidence = min(0.97, round(0.50 + (repetition_count * 0.15), 2)) if event_count > 0 else 0.0
 
+    pd = get_global_pattern_discovery()
+    candidates = pd.get_discovered_candidates() if pd else []
+    if candidates:
+        repetition_count = max(c.repetition_count for c in candidates)
+        confidence = max(c.confidence_score for c in candidates)
+    else:
+        repetition_count = 1 if event_count >= 2 else 0
+        confidence = min(0.85, round(0.40 + (event_count * 0.05), 2)) if event_count > 0 else 0.0
+
+    noise_count = max(0, event_count // 6)
     candidate_name = "Waiting for interaction events..."
+
     if event_count > 0:
         ref_event = events[-1]
         first_event = events[0]
