@@ -53,24 +53,31 @@
     };
 
     // Send telemetry through extension background service worker (bypasses HTTPS mixed-content CSP restrictions)
-    if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.sendMessage) {
-      chrome.runtime.sendMessage({ action: "POST_TELEMETRY", payload }, (response) => {
-        if (chrome.runtime.lastError) {
-          // Direct fallback if extension context invalidated
-          fetch("http://127.0.0.1:8000/api/v1/telemetry/events", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          }).catch(() => {});
-        }
-      });
-    } else {
+    if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.id && chrome.runtime.sendMessage) {
+      try {
+        chrome.runtime.sendMessage({ action: "POST_TELEMETRY", payload }, (response) => {
+          if (chrome.runtime.lastError) {
+            // Extension reloaded or context invalidated; fallback quietly on HTTP only
+            if (window.location.protocol === "http:") {
+              fetch("http://127.0.0.1:8000/api/v1/telemetry/events", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+              }).catch(() => {});
+            }
+          }
+        });
+      } catch (e) {
+        // Extension context invalidated ignore
+      }
+    } else if (window.location.protocol === "http:") {
       fetch("http://127.0.0.1:8000/api/v1/telemetry/events", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       }).catch(() => {});
     }
+
 
   }
 
