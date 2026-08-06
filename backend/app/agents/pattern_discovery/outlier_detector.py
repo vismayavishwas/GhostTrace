@@ -1,43 +1,9 @@
 import logging
-from typing import List, Dict, Any, Set, Tuple
+from typing import List, Dict, Any, Set
 from app.models.telemetry import TelemetryEvent
 
 logger = logging.getLogger("ghosttrace.pattern_discovery.outlier")
 
-
-class OutlierDetector:
-    """
-    Deterministic Outlier Detector.
-    Evaluates accidental, anomalous, or out-of-sequence user actions across telemetry events.
-    
-    Detection Rules:
-    1. Out-of-Pattern Actions: Events in telemetry buffer that do NOT belong to the repeating pattern cycle.
-    2. Frequency Anomalies: Actions appearing in only 1 of N sequence runs.
-    3. Unexpected UI Interactions: Isolated clicks/pastes on non-target UI elements.
-    """
-
-    def detect_outliers(
-        self, occurrences: List[List[TelemetryEvent]], all_events: List[TelemetryEvent]
-    ) -> List[Dict[str, Any]]:
-        outliers: List[Dict[str, Any]] = []
-        if not all_events:
-            return outliers
-
-        # Collect event signatures & IDs that belong to the core repeating pattern cycle
-        pattern_event_ids: Set[str] = set()
-        pattern_signatures: Set[Tuple[str, str]] = set()
-
-        if occurrences and len(occurrences) >= 2:
-            for occ in occurrences:
-                for evt in occ:
-                    raw_e = getattr(evt, "raw_event", evt)
-                    evt_id = str(getattr(raw_e, "event_id", "") or "")
-                    if evt_id:
-                        pattern_event_ids.add(evt_id)
-                    
-                    sel = str(getattr(raw_e, "target_selector", None) or getattr(raw_e, "element_tag", None) or "element")
-                    etype = str(getattr(raw_e, "event_type", "CLICK"))
-                    pattern_signatures.add((etype, sel))
 
 def format_human_label(event_type: str, selector: str, app_title: str) -> str:
     sel_lower = selector.lower()
@@ -71,49 +37,42 @@ def format_human_label(event_type: str, selector: str, app_title: str) -> str:
 
 class OutlierDetector:
     """
-    Deterministic Outlier Detector.
-    Evaluates accidental, anomalous, or out-of-sequence user actions across telemetry events.
+    Context-Aware Outlier Detector.
+    Strictly evaluates stray or anomalous actions that deviate from the core repeating pattern cycle.
+    Valid steps in the repeating workflow sequence are NEVER flagged as outliers.
     """
 
     def detect_outliers(
         self, occurrences: List[List[TelemetryEvent]], all_events: List[TelemetryEvent]
     ) -> List[Dict[str, Any]]:
         outliers: List[Dict[str, Any]] = []
-        if not all_events:
+        if not all_events or not occurrences or len(occurrences) < 2:
             return outliers
 
-        # Collect event signatures & IDs that belong to the core repeating pattern cycle
-        pattern_event_ids: Set[str] = set()
-        pattern_signatures: Set[Tuple[str, str]] = set()
+        # 1. Build set of target selectors that form the core repeating workflow sequence
+        core_pattern_selectors: Set[str] = set()
+        for occ in occurrences:
+            for evt in occ:
+                raw_e = getattr(evt, "raw_event", evt)
+                sel = str(getattr(raw_e, "target_selector", None) or getattr(raw_e, "element_tag", None) or "")
+                if sel:
+                    core_pattern_selectors.add(sel)
 
-        if occurrences and len(occurrences) >= 2:
-            for occ in occurrences:
-                for evt in occ:
-                    raw_e = getattr(evt, "raw_event", evt)
-                    evt_id = str(getattr(raw_e, "event_id", "") or "")
-                    if evt_id:
-                        pattern_event_ids.add(evt_id)
-                    
-                    sel = str(getattr(raw_e, "target_selector", None) or getattr(raw_e, "element_tag", None) or "element")
-                    etype = str(getattr(raw_e, "event_type", "CLICK"))
-                    pattern_signatures.add((etype, sel))
-
-        # Inspect all telemetry events in the observation buffer for anomalies
-        seen_outlier_selectors: Set[str] = set()
+        # 2. Identify stray events in the observation buffer whose target selector is NOT in core pattern
+        seen_stray_selectors: Set[str] = set()
 
         for evt in all_events:
             raw_e = getattr(evt, "raw_event", evt)
-            evt_id = str(getattr(raw_e, "event_id", "") or "")
-            sel = str(getattr(raw_e, "target_selector", None) or getattr(raw_e, "element_tag", None) or "element")
+            sel = str(getattr(raw_e, "target_selector", None) or getattr(raw_e, "element_tag", None) or "")
             etype = str(getattr(raw_e, "event_type", "CLICK"))
             app_title = str(getattr(raw_e, "app_title", None) or getattr(raw_e, "active_tab", None) or "App")
 
-            # Check if this event was outside the matched repeating pattern cycles
-            is_outside_pattern = (evt_id and evt_id not in pattern_event_ids) or ((etype, sel) not in pattern_signatures)
+            if not sel:
+                continue
 
-            if is_outside_pattern and sel not in seen_outlier_selectors:
-                seen_outlier_selectors.add(sel)
-                
+            # Event is an outlier ONLY if its selector is NOT part of the repeating core pattern
+            if sel not in core_pattern_selectors and sel not in seen_stray_selectors:
+                seen_stray_selectors.add(sel)
                 label = format_human_label(etype, sel, app_title)
 
                 outliers.append({
@@ -121,15 +80,18 @@ class OutlierDetector:
                     "selector": sel,
                     "event_type": etype,
                     "label": label,
-                    "reason": f"Anomalous action observed outside 6-step repeating pattern",
-                    "event_id": evt_id,
+                    "reason": f"Anomalous action observed outside core workflow cycle",
+                    "event_id": str(getattr(raw_e, "event_id", "") or ""),
                     "app_title": app_title,
                 })
 
-        logger.info(f"OutlierDetector evaluated {len(all_events)} events and flagged {len(outliers)} anomalous actions.")
+        logger.info(
+            f"OutlierDetector evaluated {len(all_events)} events against {len(core_pattern_selectors)} pattern selectors. "
+            f"Flagged {len(outliers)} stray outliers."
+        )
         return outliers
 
 
-
 outlier_detector = OutlierDetector()
+
 
