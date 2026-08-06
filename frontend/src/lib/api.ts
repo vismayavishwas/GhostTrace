@@ -69,3 +69,16 @@ export async function triggerGraphExecution(initialState?: any) {
     return null;
   }
 }
+
+export async function resetTelemetryState() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/telemetry/reset`, {
+      method: "POST",
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+

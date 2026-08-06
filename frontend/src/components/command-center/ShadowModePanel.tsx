@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Eye, CheckCircle2, Zap, WifiOff, Loader2 } from "lucide-react";
+import { Eye, CheckCircle2, Zap, WifiOff, Loader2, RotateCcw } from "lucide-react";
 import { WebSocketStreamManager } from "@/lib/websocket";
-import { fetchTelemetryEvents } from "@/lib/api";
+import { fetchTelemetryEvents, resetTelemetryState } from "@/lib/api";
 
 export interface SemanticAction {
   id: string;
@@ -17,16 +17,27 @@ export interface ShadowModePanelProps {
   repetitionCount?: number;
   maxRepetitions?: number;
   confidenceScore?: number;
+  onReset?: () => void;
 }
 
 export const ShadowModePanel: React.FC<ShadowModePanelProps> = ({
   repetitionCount = 0,
   maxRepetitions = 5,
   confidenceScore = 0.0,
+  onReset,
 }) => {
   const [actions, setActions] = useState<SemanticAction[]>([]);
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isResetting, setIsResetting] = useState<boolean>(false);
+
+  const handleReset = async () => {
+    setIsResetting(true);
+    await resetTelemetryState();
+    setActions([]);
+    if (onReset) onReset();
+    setIsResetting(false);
+  };
 
   useEffect(() => {
     // Initial fetch from REST API
@@ -85,17 +96,30 @@ export const ShadowModePanel: React.FC<ShadowModePanelProps> = ({
           </div>
         </div>
 
-        {isConnected ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold text-emerald-400 border border-emerald-500/20">
-            ● Live Stream
-          </span>
-        ) : (
-          <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-bold text-amber-400 border border-amber-500/20">
-            <WifiOff className="h-3 w-3" />
-            Waiting for backend...
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleReset}
+            disabled={isResetting}
+            title="Clear all observed actions & reset shadow mode to 0"
+            className="flex items-center gap-1.5 rounded-lg border border-slate-700/60 bg-slate-800/60 px-2.5 py-1 text-xs font-semibold text-slate-300 hover:bg-slate-700 hover:text-white transition disabled:opacity-50"
+          >
+            <RotateCcw className={`h-3.5 w-3.5 ${isResetting ? "animate-spin text-cyan-400" : "text-slate-400"}`} />
+            <span>{isResetting ? "Resetting..." : "Restart Shadow Mode"}</span>
+          </button>
+
+          {isConnected ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold text-emerald-400 border border-emerald-500/20">
+              ● Live Stream
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-bold text-amber-400 border border-amber-500/20">
+              <WifiOff className="h-3 w-3" />
+              Waiting for backend...
+            </span>
+          )}
+        </div>
       </div>
+
 
       {/* Repetition & Confidence Metrics */}
       <div className="grid grid-cols-2 gap-3 rounded-xl border border-slate-800/60 bg-slate-950/50 p-3">

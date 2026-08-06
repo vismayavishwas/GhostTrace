@@ -66,6 +66,42 @@ async def get_telemetry_events():
     return in_memory_events
 
 
+@router.post("/reset")
+async def reset_telemetry_state():
+    """Resets in-memory telemetry buffer, clears pattern discovery candidates, and clears database records."""
+    in_memory_events.clear()
+    
+    # Clear observer buffer & candidate discovery state
+    global_observer = get_global_observer()
+    if hasattr(global_observer, "buffer"):
+        global_observer.buffer.clear()
+        
+    try:
+        from app.agents.continuous_observer.observer_agent import get_continuous_observer
+        c_observer = get_continuous_observer()
+        if c_observer:
+            if hasattr(c_observer, "discovered_candidates"):
+                c_observer.discovered_candidates.clear()
+            if hasattr(c_observer, "engine") and hasattr(c_observer.engine, "discovered_candidates"):
+                c_observer.engine.discovered_candidates.clear()
+    except Exception as e:
+        logger.warning(f"Error resetting observer memory: {e}")
+
+    # Clear SQLite DB records
+    try:
+        async with AsyncSessionLocal() as session:
+            from sqlalchemy import text
+            await session.execute(text("DELETE FROM telemetry_events"))
+            await session.execute(text("DELETE FROM workflow_candidates"))
+            await session.commit()
+    except Exception as e:
+        logger.warning(f"Error resetting SQLite DB: {e}")
+
+    logger.info("Shadow Mode telemetry & discovery state successfully reset.")
+    return {"status": "SUCCESS", "message": "Shadow Mode state reset successfully."}
+
+
+
 @router.websocket("/ws/telemetry")
 async def telemetry_websocket_endpoint(
     websocket: WebSocket,
