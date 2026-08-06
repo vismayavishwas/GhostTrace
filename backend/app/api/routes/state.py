@@ -131,7 +131,9 @@ async def get_current_state():
         target_app = getattr(first_event, "active_tab", None) or (first_event.get("active_tab") if isinstance(first_event, dict) else "Target App")
         candidate_name = f"{source_app} -> {target_app}"
 
+    from app.agents.pattern_discovery.semantic_deviation_detector import semantic_deviation_detector
     from app.agents.pattern_discovery.outlier_detector import OutlierDetector
+
     detector = OutlierDetector()
     
     raw_occurrences = []
@@ -142,15 +144,24 @@ async def get_current_state():
                 raw_occurrences.extend(raw_occs)
                 
     detected_outliers = detector.detect_outliers(raw_occurrences, events)
+    semantic_deviations = semantic_deviation_detector.detect_semantic_deviations(raw_occurrences, events)
     
     outlier_items = []
     for idx, out in enumerate(detected_outliers):
         sel = out.get("selector", "element")
         outlier_items.append({
             "id": f"out-{idx+1}",
-            "label": f"Action on {sel}",
+            "label": out.get("label") or f"Action on {sel}",
             "selector": sel,
             "reason": out.get("reason", "Observed 1x across sequence repetitions")
+        })
+
+    for idx, dev in enumerate(semantic_deviations):
+        outlier_items.append({
+            "id": f"dev-{idx+1}",
+            "label": dev.get("label") or f"Field ({dev.get('source_entity', 'source').upper()}) pasted into Field ({dev.get('destination_entity', 'dest').upper()})",
+            "selector": f"#target-{dev.get('destination_entity', 'dest')}",
+            "reason": "Accidental cross-field transfer observed and corrected"
         })
 
     return {
@@ -166,13 +177,35 @@ async def get_current_state():
     }
 
 
-
-
-
 @router.get("")
 async def get_current_state():
     """Returns current orchestrator state & dynamic confidence score."""
     return get_dynamic_state_data()
+
+
+class CandidateRefineRequest(BaseModel if 'BaseModel' in globals() else object):
+    pass
+
+@router.post("/refine")
+async def refine_candidate(choice: str, target_selector: str):
+    """
+    Handles HITL semantic candidate refinement.
+    Stores user-confirmed accidental corrections into persistent CorrectionPatternStore memory layer.
+    """
+    from app.agents.pattern_discovery.correction_memory import global_correction_memory
+
+    if choice == "EXCLUDE" and target_selector:
+        parts = target_selector.split(",")
+        for target in parts:
+            clean_target = target.strip().replace("#", "").replace(".", " ")
+            global_correction_memory.record_confirmed_correction("source_entity", clean_target)
+
+    return {
+        "status": "SUCCESS",
+        "choice": choice,
+        "message": f"Recorded HITL decision ({choice}) into persistent CorrectionPatternStore memory."
+    }
+
 
 
 @router.post("/run")

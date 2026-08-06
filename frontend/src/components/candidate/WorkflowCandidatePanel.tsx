@@ -214,11 +214,12 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
             <div className="flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0" />
               <div>
-                <h4 className="font-bold text-amber-200">Possible Outlier Actions Detected</h4>
+                <h4 className="font-bold text-amber-200">Semantic Deviation Observed</h4>
                 <p className="text-[10px] text-amber-300/80">
-                  Review anomalous actions observed during shadow mode. Selected items will be batch processed.
+                  An anomalous action was observed and corrected. Confirm if this action was accidental to save into persistent memory.
                 </p>
               </div>
+
             </div>
 
             <div className="flex items-center gap-2">
@@ -291,9 +292,9 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
               <button
                 suppressHydrationWarning
                 onClick={() => handleBatchRefine("INCLUDE")}
-                className="rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-bold text-slate-200 hover:bg-slate-700 transition"
+                className="rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 transition"
               >
-                Include Selected
+                Include in Workflow
               </button>
 
               <button
@@ -301,9 +302,10 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
                 onClick={() => handleBatchRefine("EXCLUDE")}
                 className="rounded-lg bg-cyan-500/20 border border-cyan-500/40 px-4 py-2 text-xs font-bold text-cyan-300 hover:bg-cyan-500/30 transition shadow-lg shadow-cyan-500/10"
               >
-                Exclude Selected
+                Exclude from Workflow (Recommended)
               </button>
             </div>
+
           </div>
         </div>
       )}

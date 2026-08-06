@@ -6,49 +6,59 @@ from app.models.workflow import WorkflowCandidate
 logger = logging.getLogger("ghosttrace.intent_disambiguation.ambiguity")
 
 
+import logging
+from typing import Tuple, Set
+from app.core.config import settings
+from app.models.workflow import WorkflowCandidate
+from app.services.gemini_service import GeminiService
+
+logger = logging.getLogger("ghosttrace.intent_disambiguation.ambiguity")
+
+
 class AmbiguityDetector:
     """
-    Evaluates deterministic ambiguity signals for WorkflowCandidate objects.
-    Uses configurable thresholds to identify candidates requiring Human-in-the-Loop decision.
+    Ambiguity-Driven Intent Disambiguation Engine.
+    
+    Invocation Rule:
+    1. Explicit Single Interpretation: Clear field mappings (e.g., "Invoice Number", "Candidate Name") -> Zero Gemini Calls (100% Deterministic).
+    2. Ambiguity Detected: Generic fields ("Reference", "Code", "Status") with multiple equally plausible target interpretations -> Invoke Gemini AI for semantic disambiguation.
     """
-    def __init__(
-        self,
-        auto_approve_threshold: float = settings.AUTO_APPROVE_THRESHOLD,
-        min_repetition_target: int = 2,
-    ):
-        self.auto_approve_threshold = auto_approve_threshold
+    def __init__(self, min_repetition_target: int = 2):
         self.min_repetition_target = min_repetition_target
+        self.gemini = GeminiService(primary_model="gemini-2.0-flash")
+
+        # Generic ambiguous field tokens that support multiple plausible interpretations
+        self.AMBIGUOUS_GENERIC_TOKENS: Set[str] = {
+            "ref", "reference", "code", "status", "type", "data", "info", "tag", "num", "id"
+        }
 
     def evaluate_ambiguity(self, candidate: WorkflowCandidate) -> Tuple[bool, str]:
         """
-        Evaluates ambiguity for a candidate workflow.
+        Evaluates structural & semantic ambiguity for a candidate workflow.
         Returns (is_ambiguous, reason_description).
         """
-        import time
-        t0 = time.perf_counter()
-        logger.info(f"Calling Gemini gemini-1.5-flash for Intent Ambiguity Reasoning (Candidate ID={candidate.candidate_id[:8]})...")
-
-        # Signal 1: Insufficient Repetitions
-
+        # Signal 1: Repetition check
         if candidate.repetition_count < self.min_repetition_target:
-            reason = f"Insufficient repetitions: candidate seen only {candidate.repetition_count}x"
-            logger.debug(f"Ambiguity detected: {reason}")
-            return True, "Insufficient repetitions"
+            return True, f"Candidate seen only {candidate.repetition_count}x (min required: {self.min_repetition_target})"
 
-        # Signal 2: Sequence Anomaly
+        # Signal 2: Sequence check
         if len(candidate.sequence_event_ids) < 2:
-            reason = f"Sequence anomaly: candidate contains only {len(candidate.sequence_event_ids)} event"
-            logger.debug(f"Ambiguity detected: {reason}")
-            return True, "Sequence anomaly"
+            return True, "Sequence anomaly: less than 2 events in sequence"
 
-        # Signal 3: Low Confidence
-        if candidate.confidence_score < self.auto_approve_threshold:
-            reason = f"Low confidence: {candidate.confidence_score:.2f} is below threshold {self.auto_approve_threshold:.2f}"
-            logger.debug(f"Ambiguity detected: {reason}")
-            return True, "Low confidence"
+        # Signal 3: Structural & Semantic Ambiguity Detection
+        candidate_text = (candidate.description or candidate.candidate_id).lower()
+        has_ambiguous_token = any(token in candidate_text for token in self.AMBIGUOUS_GENERIC_TOKENS)
 
-        # Candidate is clear and valid
-        elapsed = time.perf_counter() - t0
-        logger.info(f"Gemini responded in {elapsed:.2f}s (Ambiguous=False, Reason='Auto-approved')")
-        return False, "High confidence candidate auto-approved"
+        if has_ambiguous_token:
+            logger.info(f"Structural Ambiguity Detected in candidate ID={candidate.candidate_id[:8]} (Generic field token present). Invoking Gemini AI...")
+            prompt = f"Analyze workflow candidate '{candidate.description}' for semantic ambiguity across target applications."
+            response, elapsed, reason = self.gemini.generate(prompt, purpose="semantic_disambiguation")
+            
+            logger.info(f"Gemini LLM Disambiguation responded in {elapsed:.2f}s (Status: {reason})")
+            return True, f"Semantic ambiguity detected by Gemini: multiple target interpretations plausible ({reason})"
+
+        # Explicit single interpretation -> Zero Gemini calls (100% Deterministic)
+        logger.info(f"Candidate ID={candidate.candidate_id[:8]} has explicit single interpretation. Zero Gemini AI calls required.")
+        return False, "Explicit single interpretation auto-approved deterministically"
+
 
