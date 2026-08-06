@@ -11,7 +11,8 @@ import { WorkflowCandidatePanel } from "../candidate/WorkflowCandidatePanel";
 import { ReasoningTimeline } from "../reasoning/ReasoningTimeline";
 import { DigitalEmployeeCard } from "../employee/DigitalEmployeeCard";
 import { AutomationImpactCard } from "../impact/AutomationImpactCard";
-import { fetchGraphState, triggerGraphExecution } from "@/lib/api";
+import { fetchGraphState, triggerGraphExecution, resetTelemetryState } from "@/lib/api";
+
 
 import { InteractiveSandboxApp } from "../sandbox/InteractiveSandboxApp";
 
@@ -29,8 +30,12 @@ export const CommandCenterDashboard: React.FC = () => {
   const [candidateDismissed, setCandidateDismissed] = useState<boolean>(false);
 
   useEffect(() => {
+    // Clear old state on fresh page load/refresh
+    resetTelemetryState();
+
     // Poll graph state from backend
     const interval = setInterval(() => {
+
       fetchGraphState().then((state) => {
         if (state) {
           if (state.confidence_score !== undefined) setConfidenceScore(state.confidence_score);
@@ -85,11 +90,13 @@ export const CommandCenterDashboard: React.FC = () => {
 
 
   const handleResetShadowMode = () => {
+    resetTelemetryState();
     setConfidenceScore(0.0);
     setRepetitionCount(0);
     setNoiseFilteredCount(0);
-    setCandidateName("Cross-Application Workflow");
+    setCandidateName("Waiting for interaction events...");
     setBusinessProcess(null);
+    setOutliers([]);
     setCandidateDismissed(false);
     setUnlockedStages(["OBSERVE"]);
     setCurrentStage("OBSERVE");
@@ -98,6 +105,7 @@ export const CommandCenterDashboard: React.FC = () => {
       window.dispatchEvent(new CustomEvent("ghosttrace:reset-sandbox"));
     }
   };
+
 
   const handleObserveFurther = () => {
     setCandidateDismissed(true);

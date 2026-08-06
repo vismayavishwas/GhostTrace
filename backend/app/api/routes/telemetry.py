@@ -153,6 +153,21 @@ async def reset_telemetry_state():
 
 
     try:
+        from app.agents.telemetry.transfer_builder import global_transfer_builder
+        global_transfer_builder._current_window_events.clear()
+        global_transfer_builder._active_source_event = None
+        global_transfer_builder._processed_event_ids.clear()
+    except Exception as e:
+        logger.warning(f"Error resetting transfer builder memory: {e}")
+
+    try:
+        from app.agents.pattern_discovery.learning_planner import global_learning_planner
+        global_learning_planner._states.clear()
+        global_learning_planner._observation_history.clear()
+    except Exception as e:
+        logger.warning(f"Error resetting learning planner memory: {e}")
+
+    try:
         from app.api.routes.state import reset_graph_state
         reset_graph_state()
     except Exception as e:
