@@ -156,6 +156,24 @@ async def get_current_state():
             repetition_count = max_occ
             confidence = max_conf
 
+    if repetition_count >= 1:
+        try:
+            from app.agents.business_process.business_agent import business_process_agent
+            step_strs = [f"{getattr(e, 'event_type', 'ACTION')} on {getattr(e, 'target_selector', 'element')}" for e in events[:5]]
+            bp_meta = business_process_agent.analyze_process(
+                candidate_name=candidate_name,
+                steps=step_strs,
+                source_app=source_app if source_app != "Source App" else "PDF Invoice Portal",
+                target_app=target_app if target_app != "Target App" else "SAP ERP Financials",
+                repetition_count=repetition_count,
+                avg_duration_sec=12.5
+            )
+            business_process_dict = bp_meta.model_dump()
+            _STORED_BUSINESS_PROCESS = business_process_dict
+        except Exception as e:
+            logger.warning(f"Error calling BusinessProcessAgent: {e}")
+
+
 
     return {
         **current_graph_state,

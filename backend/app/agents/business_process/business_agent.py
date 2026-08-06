@@ -46,10 +46,11 @@ class BusinessProcessAgent:
         )
 
 
-        workflow_key = f"{source_app}->{target_app}"
+        workflow_key = f"{source_app}->{target_app}:{len(steps)}"
         if not gemini_budget.can_call(workflow_key, "business"):
-            logger.info(f"Gemini call budget reached for workflow '{workflow_key}' (business). Returning stored/deterministic result.")
+            logger.info(f"Gemini call budget already fulfilled for workflow key '{workflow_key}'. Returning cached result.")
             return fallback_meta
+
 
         formatted_steps = "\n".join([f"Step {idx+1}: {step}" for idx, step in enumerate(steps[:10])])
 
