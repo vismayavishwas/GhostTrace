@@ -47,19 +47,8 @@ export const ShadowModePanel: React.FC<ShadowModePanelProps> = ({
       fetchTelemetryEvents()
         .then((data) => {
           if (Array.isArray(data)) {
-            const rawData = data.filter((item: any) => {
-              const sel = (item.target_selector || "").toLowerCase();
-              return !["div.flex", "div.grid", "body", "h1", "h2", "p.text", "section", "main"].some(k => sel.includes(k));
-            });
-            const semanticData = data.filter((item: any) => {
-              const evtType = (item.event_type || "").toUpperCase();
-              const sel = (item.target_selector || "").toLowerCase();
-              if (["COPY", "PASTE", "TYPE", "SUBMIT"].some(k => evtType.includes(k))) return true;
-              if (["source", "target", "input", "field"].some(k => sel.includes(k))) return true;
-              return !(sel.startsWith("span") || sel.startsWith("button.") || sel.startsWith("div") || sel.startsWith("h1") || sel.startsWith("#main"));
-            });
+            const activeDataset = data;
 
-            const activeDataset = viewMode === "WORKFLOW" ? semanticData : rawData;
 
 
             const mapped: SemanticAction[] = activeDataset.map((item: any, idx: number) => {
