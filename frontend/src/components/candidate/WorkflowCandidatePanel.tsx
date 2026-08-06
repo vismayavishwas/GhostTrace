@@ -114,19 +114,20 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-md p-4 overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
-      <div className="relative flex flex-col gap-5 w-full max-w-3xl rounded-2xl border border-cyan-500/50 bg-gradient-to-br from-slate-900 via-slate-950 to-purple-950/90 p-6 shadow-2xl shadow-cyan-500/20 backdrop-blur-2xl">
+    <div className="fixed top-20 right-6 z-50 w-full max-w-md animate-in slide-in-from-right-8 duration-300">
+      <div className="relative flex flex-col gap-4 w-full rounded-2xl border border-cyan-500/50 bg-gradient-to-br from-slate-900/95 via-slate-950/95 to-purple-950/95 p-5 shadow-2xl shadow-cyan-500/25 backdrop-blur-2xl max-h-[calc(100vh-6rem)] overflow-y-auto">
         
-        {/* Dismiss Modal Close Button */}
+        {/* Dismiss Side Drawer Close Button */}
         {onObserveFurther && (
           <button
             suppressHydrationWarning
             onClick={onObserveFurther}
-            className="absolute top-4 right-4 rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white transition"
+            className="absolute top-3.5 right-3.5 rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white transition text-xs font-bold"
           >
             ✕
           </button>
         )}
+
 
         {/* Top Main Candidate Discovery Header */}
         <div className="flex flex-col md:flex-row items-start justify-between gap-4 border-b border-slate-800 pb-4">
