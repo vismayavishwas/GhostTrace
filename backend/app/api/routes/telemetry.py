@@ -112,10 +112,16 @@ async def reset_telemetry_state():
     try:
         from app.orchestration.nodes import get_global_pattern_discovery
         pd = get_global_pattern_discovery()
-        if hasattr(pd, "sequence_buffer") and hasattr(pd.sequence_buffer, "clear"):
-            pd.sequence_buffer.clear()
+        if pd:
+            if hasattr(pd, "clear"):
+                pd.clear()
+            if hasattr(pd, "_discovered_candidates"):
+                pd._discovered_candidates.clear()
+            if hasattr(pd, "matcher") and hasattr(pd.matcher, "clear"):
+                pd.matcher.clear()
     except Exception as e:
         logger.warning(f"Error resetting pattern discovery buffer: {e}")
+
 
     try:
         from app.services.call_budget import gemini_budget

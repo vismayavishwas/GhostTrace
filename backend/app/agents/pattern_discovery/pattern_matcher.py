@@ -42,8 +42,8 @@ class PatternOccurrence:
 class PatternMatcher:
     """
     Incremental pattern matcher.
-    Evaluates semantic workflow event sequences and sub-sequences (pairs, triads, full workflows)
-    to discover repeating cross-application interaction patterns with high resilience to human click order.
+    Evaluates semantic workflow event sequences and sub-sequences to discover repeating cross-application
+    interaction patterns with high resilience to human click order.
     """
     def __init__(
         self,
@@ -96,13 +96,12 @@ class PatternMatcher:
                 existing_occurrences = self._pattern_index[sig_tuple]
                 last_occ = existing_occurrences[-1]
                 
-                # Check for non-overlapping occurrence
-                last_end_time = str(last_occ[-1].timestamp)
-                curr_start_time = str(subseq[0].timestamp)
+                # Check for non-overlapping occurrence using event_id disjoint sets
+                last_event_ids = set(e.event_id for e in last_occ)
+                curr_event_ids = set(e.event_id for e in subseq)
                 
-                if curr_start_time >= last_end_time and subseq[0].event_id != last_occ[0].event_id:
-                    if subseq[0].event_id not in [e.event_id for e in last_occ]:
-                        existing_occurrences.append(subseq)
+                if not last_event_ids.intersection(curr_event_ids):
+                    existing_occurrences.append(subseq)
 
             occurrences = self._pattern_index[sig_tuple]
             if len(occurrences) >= self.min_repetitions:
