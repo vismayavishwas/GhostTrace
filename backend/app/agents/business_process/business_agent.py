@@ -4,6 +4,7 @@ from typing import Dict, Any, Optional
 from pydantic import BaseModel, Field
 
 from app.services.gemini_service import gemini_service
+from app.services.call_budget import gemini_budget
 
 logger = logging.getLogger("ghosttrace.business_process")
 
@@ -31,9 +32,26 @@ class BusinessProcessAgent:
     def analyze_process(self, candidate_name: str, steps: list, source_app: str, target_app: str, repetition_count: int = 3, avg_duration_sec: float = 12.5) -> BusinessProcessMetadata:
         """
         Calls GeminiService to dynamically classify the business process based on live runtime context.
-        Computes telemetry-backed repeatability and readiness metrics.
+        Enforces GeminiCallBudget so each workflow triggers Gemini at most ONCE.
         """
+        obs_string = f"{repetition_count} observations"
+        fallback_meta = BusinessProcessMetadata(
+            workflow_name=f"{source_app} → {target_app} Data Flow",
+            department="Operations / IT",
+            business_goal=f"Transfer structured data between {source_app} and {target_app}",
+            confidence=0.88,
+            repeatability=obs_string,
+            automation_readiness="High",
+            summary=f"Automates repetitive manual interaction pattern between {source_app} and {target_app}."
+        )
+
+        workflow_key = f"{source_app}->{target_app}"
+        if not gemini_budget.can_call(workflow_key, "business"):
+            logger.info(f"Gemini call budget reached for workflow '{workflow_key}' (business). Returning stored/deterministic result.")
+            return fallback_meta
+
         formatted_steps = "\n".join([f"Step {idx+1}: {step}" for idx, step in enumerate(steps[:10])])
+
         obs_string = f"{repetition_count} observations"
 
         prompt = f"""You are a Principal Enterprise Process Mining Architect.
@@ -85,6 +103,8 @@ Respond ONLY with valid JSON inside a ```json code block.
             purpose="business_process_understanding",
             fallback_fn=fallback_fn
         )
+        gemini_budget.mark_called(workflow_key, "business")
+
 
         try:
             cleaned_json = response_text.strip()

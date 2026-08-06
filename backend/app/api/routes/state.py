@@ -52,9 +52,7 @@ async def _execute_orchestration_background():
         orchestrator = GhostTraceOrchestrator()
         final_state = await orchestrator.run_graph(initial_state)
         latest_graph_state = final_state
-        current_graph_state["active_node"] = str(final_state.current_state.value).upper()
-        current_graph_state["execution_status"] = "COMPLETED" if final_state.is_completed else "FAILED"
-        logger.info(f"LangGraph State Machine Background Execution Finished. State: {current_graph_state['active_node']}")
+        logger.info(f"LangGraph State Machine Background Execution Finished. State: {final_state.current_state.value}")
     except Exception as e:
         logger.error(f"Error during LangGraph background execution: {e}", exc_info=True)
 
@@ -63,9 +61,9 @@ async def _execute_orchestration_background():
 async def get_current_state():
     """
     Returns the current active graph execution state for live dashboard sync.
-    If no active execution state exists, returns default OBSERVE state.
+    100% Deterministic — NEVER triggers Gemini calls on polling!
     """
-    global latest_graph_state, _BP_CACHE
+    global latest_graph_state, _STORED_BUSINESS_PROCESS
 
     if latest_graph_state:
         state_dict = latest_graph_state.model_dump()
@@ -81,10 +79,9 @@ async def get_current_state():
             "code_artifact": state_dict.get("code_artifact"),
             "sandbox_result": state_dict.get("sandbox_result"),
             "self_healing_summary": state_dict.get("self_healing_summary"),
-            "business_process": state_dict.get("business_process"),
+            "business_process": state_dict.get("business_process") or _STORED_BUSINESS_PROCESS,
         }
 
-    # Estimate metrics dynamically from in_memory_events
     events = get_global_observer().buffer.get_recent() or in_memory_events
     event_count = len(events)
     repetition_count = max(0, event_count // 4)
@@ -92,8 +89,6 @@ async def get_current_state():
     confidence = min(0.97, round(0.50 + (repetition_count * 0.15), 2)) if event_count > 0 else 0.0
 
     candidate_name = "Waiting for interaction events..."
-    business_process_dict = None
-
     if event_count > 0:
         ref_event = events[-1]
         first_event = events[0]
@@ -101,31 +96,6 @@ async def get_current_state():
         target_app = getattr(first_event, "active_tab", None) or (first_event.get("active_tab") if isinstance(first_event, dict) else "Target App")
         candidate_name = f"{source_app} → {target_app}"
 
-        cache_key = (event_count, repetition_count)
-        if cache_key in _BP_CACHE:
-            business_process_dict = _BP_CACHE[cache_key]
-            candidate_name = business_process_dict.get("workflow_name", candidate_name)
-        else:
-            try:
-                from app.agents.business_process import business_process_agent
-                step_titles = []
-                for e in events[:8]:
-                    evt_type = getattr(e, "event_type", None) or (e.get("event_type") if isinstance(e, dict) else "ACTION")
-                    selector = getattr(e, "target_selector", None) or (e.get("target_selector") if isinstance(e, dict) else "element")
-                    step_titles.append(f"{evt_type} on {selector}")
-
-                meta = business_process_agent.analyze_process(candidate_name, step_titles, str(source_app), str(target_app), repetition_count=repetition_count)
-                business_process_dict = meta.model_dump()
-                candidate_name = meta.workflow_name
-                _BP_CACHE[cache_key] = business_process_dict
-            except Exception as e:
-                logger.warning(f"Error extracting business process metadata: {e}")
-
-
-
-
-    dna_dict = None
-    if latest_graph_state and latest_graph_state.workflow_dna:
         dna_dict = latest_graph_state.workflow_dna.model_dump()
 
     return {

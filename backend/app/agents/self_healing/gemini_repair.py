@@ -66,21 +66,28 @@ class GeminiRepairEngine:
         prompt = diagnosis.repair_prompt or f"Fix Python Playwright error {cause} on line {diagnosis.failing_line}:\n{source}"
 
         from app.services.gemini_service import gemini_service
-        
+        from app.services.call_budget import gemini_budget
+
         def rule_fallback():
             return self._apply_deterministic_patch(diagnosis, source, selector)
+
+        if not gemini_budget.can_call(artifact.workflow_id, "repair"):
+            logger.info(f"Gemini call budget reached for workflow '{artifact.workflow_id}' (repair). Applying deterministic fallback patch.")
+            fallback_code = rule_fallback()
+            return fallback_code, "Deterministic Rule Engine applied fallback patch (Budget Exhausted)."
 
         patched_code, elapsed, status = gemini_service.generate(
             prompt=prompt,
             purpose="code_repair",
             fallback_fn=rule_fallback
         )
+        gemini_budget.mark_called(artifact.workflow_id, "repair")
 
         if patched_code and not status.startswith("FALLBACK"):
-            return patched_code, f"Gemini API (gemini-2.0-flash) synthesized patch in {elapsed:.2f}s."
+            return patched_code, f"Gemini API synthesized patch in {elapsed:.2f}s."
 
-        # Fallback executed inside rule_fallback callback
         return patched_code, f"Gemini Repair Engine applied fallback patch ({status})."
+
 
     def _apply_deterministic_patch(self, diagnosis: FailureDiagnosis, source: str, selector: Optional[str]) -> str:
         """Deterministic Rule-Based Fallback Engine"""

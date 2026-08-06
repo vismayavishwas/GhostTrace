@@ -106,10 +106,17 @@ async def reset_telemetry_state():
         logger.warning(f"Error resetting pattern discovery buffer: {e}")
 
     try:
+        from app.services.call_budget import gemini_budget
+        gemini_budget.reset()
+    except Exception as e:
+        logger.warning(f"Error resetting gemini budget: {e}")
+
+    try:
         from app.api.routes.state import reset_graph_state
         reset_graph_state()
     except Exception as e:
         logger.warning(f"Error resetting graph state: {e}")
+
 
 
 
