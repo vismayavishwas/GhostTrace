@@ -193,9 +193,9 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
             <ArrowRight className="h-4 w-4" />
           </button>
         </div>
-      </div>
 
       {/* Clean Workflow Stream Banner when 0 outliers exist */}
+
       {outlierList.length === 0 && (
         <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-3 text-xs shadow-lg">
           <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
