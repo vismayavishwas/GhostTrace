@@ -98,14 +98,15 @@ async def get_current_state():
 
     candidate_name = "Waiting for interaction events..."
 
+    dna_dict = latest_graph_state.workflow_dna.model_dump() if (latest_graph_state and getattr(latest_graph_state, "workflow_dna", None)) else None
+    business_process_dict = latest_graph_state.business_process if (latest_graph_state and getattr(latest_graph_state, "business_process", None)) else _STORED_BUSINESS_PROCESS
+
     if event_count > 0:
         ref_event = events[-1]
         first_event = events[0]
         source_app = getattr(ref_event, "active_tab", None) or (ref_event.get("active_tab") if isinstance(ref_event, dict) else "Source App")
         target_app = getattr(first_event, "active_tab", None) or (first_event.get("active_tab") if isinstance(first_event, dict) else "Target App")
         candidate_name = f"{source_app} → {target_app}"
-
-        dna_dict = latest_graph_state.workflow_dna.model_dump()
 
     return {
         **current_graph_state,
@@ -117,6 +118,7 @@ async def get_current_state():
         "workflow_dna": dna_dict,
         "business_process": business_process_dict,
     }
+
 
 
 
