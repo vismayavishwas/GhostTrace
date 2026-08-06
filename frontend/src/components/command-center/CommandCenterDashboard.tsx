@@ -27,16 +27,6 @@ export const CommandCenterDashboard: React.FC = () => {
   const [businessProcess, setBusinessProcess] = useState<any>(null);
   const [candidateDismissed, setCandidateDismissed] = useState<boolean>(false);
 
-  const handleResetShadowMode = () => {
-    setCurrentStage("OBSERVE");
-    setConfidenceScore(0.0);
-    setRepetitionCount(0);
-    setNoiseFilteredCount(0);
-    setCandidateName("Waiting for interaction events...");
-    setBusinessProcess(null);
-    setCandidateDismissed(false);
-  };
-
 
   useEffect(() => {
     // Poll graph state from backend
