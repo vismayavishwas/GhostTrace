@@ -92,6 +92,21 @@ export const CommandCenterDashboard: React.FC = () => {
   };
 
 
+  const handleResetShadowMode = () => {
+    setConfidenceScore(0.0);
+    setRepetitionCount(0);
+    setNoiseFilteredCount(0);
+    setCandidateName("Cross-Application Workflow");
+    setBusinessProcess(null);
+    setCandidateDismissed(false);
+    setUnlockedStages(["OBSERVE"]);
+    setCurrentStage("OBSERVE");
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("ghosttrace:reset-sandbox"));
+    }
+  };
+
   const handleObserveFurther = () => {
     setCandidateDismissed(true);
     setCurrentStage("OBSERVE");
@@ -147,6 +162,7 @@ export const CommandCenterDashboard: React.FC = () => {
         {/* Right Column (3 cols): REASONING TIMELINE (WHY it happened) */}
         <div className="lg:col-span-3 flex flex-col gap-6">
           <ReasoningTimeline
+            currentStage={currentStage}
             confidenceScore={confidenceScore}
             repetitionCount={repetitionCount}
             noiseFilteredCount={noiseFilteredCount}
@@ -156,6 +172,7 @@ export const CommandCenterDashboard: React.FC = () => {
         </div>
 
       </div>
+
 
       {/* Bottom Bar: Candidate Discovery Panel (Unlocked on pattern discovery, requires explicit user click to analyze) */}
       <div className="flex flex-col gap-4">

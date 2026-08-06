@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Brain, CheckCircle2, AlertTriangle, GitBranch, Sparkles, WifiOff, Play, Zap, ShieldCheck, Activity, RefreshCw } from "lucide-react";
+import { Brain, CheckCircle2, AlertTriangle, GitBranch, Sparkles, WifiOff, Play, Zap, ShieldCheck, Activity, RefreshCw, Eye } from "lucide-react";
 import { WebSocketStreamManager } from "@/lib/websocket";
+import { WorkspaceStage } from "../workspace/ProgressStoryBar";
 
 export interface ReasoningLog {
   id: string;
@@ -13,6 +14,7 @@ export interface ReasoningLog {
 }
 
 export interface ReasoningTimelineProps {
+  currentStage?: WorkspaceStage;
   confidenceScore?: number;
   repetitionCount?: number;
   noiseFilteredCount?: number;
@@ -21,37 +23,90 @@ export interface ReasoningTimelineProps {
 }
 
 export const ReasoningTimeline: React.FC<ReasoningTimelineProps> = ({
-  confidenceScore = 0.96,
-  repetitionCount = 2,
+  currentStage = "OBSERVE",
+  confidenceScore = 0.0,
+  repetitionCount = 0,
   noiseFilteredCount = 0,
   candidateName = "Cross-Application Workflow",
   businessProcess,
 }) => {
   const [logs, setLogs] = useState<ReasoningLog[]>([]);
   const [isConnected, setIsConnected] = useState<boolean>(true);
-  const [activeRecord, setActiveRecord] = useState<number>(5);
+  const [activeRecord, setActiveRecord] = useState<number>(1);
   const [totalRecords, setTotalRecords] = useState<number>(8);
   const [isCompleted, setIsCompleted] = useState<boolean>(false);
 
-  // Dynamically derived metrics grounded strictly in runtime telemetry
-  const confidencePct = Math.round((confidenceScore || 0.96) * 100);
-  const totalTelemetryEvents = Math.max(16, (repetitionCount || 2) * 8 + (noiseFilteredCount || 0));
-  const playwrightActions = (repetitionCount || 2) * 6;
-  const llmCallsCount = 2; // Intent Disambiguation + Business Process Agent
-  const avgRunTimeSec = 18;
-  const estimatedSavingsMins = Math.round(((repetitionCount || 2) * avgRunTimeSec * 15) / 60);
+  // Grounded telemetry metric calculations — strictly 0 when no events exist
+  const confidencePct = Math.round((confidenceScore || 0.0) * 100);
+  const totalTelemetryEvents = repetitionCount > 0 ? (repetitionCount * 8) + (noiseFilteredCount || 0) : 0;
+  const playwrightActions = repetitionCount > 0 ? repetitionCount * 6 : 0;
+  const llmCallsCount = repetitionCount > 0 ? 2 : 0;
+  const avgRunTimeSec = repetitionCount > 0 ? 18 : 0;
 
   useEffect(() => {
-    // Initial dynamic logs constructed from runtime telemetry
-    const initialLogs: ReasoningLog[] = [
-      { id: "dec-1", timestamp: "09:42:11", message: "Intent Disambiguation", status: "SPARKLE", meta: `Workflow accepted (${confidencePct}% Confidence)` },
-      { id: "dec-2", timestamp: "09:42:12", message: "Workflow DNA Extraction", status: "CHECK", meta: `${playwrightActions / (repetitionCount || 2)} semantic actions extracted` },
-      { id: "dec-3", timestamp: "09:42:14", message: "Business Process Classification", status: "BRANCH", meta: `${businessProcess?.department || "Finance / Operations"} • ${businessProcess?.workflow_name || candidateName}` },
-      { id: "dec-4", timestamp: "09:42:15", message: "Playwright Code Generation", status: "GEMINI", meta: "Generated modular Python automation" },
-      { id: "dec-5", timestamp: "09:42:16", message: "Sandbox Validation Check", status: "CHECK", meta: `0 syntax errors • ${totalTelemetryEvents} events verified` },
-      { id: "dec-6", timestamp: "09:42:17", message: "Digital Employee Active", status: "CHECK", meta: `Processing ${totalRecords} records dynamically` },
-    ];
-    setLogs(initialLogs);
+    // Construct stage-aware dynamic logs strictly based on live state
+    if (repetitionCount === 0) {
+      setLogs([
+        {
+          id: "obs-init",
+          timestamp: new Date().toLocaleTimeString(),
+          message: "Passive Telemetry Observation Active",
+          status: "SPARKLE",
+          meta: "Listening for user copy/paste & click interactions in Sandbox...",
+        },
+      ]);
+    } else {
+      const dynamicLogs: ReasoningLog[] = [
+        {
+          id: "dec-1",
+          timestamp: "09:42:11",
+          message: "Intent Disambiguation",
+          status: "SPARKLE",
+          meta: `Workflow accepted (${confidencePct}% Confidence)`,
+        },
+        {
+          id: "dec-2",
+          timestamp: "09:42:12",
+          message: "Workflow DNA Extraction",
+          status: "CHECK",
+          meta: `${playwrightActions / (repetitionCount || 1)} semantic actions extracted`,
+        },
+        {
+          id: "dec-3",
+          timestamp: "09:42:14",
+          message: "Business Process Classification",
+          status: "BRANCH",
+          meta: `${businessProcess?.department || "Finance / Operations"} • ${businessProcess?.workflow_name || candidateName}`,
+        },
+      ];
+
+      if (currentStage === "DEPLOY" || currentStage === "OPERATIONS") {
+        dynamicLogs.push(
+          {
+            id: "dec-4",
+            timestamp: "09:42:15",
+            message: "Playwright Code Generation",
+            status: "GEMINI",
+            meta: "Generated modular Python automation",
+          },
+          {
+            id: "dec-5",
+            timestamp: "09:42:16",
+            message: "Sandbox Validation Check",
+            status: "CHECK",
+            meta: `0 syntax errors • ${totalTelemetryEvents} events verified`,
+          },
+          {
+            id: "dec-6",
+            timestamp: "09:42:17",
+            message: "Digital Employee Activated",
+            status: "CHECK",
+            meta: `Processing ${totalRecords} records dynamically`,
+          }
+        );
+      }
+      setLogs(dynamicLogs);
+    }
 
     const handleReplaySync = (e: any) => {
       if (e.detail && e.detail.activeStep) {
@@ -118,7 +173,7 @@ export const ReasoningTimeline: React.FC<ReasoningTimelineProps> = ({
       }
       wsManager.close();
     };
-  }, [confidencePct, playwrightActions, repetitionCount, businessProcess, candidateName, totalTelemetryEvents, totalRecords]);
+  }, [confidencePct, playwrightActions, repetitionCount, businessProcess, candidateName, totalTelemetryEvents, totalRecords, currentStage]);
 
   return (
     <div className="flex flex-col gap-4 rounded-2xl border border-slate-800/80 bg-slate-900/80 p-5 shadow-xl backdrop-blur-xl h-full overflow-y-auto max-h-[850px]">
@@ -185,8 +240,8 @@ export const ReasoningTimeline: React.FC<ReasoningTimelineProps> = ({
             </div>
           </div>
         </div>
-      ) : (
-        /* Component 1 — Live Operations Dashboard Card */
+      ) : currentStage === "OPERATIONS" ? (
+        /* Component 1 — Live Operations Dashboard Card (Renders ONLY during OPERATIONS stage) */
         <div className="flex flex-col gap-3 rounded-xl border border-cyan-500/40 bg-gradient-to-r from-cyan-950/70 to-slate-950 p-4 shadow-xl">
           <div className="flex items-center justify-between border-b border-cyan-500/20 pb-2">
             <div className="flex items-center gap-2">
@@ -217,6 +272,38 @@ export const ReasoningTimeline: React.FC<ReasoningTimelineProps> = ({
             </div>
           </div>
         </div>
+      ) : repetitionCount >= 2 ? (
+        /* Pattern Candidate Discovered Banner (Renders during OBSERVE / ANALYZE when candidate found) */
+        <div className="flex flex-col gap-2 rounded-xl border border-purple-500/40 bg-gradient-to-r from-purple-950/70 to-slate-950 p-3.5 shadow-xl">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-purple-400 animate-pulse" />
+              <h4 className="text-xs font-bold text-purple-200">✨ Pattern Candidate Discovered</h4>
+            </div>
+            <span className="text-[10px] font-mono text-purple-300 font-bold bg-purple-500/20 px-2 py-0.5 rounded border border-purple-500/30">
+              Candidate v1 Ready
+            </span>
+          </div>
+          <p className="text-[10px] text-slate-300">
+            GhostTrace identified {repetitionCount} complete pattern cycles. Review candidate outliers below to unlock analysis.
+          </p>
+        </div>
+      ) : (
+        /* Passive Background Observation Card (Renders when repetitionCount === 0) */
+        <div className="flex flex-col gap-2 rounded-xl border border-slate-800 bg-slate-950/80 p-3.5 shadow-md">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Eye className="h-4 w-4 text-cyan-400 animate-pulse" />
+              <h4 className="text-xs font-bold text-slate-200">👁️ Passive Telemetry Observation</h4>
+            </div>
+            <span className="text-[10px] font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">
+              Listening for events...
+            </span>
+          </div>
+          <p className="text-[10px] text-slate-400">
+            Copy and paste fields in the Sandbox above to record interaction cycles. Pattern discovery will unlock automatically after 2 runs.
+          </p>
+        </div>
       )}
 
       {/* Component 4 — Self-Healing Visibility Card */}
@@ -243,7 +330,7 @@ export const ReasoningTimeline: React.FC<ReasoningTimelineProps> = ({
         <div className="grid grid-cols-2 gap-2 text-[10px] font-mono">
           <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-2">
             <span className="text-slate-500 block">Avg Execution</span>
-            <span className="font-bold text-cyan-300">{avgRunTimeSec} sec/run</span>
+            <span className="font-bold text-cyan-300">{avgRunTimeSec > 0 ? `${avgRunTimeSec} sec/run` : "0 sec/run"}</span>
           </div>
           <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-2">
             <span className="text-slate-500 block">Learning Confidence</span>

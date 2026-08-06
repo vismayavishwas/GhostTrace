@@ -62,7 +62,24 @@ export const InteractiveSandboxApp: React.FC = () => {
 
   useEffect(() => {
     setMounted(true);
+
+    const handleReset = () => {
+      setSampleIndex(0);
+      setFormData({ f1: "", f2: "", f3: "" });
+      setStatusMsg("");
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("ghosttrace:reset-sandbox", handleReset);
+    }
+
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("ghosttrace:reset-sandbox", handleReset);
+      }
+    };
   }, []);
+
 
   const getDomainSamples = () => {
     if (domain === "HR") return HR_SAMPLES;

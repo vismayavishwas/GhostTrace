@@ -44,6 +44,34 @@ async def websocket_reasoning_endpoint(websocket: WebSocket):
         logger.info("Client disconnected from /ws/reasoning")
 
 
+@router.websocket("/ws/telemetry")
+async def websocket_telemetry_endpoint(websocket: WebSocket):
+    """Specialized WebSocket stream for live telemetry interaction events."""
+    await websocket.accept()
+    logger.info("Client connected to /ws/telemetry stream")
+    observer = get_global_observer()
+
+    async def on_telemetry(event: TelemetryEvent):
+        try:
+            await websocket.send_json({
+                "stream": "telemetry",
+                "type": "TELEMETRY_EVENT",
+                "payload": event.model_dump() if hasattr(event, "model_dump") else str(event)
+            })
+        except Exception:
+            pass
+
+    observer.publisher.subscribe(on_telemetry)
+
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        observer.publisher.unsubscribe(on_telemetry)
+        logger.info("Client disconnected from /ws/telemetry")
+
+
+
 @router.websocket("/ws/replay")
 async def websocket_replay_endpoint(websocket: WebSocket):
     """Specialized WebSocket stream for ReplayFrames visual reconstruction & playback controls."""
