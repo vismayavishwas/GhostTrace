@@ -106,12 +106,17 @@ class SemanticNormalizer:
             fingerprint_token = f"heading_{clean_heading}_{val_structure}"
             display_title = f"{heading} Field"
         else:
-            # Unlabeled Enterprise UI Fallback (textbox_17, input_3) -> Normalizes role without index numbers (e.g. #target-f1 -> target_field)
-            clean_role = "source_field" if "source" in selector.lower() else ("target_field" if "target" in selector.lower() else "data_field")
-            fingerprint_token = f"payload_{clean_role}_{val_structure}"
+            # Unlabeled Enterprise UI Fallback (textbox_17, input_3, #target-f1, #target-f2)
+            # Extract clean field identifier from selector (e.g. #target-f1 -> target_f1)
+            sel_clean = re.sub(r'[^a-zA-Z0-9]', '_', selector.lower()).strip('_')
+            # Extract field token like target_f1 or source_f1 or input_17
+            field_match = re.search(r'(source_[a-z0-9]+|target_[a-z0-9]+|input_[a-z0-9]+|field_[a-z0-9]+|f[0-9]+)', sel_clean)
+            clean_role = field_match.group(1) if field_match else ("source_field" if "source" in selector.lower() else ("target_field" if "target" in selector.lower() else "data_field"))
+            fingerprint_token = f"field_{clean_role}"
             display_title = f"{clean_role.replace('_', ' ').title()}"
 
         semantic_entity = f"fingerprint:{app_key}:{fingerprint_token}"
+
         display_label = f"{display_title} ({app_title})"
 
         return semantic_entity, display_label

@@ -67,8 +67,16 @@ class StableMappingMemory:
                 "status": status
             }
 
-        logger.info(f"StableMappingMemory updated [{src} -> {dest}]: Occurrences={dest_count}, Confidence={confidence}, Status={status}")
+        logger.info(
+            f"[STAGE 2: MAPPING_MEMORY] Record Transfer | Key=('{src}' -> '{dest}') | "
+            f"Occurrences={dest_count} | Confidence={confidence:.2f} | Status={status}"
+        )
+        logger.info(
+            f"[STAGE 2: MAPPING_MEMORY Table Dump] Current Entries ({len(self._table)}): "
+            + ", ".join([f"[{v['source_entity']} -> {v['destination_entity']}: Occ={v['occurrences']}, Conf={v['confidence']}, Status={v['status']}]" for v in self._table.values()])
+        )
         return self._table[key]
+
 
     def get_expected_destination(self, source_entity: str) -> Optional[str]:
         """Returns the expected stable destination entity for a given source_entity, if available."""

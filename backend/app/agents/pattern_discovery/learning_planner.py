@@ -38,20 +38,21 @@ class LearningPlanner:
 
         if has_conflict:
             confidence = round(occurrences / total_for_src, 2)
-            logger.info(f"LearningPlanner state: RELEARNING for '{src}' -> '{dest}' (Conflict detected). Confidence={confidence}")
+            logger.info(f"[STAGE 3: LEARNING_PLANNER] State Transition -> RELEARNING | Key='{src}' -> '{dest}' | Conflict Detected | Confidence={confidence}")
             return "RELEARNING", "Conflict observed. Decrease confidence & relearn mapping.", confidence
 
         if occurrences >= self.min_lock_threshold:
-            logger.info(f"LearningPlanner state: LOCKED for '{src}' -> '{dest}' (Occurrences={occurrences} >= {self.min_lock_threshold}). Confidence=1.0")
+            logger.info(f"[STAGE 3: LEARNING_PLANNER] State Transition -> STABLE_LOCKED 🔒 | Key='{src}' -> '{dest}' | Occurrences={occurrences} >= {self.min_lock_threshold} | Confidence=1.00")
             return "LOCKED", f"Consistent observations ({occurrences}x). Lock mapping.", 1.0
 
         if occurrences >= 2:
             confidence = round(occurrences / self.min_lock_threshold, 2)
-            logger.info(f"LearningPlanner state: WATCHING for '{src}' -> '{dest}' (Occurrences={occurrences}). Confidence={confidence}")
+            logger.info(f"[STAGE 3: LEARNING_PLANNER] State Transition -> WATCHING 👁️ | Key='{src}' -> '{dest}' | Occurrences={occurrences} | Confidence={confidence:.2f}")
             return "WATCHING", f"Seen {occurrences}x. Accumulating confidence.", confidence
 
-        logger.info(f"LearningPlanner state: OBSERVING for '{src}' -> '{dest}' (1st observation). Confidence=0.5")
-        return "OBSERVING", "Initial observation. Keep watching.", 0.5
+        logger.info(f"[STAGE 3: LEARNING_PLANNER] State Transition -> OBSERVING | Key='{src}' -> '{dest}' | Initial Observation | Confidence=0.33")
+        return "OBSERVING", "Initial observation. Keep watching.", 0.33
+
 
 
 global_learning_planner = LearningPlanner()

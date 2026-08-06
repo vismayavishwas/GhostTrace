@@ -29,11 +29,16 @@ class DeviationDetector:
             expected_dest = global_mapping_memory.get_expected_destination(xfer.source_entity)
             observed_dest = xfer.destination_entity.lower()
 
+            logger.info(
+                f"[STAGE 4: DEVIATION_DETECTOR] Comparing Transfer | Source='{xfer.source_entity}' | "
+                f"ExpectedDest='{expected_dest or 'NONE_LOCKED_YET'}' | ObservedDest='{observed_dest}'"
+            )
+
             # If a stable mapping exists for source_entity and observed_dest != expected_dest
             if expected_dest and expected_dest != observed_dest:
                 logger.info(
-                    f"DeviationDetector Mismatch: Source '{xfer.source_entity}' "
-                    f"Expected '{expected_dest}' but Observed '{observed_dest}'"
+                    f"🚨 [STAGE 4: DEVIATION_DETECTOR] DEVIATION FLAGGED! | Source='{xfer.source_entity}' | "
+                    f"Expected='{expected_dest}' != Observed='{observed_dest}'"
                 )
                 deviations.append({
                     "id": f"dev-{len(deviations)+1}",
@@ -45,8 +50,9 @@ class DeviationDetector:
                     "transfer_id": xfer.transfer_id
                 })
 
-        logger.info(f"DeviationDetector evaluated {len(transfers)} transfers and identified {len(deviations)} expectation mismatches.")
+        logger.info(f"[STAGE 4: DEVIATION_DETECTOR] Evaluated {len(transfers)} transfers -> Identified {len(deviations)} expectation mismatches.")
         return deviations
+
 
 
 global_deviation_detector = DeviationDetector()
