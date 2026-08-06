@@ -146,8 +146,15 @@ export const CommandCenterDashboard: React.FC = () => {
 
         {/* Right Column (3 cols): REASONING TIMELINE (WHY it happened) */}
         <div className="lg:col-span-3 flex flex-col gap-6">
-          <ReasoningTimeline />
+          <ReasoningTimeline
+            confidenceScore={confidenceScore}
+            repetitionCount={repetitionCount}
+            noiseFilteredCount={noiseFilteredCount}
+            candidateName={candidateName}
+            businessProcess={businessProcess}
+          />
         </div>
+
       </div>
 
       {/* Bottom Bar: Candidate Discovery Panel (Unlocked on pattern discovery, requires explicit user click to analyze) */}
