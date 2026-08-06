@@ -64,25 +64,25 @@ def get_dynamic_state_data() -> Dict[str, Any]:
 
     event_count = len(events) or len(in_memory_events)
 
-    if event_count == 0:
+    if event_count < 4:
         confidence = 0.0
+        repetition_count = 0
+        noise_count = 0
+        candidate_name = "Waiting for repeated actions..."
     else:
-        confidence = min(0.97, round(event_count / 12.0, 2))
+        repetition_count = max(1, event_count // 4)
+        noise_count = max(0, event_count // 6)
+        confidence = min(0.97, round(0.50 + (repetition_count * 0.15), 2))
 
-    repetition_count = max(0, event_count // 4)
-    noise_count = max(0, event_count // 6)
-
-    if in_memory_events or events:
         ref_event = events[-1].model_dump() if events else in_memory_events[-1]
         first_event = events[0].model_dump() if events else in_memory_events[0]
         source_app = ref_event.get("active_tab") or ref_event.get("app_title") or "Source App"
         target_app = first_event.get("active_tab") or first_event.get("app_title") or "Target App"
         candidate_name = f"{source_app} → {target_app}"
-    else:
-        candidate_name = "Waiting for interaction events..."
 
     dna_dict = None
     if latest_graph_state and latest_graph_state.workflow_dna:
+
         dna_dict = latest_graph_state.workflow_dna.model_dump()
 
     return {

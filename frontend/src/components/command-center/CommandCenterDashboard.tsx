@@ -124,13 +124,14 @@ export const CommandCenterDashboard: React.FC = () => {
 
       {/* Bottom Bar: Candidate Discovery Panel OR Digital Employee Status & ROI */}
       <div className="flex flex-col gap-4">
-        {currentStage === "ANALYZE" && (
+        {currentStage === "ANALYZE" && confidenceScore >= 0.50 && repetitionCount >= 1 && (
           <WorkflowCandidatePanel
             confidenceScore={confidenceScore}
             candidateName={candidateName}
             onAnalyzeTrigger={handleAnalyzeTrigger}
           />
         )}
+
 
         {currentStage === "OPERATIONS" && (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
