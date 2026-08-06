@@ -1,7 +1,8 @@
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 from app.agents.telemetry.transfer_builder import SemanticTransfer
 from app.agents.pattern_discovery.mapping_memory import global_mapping_memory
+
 
 logger = logging.getLogger("ghosttrace.pattern_discovery.learning_planner")
 

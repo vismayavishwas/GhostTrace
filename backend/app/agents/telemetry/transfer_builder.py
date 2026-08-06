@@ -75,7 +75,8 @@ class TransferBuilder:
                     "destination_entity": dest_entity,
                     "source_app": source_app,
                     "destination_app": dest_app,
-                    "pasted_value": sem_e.pasted_value or "",
+                    "pasted_value": str(getattr(sem_e, "pasted_value", None) or getattr(raw_e, "input_value", None) or ""),
+
                     "is_immediate_correction": False,
                     "superseded_destination": None,
                     "raw_events": [raw_e]
