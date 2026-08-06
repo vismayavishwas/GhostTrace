@@ -362,8 +362,8 @@ export const ReasoningTimeline: React.FC<ReasoningTimelineProps> = ({
       {/* Component 3 & 2 — AI Decision Stream & Live Execution Timeline */}
       <div className="flex flex-col gap-2">
         <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">AI Decision & Execution Stream</span>
-        <div className="flex flex-col gap-2 max-h-64 overflow-y-auto pr-1">
-          {logs.map((log) => {
+        <div className="flex flex-col gap-2 max-h-[220px] overflow-y-auto pr-1">
+          {logs.map((log, idx) => {
             let Icon = CheckCircle2;
             let iconColor = "text-emerald-400";
             let badgeBg = "bg-emerald-500/10 border-emerald-500/20";
@@ -396,7 +396,7 @@ export const ReasoningTimeline: React.FC<ReasoningTimelineProps> = ({
 
             return (
               <div
-                key={log.id}
+                key={`${log.id}-${idx}`}
                 className={`flex items-start justify-between gap-2.5 rounded-xl border p-2.5 transition ${badgeBg}`}
               >
                 <div className="flex items-start gap-2.5">
