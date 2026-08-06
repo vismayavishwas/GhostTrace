@@ -1,14 +1,17 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Play, Pause, RotateCcw, CheckCircle2, WifiOff, Sparkles, ArrowRight, ShieldCheck } from "lucide-react";
+import { Play, Pause, RotateCcw, CheckCircle2, WifiOff, Sparkles, ArrowRight, ShieldCheck, Zap } from "lucide-react";
 import { fetchTelemetryEvents } from "@/lib/api";
 import { WebSocketStreamManager } from "@/lib/websocket";
 
 export interface ReplayStep {
+  stepIndex: number;
   title: string;
   actionType: string;
   target: string;
+  selector: string;
+  appContext: string;
   done: boolean;
 }
 
@@ -17,39 +20,43 @@ export interface GhostReplayProps {
 }
 
 const APPROVED_WORKFLOW_DNA_STEPS: ReplayStep[] = [
-  { title: "Hover over Source Invoice ID Field", actionType: "HOVER", target: "#source-invoiceId", done: false },
-  { title: "Select text value 'INV-2026-9841'", actionType: "SELECT", target: "#source-invoiceId", done: false },
-  { title: "Copy Invoice ID to OS Clipboard", actionType: "COPY", target: "#source-invoiceId", done: false },
-  { title: "Smoothly navigate cursor to Target SAP ERP Form", actionType: "HOVER", target: "#target-erp-invoiceId", done: false },
-  { title: "Paste Invoice ID into ERP Field", actionType: "PASTE", target: "#target-erp-invoiceId", done: false },
-  { title: "Copy Amount '$14,250.00'", actionType: "COPY", target: "#source-amount", done: false },
-  { title: "Paste Amount into ERP Field", actionType: "PASTE", target: "#target-erp-amount", done: false },
-  { title: "Submit Form and Verify Entry", actionType: "SUBMIT", target: "#submit-erp-btn", done: false },
+  { stepIndex: 1, title: "Navigate to Invoice PDF Portal", actionType: "NAVIGATE", target: "Document Portal", selector: "#source-invoiceId", appContext: "Chrome PDF Viewer", done: false },
+  { stepIndex: 2, title: "Select & Copy Invoice ID 'INV-2026-9841'", actionType: "COPY", target: "Invoice ID Field", selector: "#source-invoiceId", appContext: "Chrome PDF Viewer", done: false },
+  { stepIndex: 3, title: "Hover over Target SAP ERP Entry Form", actionType: "HOVER", target: "ERP Form Container", selector: "#target-erp-invoiceId", appContext: "SAP ERP Financials", done: false },
+  { stepIndex: 4, title: "Paste Invoice ID into SAP ERP", actionType: "PASTE", target: "ERP Invoice ID Input", selector: "#target-erp-invoiceId", appContext: "SAP ERP Financials", done: false },
+  { stepIndex: 5, title: "Copy Amount '$14,250.00' from PDF", actionType: "COPY", target: "Amount Field", selector: "#source-amount", appContext: "Chrome PDF Viewer", done: false },
+  { stepIndex: 6, title: "Paste Amount into SAP ERP", actionType: "PASTE", target: "ERP Amount Input", selector: "#target-erp-amount", appContext: "SAP ERP Financials", done: false },
+  { stepIndex: 7, title: "Copy Vendor Name 'Apex Global Ltd'", actionType: "COPY", target: "Vendor Field", selector: "#source-vendor", appContext: "Chrome PDF Viewer", done: false },
+  { stepIndex: 8, title: "Submit SAP ERP Entry & Post Receipt", actionType: "SUBMIT", target: "Submit ERP Form Button", selector: "#submit-erp-btn", appContext: "SAP ERP Financials", done: false },
 ];
 
 export const GhostReplay: React.FC<GhostReplayProps> = ({ onProceedToDeploy }) => {
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
   const [progress, setProgress] = useState<number>(0);
   const [speed, setSpeed] = useState<number>(1.0);
+  const [activeStepIdx, setActiveStepIdx] = useState<number>(0);
   const [cursorPos, setCursorPos] = useState<{ x: number; y: number }>({ x: 25, y: 30 });
-  const [cursorAction, setCursorAction] = useState<string>("HOVER");
+  const [cursorAction, setCursorAction] = useState<string>("NAVIGATE");
   const [steps, setSteps] = useState<ReplayStep[]>(APPROVED_WORKFLOW_DNA_STEPS);
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [isCompleted, setIsCompleted] = useState<boolean>(false);
+  const [transitionPhase, setTransitionPhase] = useState<"REPLAYING" | "VALIDATED" | "READY">("REPLAYING");
 
   useEffect(() => {
     fetchTelemetryEvents().then((data) => {
       if (Array.isArray(data) && data.length > 0) {
-        // Filter out any raw noise/outliers and construct semantic approved DNA steps
         const filtered = data
           .filter((evt: any) => !evt.target_selector?.includes("help") && !evt.target_selector?.includes("settings"))
           .slice(0, 8);
 
         if (filtered.length > 0) {
-          const constructed: ReplayStep[] = filtered.map((evt: any) => ({
+          const constructed: ReplayStep[] = filtered.map((evt: any, idx: number) => ({
+            stepIndex: idx + 1,
             title: `${(evt.event_type || 'ACTION').toUpperCase()} on ${evt.target_selector || 'element'}`,
             actionType: (evt.event_type || 'ACTION').toUpperCase(),
             target: evt.target_selector || 'element',
+            selector: evt.target_selector || 'element',
+            appContext: evt.app_title || 'Enterprise Portal',
             done: false,
           }));
           setSteps(constructed);
@@ -67,9 +74,6 @@ export const GhostReplay: React.FC<GhostReplayProps> = ({ onProceedToDeploy }) =
             const normY = Math.min(80, Math.max(20, Math.round((frame.y % 600) / 7)));
             setCursorPos({ x: normX, y: normY });
           }
-          if (Array.isArray(frame.steps) && frame.steps.length > 0) {
-            setSteps(frame.steps);
-          }
         }
       },
       (connected) => setIsConnected(connected)
@@ -84,20 +88,30 @@ export const GhostReplay: React.FC<GhostReplayProps> = ({ onProceedToDeploy }) =
       setProgress((prev) => {
         if (prev >= 100) {
           setIsCompleted(true);
+          setTransitionPhase("VALIDATED");
+          setTimeout(() => setTransitionPhase("READY"), 1200);
+
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(
+              new CustomEvent("ghosttrace:replay-step", {
+                detail: { stepIndex: steps.length, activeStep: steps[steps.length - 1], totalSteps: steps.length, isComplete: true },
+              })
+            );
+          }
           return 100;
         }
+
         const next = prev + 2.5 * speed;
-        
-        // Smooth non-teleporting interpolation along Bezier canvas path
         const stepIdx = Math.min(steps.length - 1, Math.floor((next / 100) * steps.length));
         const currentStep = steps[stepIdx];
 
-        // Smooth human-like coordinates
-        const targetX = 20 + ((stepIdx * 18) % 60);
-        const targetY = 25 + ((stepIdx * 24) % 50);
+        setActiveStepIdx(stepIdx);
+        setCursorAction(currentStep?.actionType || "NAVIGATE");
 
+        // Target coordinates based on active step selector
+        const targetX = 20 + ((stepIdx * 16) % 55);
+        const targetY = 25 + ((stepIdx * 22) % 45);
         setCursorPos({ x: targetX, y: targetY });
-        setCursorAction(currentStep?.actionType || "HOVER");
 
         setSteps((prevSteps) =>
           prevSteps.map((stg, i) => ({
@@ -106,19 +120,32 @@ export const GhostReplay: React.FC<GhostReplayProps> = ({ onProceedToDeploy }) =
           }))
         );
 
+        // Broadcast event for ReasoningTimeline & Blueprint synchronization
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent("ghosttrace:replay-step", {
+              detail: { stepIndex: stepIdx + 1, activeStep: currentStep, totalSteps: steps.length, isComplete: false },
+            })
+          );
+        }
+
         if (next >= 100) {
           setIsCompleted(true);
+          setTransitionPhase("VALIDATED");
+          setTimeout(() => setTransitionPhase("READY"), 1200);
         }
         return next;
       });
-    }, 100);
+    }, 120);
 
     return () => clearInterval(interval);
   }, [isPlaying, speed, steps]);
 
   const handleRestart = () => {
     setProgress(0);
+    setActiveStepIdx(0);
     setIsCompleted(false);
+    setTransitionPhase("REPLAYING");
     setIsPlaying(true);
   };
 
@@ -127,12 +154,12 @@ export const GhostReplay: React.FC<GhostReplayProps> = ({ onProceedToDeploy }) =
       {/* Header */}
       <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
         <div className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 shadow-lg shadow-cyan-500/10">
             <span className="text-xl">👻</span>
           </div>
           <div>
-            <h3 className="text-sm font-black text-white">Ghost Cursor Replay Simulation</h3>
-            <p className="text-[10px] text-slate-400">Visual 60fps simulation of approved Workflow DNA (Excludes Outliers)</p>
+            <h3 className="text-sm font-black text-white">Ghost Replay — Workflow DNA Renderer</h3>
+            <p className="text-[10px] text-slate-400">Rendering approved Workflow DNA steps (Excludes Outliers)</p>
           </div>
         </div>
 
@@ -166,25 +193,25 @@ export const GhostReplay: React.FC<GhostReplayProps> = ({ onProceedToDeploy }) =
         </div>
       </div>
 
-      {/* Main Grid: Left Animated Canvas, Right Semantic Typing */}
+      {/* Main Grid: Left Translucent Canvas Apparition, Right Typed DNA Steps */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Interactive Ghost Canvas */}
+        {/* Canvas Simulation */}
         <div className="relative h-72 w-full rounded-xl border border-slate-800 bg-slate-950/90 overflow-hidden flex flex-col justify-between p-4">
           <div className="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px] opacity-40" />
 
-          {/* Target Web Control Simulations */}
-          <div className="grid grid-cols-2 gap-3 relative z-0 opacity-80">
-            <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-2.5">
+          {/* Active Target Component Highlight */}
+          <div className="grid grid-cols-2 gap-3 relative z-0 opacity-90">
+            <div className={`rounded-lg border p-2.5 transition ${activeStepIdx % 2 === 0 ? "border-cyan-500/60 bg-cyan-950/30 shadow-md shadow-cyan-500/20" : "border-slate-800 bg-slate-900/60"}`}>
               <span className="text-[10px] text-slate-500 block font-mono">SOURCE PDF</span>
               <span className="text-xs font-bold text-cyan-300 font-mono">INV-2026-9841</span>
             </div>
-            <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-2.5">
+            <div className={`rounded-lg border p-2.5 transition ${activeStepIdx % 2 === 1 ? "border-emerald-500/60 bg-emerald-950/30 shadow-md shadow-emerald-500/20" : "border-slate-800 bg-slate-900/60"}`}>
               <span className="text-[10px] text-slate-500 block font-mono">TARGET SAP ERP</span>
               <span className="text-xs font-bold text-emerald-300 font-mono">$14,250.00</span>
             </div>
           </div>
 
-          {/* Smooth Non-Teleporting Ghost Cursor Pointer */}
+          {/* Smooth Ghost Cursor Apparition */}
           <div
             className="absolute z-20 transition-all duration-300 ease-out pointer-events-none"
             style={{
@@ -192,7 +219,7 @@ export const GhostReplay: React.FC<GhostReplayProps> = ({ onProceedToDeploy }) =
               top: `${cursorPos.y}%`,
             }}
           >
-            <div className="relative flex items-center gap-1">
+            <div className="relative flex items-center gap-1.5">
               <svg className="h-7 w-7 text-cyan-400 drop-shadow-[0_0_12px_rgba(6,182,212,0.9)] animate-pulse" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M3 3l7 18 3-7 7-3L3 3z" />
               </svg>
@@ -205,7 +232,7 @@ export const GhostReplay: React.FC<GhostReplayProps> = ({ onProceedToDeploy }) =
           {/* Progress Bar */}
           <div className="relative z-10 w-full bg-slate-900 rounded-full h-2 overflow-hidden border border-slate-800">
             <div
-              className="bg-gradient-to-r from-cyan-500 to-purple-500 h-full transition-all duration-150"
+              className="bg-gradient-to-r from-cyan-500 via-purple-500 to-emerald-500 h-full transition-all duration-150"
               style={{ width: `${progress}%` }}
             />
           </div>
@@ -214,39 +241,57 @@ export const GhostReplay: React.FC<GhostReplayProps> = ({ onProceedToDeploy }) =
         {/* Typed Semantic Approved DNA Steps */}
         <div className="flex flex-col gap-2 rounded-xl border border-slate-800 bg-slate-950/70 p-4">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Approved Workflow DNA Sequence</span>
-            <span className="text-[10px] font-mono text-cyan-400 font-bold">{Math.round(progress)}% Complete</span>
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Approved Workflow DNA Steps</span>
+            <span className="text-[10px] font-mono text-cyan-400 font-bold">Step {activeStepIdx + 1}/{steps.length}</span>
           </div>
 
           <div className="flex flex-col gap-2 max-h-56 overflow-y-auto">
-            {steps.map((stg, idx) => (
-              <div
-                key={idx}
-                className={`flex items-center justify-between rounded-lg border p-2.5 transition ${
-                  stg.done
-                    ? "border-emerald-500/40 bg-emerald-950/20 text-slate-100 shadow-sm"
-                    : "border-slate-800 bg-slate-950/20 text-slate-500"
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-mono font-bold text-cyan-400">{idx + 1}.</span>
-                  <span className="text-xs font-semibold">{stg.title}</span>
+            {steps.map((stg, idx) => {
+              const isActive = idx === activeStepIdx && !isCompleted;
+              const isDone = stg.done;
+
+              return (
+                <div
+                  key={idx}
+                  className={`flex items-center justify-between rounded-lg border p-2.5 transition ${
+                    isActive
+                      ? "border-cyan-500/70 bg-cyan-950/30 text-cyan-200 shadow-md shadow-cyan-500/20"
+                      : isDone
+                      ? "border-emerald-500/40 bg-emerald-950/20 text-slate-100"
+                      : "border-slate-800 bg-slate-950/20 text-slate-500"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    {isActive ? (
+                      <span className="h-2 w-2 rounded-full bg-cyan-400 animate-ping shrink-0" />
+                    ) : isDone ? (
+                      <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                    ) : (
+                      <span className="text-[10px] font-mono text-slate-600">{idx + 1}.</span>
+                    )}
+                    <span className="text-xs font-semibold">{stg.title}</span>
+                  </div>
+                  {isDone && <span className="text-[10px] font-mono text-emerald-400 font-bold">✓</span>}
                 </div>
-                {stg.done && <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 animate-bounce" />}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
 
-      {/* Completion Banner & Unlock Button */}
+      {/* Smooth Multi-Phase Transition & Deployment Unlock */}
       {isCompleted && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/80 to-slate-900 p-4 shadow-xl animate-pulse">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/80 via-slate-900 to-purple-950/80 p-4 shadow-2xl animate-pulse">
           <div className="flex items-center gap-3">
             <ShieldCheck className="h-6 w-6 text-emerald-400 shrink-0" />
             <div>
-              <h4 className="text-sm font-extrabold text-emerald-200">✓ Replay Complete</h4>
-              <p className="text-xs text-emerald-400/80">Approved Workflow DNA successfully simulated without errors.</p>
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-extrabold text-emerald-200">✓ Replay Complete</h4>
+                <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-[9px] font-mono text-emerald-300 font-bold border border-emerald-500/30">
+                  {transitionPhase === "VALIDATED" ? "Workflow Validated" : "Ready for Compilation"}
+                </span>
+              </div>
+              <p className="text-xs text-emerald-400/80">Approved Workflow DNA validated without errors. Ready for Playwright compiler.</p>
             </div>
           </div>
 
@@ -254,9 +299,10 @@ export const GhostReplay: React.FC<GhostReplayProps> = ({ onProceedToDeploy }) =
             <button
               suppressHydrationWarning
               onClick={onProceedToDeploy}
+              disabled={transitionPhase === "REPLAYING"}
               className="flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-2.5 text-xs font-black text-slate-950 shadow-lg shadow-emerald-500/30 hover:bg-emerald-400 transition transform hover:-translate-y-0.5 shrink-0"
             >
-              <span>Proceed to Compiler & Deployment</span>
+              <span>Proceed to Compiler & Deployment ⚙️</span>
               <ArrowRight className="h-4 w-4" />
             </button>
           )}

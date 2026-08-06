@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { ArrowRight, FileText, CheckCircle2, Cpu, Database, Send, Bell } from "lucide-react";
 
 export interface BlueprintStep {
@@ -25,6 +25,26 @@ export interface AutomationBlueprintProps {
 }
 
 export const AutomationBlueprint: React.FC<AutomationBlueprintProps> = ({ onProceedToDeploy }) => {
+  const [activeStepIdx, setActiveStepIdx] = useState<number>(-1);
+
+  useEffect(() => {
+    const handleReplaySync = (e: any) => {
+      if (e.detail && e.detail.stepIndex !== undefined) {
+        setActiveStepIdx(e.detail.stepIndex - 1);
+      }
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("ghosttrace:replay-step", handleReplaySync);
+    }
+
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("ghosttrace:replay-step", handleReplaySync);
+      }
+    };
+  }, []);
+
   return (
     <div className="flex flex-col gap-6 rounded-2xl border border-slate-800/80 bg-slate-900/90 p-6 shadow-2xl backdrop-blur-xl">
       <div className="flex items-center justify-between border-b border-slate-800/80 pb-4">
@@ -44,23 +64,33 @@ export const AutomationBlueprint: React.FC<AutomationBlueprintProps> = ({ onProc
           <span>Proceed to Ghost Replay Simulation 👻</span>
           <ArrowRight className="h-4 w-4" />
         </button>
-
       </div>
 
-      {/* Blueprint Steps Flow */}
+      {/* Blueprint Steps Flow (Glowing sync during Ghost Replay) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {BLUEPRINT_STEPS.map((step) => {
+        {BLUEPRINT_STEPS.map((step, idx) => {
           const Icon = step.icon;
+          const isActive = idx === activeStepIdx;
+          const isDone = idx < activeStepIdx;
+
           return (
             <div
               key={step.step_index}
-              className="flex flex-col justify-between rounded-xl border border-slate-800 bg-slate-950/60 p-4 shadow-md backdrop-blur-sm"
+              className={`flex flex-col justify-between rounded-xl border p-4 shadow-md backdrop-blur-sm transition ${
+                isActive
+                  ? "border-emerald-500/70 bg-emerald-950/30 text-emerald-200 shadow-xl shadow-emerald-500/20 animate-pulse"
+                  : isDone
+                  ? "border-emerald-500/30 bg-slate-950/80 text-slate-200"
+                  : "border-slate-800 bg-slate-950/60 text-slate-400"
+              }`}
             >
               <div className="flex items-center justify-between">
-                <span className="rounded-md bg-slate-800 px-2 py-0.5 text-[10px] font-mono font-bold text-cyan-400">
+                <span className={`rounded-md px-2 py-0.5 text-[10px] font-mono font-bold ${
+                  isActive ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40" : "bg-slate-800 text-cyan-400"
+                }`}>
                   PHASE {step.step_index}: {step.phase}
                 </span>
-                <Icon className="h-4 w-4 text-purple-400" />
+                <Icon className={`h-4 w-4 ${isActive ? "text-emerald-400 animate-bounce" : "text-purple-400"}`} />
               </div>
               <h4 className="mt-3 text-xs font-bold text-slate-100">{step.title}</h4>
               <p className="mt-1 text-[11px] text-slate-400">{step.detail}</p>
