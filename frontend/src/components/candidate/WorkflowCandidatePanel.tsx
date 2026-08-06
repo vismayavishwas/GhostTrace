@@ -50,16 +50,21 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
   const [selectedOutlierIds, setSelectedOutlierIds] = useState<Set<string>>(new Set(outliers.map(o => o.id)));
   const [isReviewPending, setIsReviewPending] = useState<boolean>(outliers.length > 0);
 
-  React.useEffect(() => {
+  useEffect(() => {
     setOutlierList(outliers);
     setSelectedOutlierIds(new Set(outliers.map(o => o.id)));
-    if (outliers.length === 0) {
-      setIsReviewPending(false);
-    }
+    setIsReviewPending(outliers.length > 0);
   }, [outliers]);
 
-  const effectiveScore = currentScore > 0 ? currentScore : confidenceScore;
+  useEffect(() => {
+    if (confidenceScore !== undefined && confidenceScore > 0) {
+      setCurrentScore(confidenceScore);
+    }
+  }, [confidenceScore]);
+
+  const effectiveScore = (currentScore > 0 && currentScore !== 0.82) ? currentScore : confidenceScore;
   const confidencePct = Math.round(effectiveScore * 100);
+
   
   // Rule: Enable Analyze button directly when no outliers exist OR after review, for any confidence >= 0.33 (1+ cycle)
   const isAnalyzeEnabled = (!isReviewPending || outlierList.length === 0) && (effectiveScore >= 0.30 || outliers.length > 0);
