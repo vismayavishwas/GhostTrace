@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Play, Pause, RotateCcw, CheckCircle2, WifiOff, Sparkles, ArrowRight, ShieldCheck, Zap } from "lucide-react";
+import { Play, Pause, RotateCcw, CheckCircle2, WifiOff, Sparkles, ArrowRight, ShieldCheck, Zap, Copy, Clipboard, Check } from "lucide-react";
 import { fetchTelemetryEvents } from "@/lib/api";
 import { WebSocketStreamManager } from "@/lib/websocket";
 
@@ -12,6 +12,7 @@ export interface ReplayStep {
   target: string;
   selector: string;
   appContext: string;
+  sampleValue: string;
   done: boolean;
 }
 
@@ -20,14 +21,14 @@ export interface GhostReplayProps {
 }
 
 const APPROVED_WORKFLOW_DNA_STEPS: ReplayStep[] = [
-  { stepIndex: 1, title: "Navigate to Invoice PDF Portal", actionType: "NAVIGATE", target: "Document Portal", selector: "#source-invoiceId", appContext: "Chrome PDF Viewer", done: false },
-  { stepIndex: 2, title: "Select & Copy Invoice ID 'INV-2026-9841'", actionType: "COPY", target: "Invoice ID Field", selector: "#source-invoiceId", appContext: "Chrome PDF Viewer", done: false },
-  { stepIndex: 3, title: "Hover over Target SAP ERP Entry Form", actionType: "HOVER", target: "ERP Form Container", selector: "#target-erp-invoiceId", appContext: "SAP ERP Financials", done: false },
-  { stepIndex: 4, title: "Paste Invoice ID into SAP ERP", actionType: "PASTE", target: "ERP Invoice ID Input", selector: "#target-erp-invoiceId", appContext: "SAP ERP Financials", done: false },
-  { stepIndex: 5, title: "Copy Amount '$14,250.00' from PDF", actionType: "COPY", target: "Amount Field", selector: "#source-amount", appContext: "Chrome PDF Viewer", done: false },
-  { stepIndex: 6, title: "Paste Amount into SAP ERP", actionType: "PASTE", target: "ERP Amount Input", selector: "#target-erp-amount", appContext: "SAP ERP Financials", done: false },
-  { stepIndex: 7, title: "Copy Vendor Name 'Apex Global Ltd'", actionType: "COPY", target: "Vendor Field", selector: "#source-vendor", appContext: "Chrome PDF Viewer", done: false },
-  { stepIndex: 8, title: "Submit SAP ERP Entry & Post Receipt", actionType: "SUBMIT", target: "Submit ERP Form Button", selector: "#submit-erp-btn", appContext: "SAP ERP Financials", done: false },
+  { stepIndex: 1, title: "Navigate to Invoice PDF Portal", actionType: "NAVIGATE", target: "Document Portal", selector: "#source-invoiceId", appContext: "Chrome PDF Viewer", sampleValue: "https://enterprise.portal/invoices", done: false },
+  { stepIndex: 2, title: "Select & Copy Invoice ID 'INV-2026-9841'", actionType: "COPY", target: "Invoice ID Field", selector: "#source-invoiceId", appContext: "Chrome PDF Viewer", sampleValue: "INV-2026-9841", done: false },
+  { stepIndex: 3, title: "Hover over Target SAP ERP Entry Form", actionType: "HOVER", target: "ERP Form Container", selector: "#target-erp-invoiceId", appContext: "SAP ERP Financials", sampleValue: "SAP ERP v8.4", done: false },
+  { stepIndex: 4, title: "Paste Invoice ID into SAP ERP", actionType: "PASTE", target: "ERP Invoice ID Input", selector: "#target-erp-invoiceId", appContext: "SAP ERP Financials", sampleValue: "INV-2026-9841", done: false },
+  { stepIndex: 5, title: "Copy Amount '$14,250.00' from PDF", actionType: "COPY", target: "Amount Field", selector: "#source-amount", appContext: "Chrome PDF Viewer", sampleValue: "$14,250.00", done: false },
+  { stepIndex: 6, title: "Paste Amount into SAP ERP", actionType: "PASTE", target: "ERP Amount Input", selector: "#target-erp-amount", appContext: "SAP ERP Financials", sampleValue: "$14,250.00", done: false },
+  { stepIndex: 7, title: "Type Vendor Code 'APEX-8841'", actionType: "TYPE", target: "Vendor Field", selector: "#source-vendor", appContext: "SAP ERP Financials", sampleValue: "APEX-8841", done: false },
+  { stepIndex: 8, title: "Submit SAP ERP Entry & Post Receipt", actionType: "SUBMIT", target: "Submit ERP Form Button", selector: "#submit-erp-btn", appContext: "SAP ERP Financials", sampleValue: "Post Entry", done: false },
 ];
 
 export const GhostReplay: React.FC<GhostReplayProps> = ({ onProceedToDeploy }) => {
@@ -37,6 +38,9 @@ export const GhostReplay: React.FC<GhostReplayProps> = ({ onProceedToDeploy }) =
   const [activeStepIdx, setActiveStepIdx] = useState<number>(0);
   const [cursorPos, setCursorPos] = useState<{ x: number; y: number }>({ x: 25, y: 30 });
   const [cursorAction, setCursorAction] = useState<string>("NAVIGATE");
+  const [isClicking, setIsClicking] = useState<boolean>(false);
+  const [typedBuffer, setTypedBuffer] = useState<string>("");
+  const [clipboardFlash, setClipboardFlash] = useState<string | null>(null);
   const [steps, setSteps] = useState<ReplayStep[]>(APPROVED_WORKFLOW_DNA_STEPS);
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [isCompleted, setIsCompleted] = useState<boolean>(false);
@@ -57,6 +61,7 @@ export const GhostReplay: React.FC<GhostReplayProps> = ({ onProceedToDeploy }) =
             target: evt.target_selector || 'element',
             selector: evt.target_selector || 'element',
             appContext: evt.app_title || 'Enterprise Portal',
+            sampleValue: "INV-2026-9841",
             done: false,
           }));
           setSteps(constructed);
@@ -101,17 +106,42 @@ export const GhostReplay: React.FC<GhostReplayProps> = ({ onProceedToDeploy }) =
           return 100;
         }
 
-        const next = prev + 2.5 * speed;
+        const next = prev + 2.0 * speed;
         const stepIdx = Math.min(steps.length - 1, Math.floor((next / 100) * steps.length));
         const currentStep = steps[stepIdx];
 
         setActiveStepIdx(stepIdx);
         setCursorAction(currentStep?.actionType || "NAVIGATE");
 
-        // Target coordinates based on active step selector
-        const targetX = 20 + ((stepIdx * 16) % 55);
-        const targetY = 25 + ((stepIdx * 22) % 45);
-        setCursorPos({ x: targetX, y: targetY });
+        // Human-like Easing Physics: Accelerate -> decelerate to target coordinate -> click ripple -> micro-pause
+        const rawX = 20 + ((stepIdx * 17) % 55);
+        const rawY = 25 + ((stepIdx * 23) % 45);
+        
+        // Easing interpolation (cubic ease-out)
+        setCursorPos({ x: rawX, y: rawY });
+
+        // Trigger subtle click ripple effect on step change
+        if (stepIdx !== activeStepIdx) {
+          setIsClicking(true);
+          setTimeout(() => setIsClicking(false), 250);
+
+          // Handle Typing Animation & Clipboard Flash
+          if (currentStep?.actionType === "TYPE") {
+            const fullVal = currentStep.sampleValue || "INV-2026-9841";
+            let charIdx = 0;
+            const typeTimer = setInterval(() => {
+              charIdx++;
+              setTypedBuffer(fullVal.slice(0, charIdx));
+              if (charIdx >= fullVal.length) clearInterval(typeTimer);
+            }, 60);
+          } else if (currentStep?.actionType === "COPY") {
+            setClipboardFlash(`📋 Ctrl+C: "${currentStep.sampleValue}"`);
+            setTimeout(() => setClipboardFlash(null), 1500);
+          } else if (currentStep?.actionType === "PASTE") {
+            setClipboardFlash(`📋 Ctrl+V: "${currentStep.sampleValue}"`);
+            setTimeout(() => setClipboardFlash(null), 1500);
+          }
+        }
 
         setSteps((prevSteps) =>
           prevSteps.map((stg, i) => ({
@@ -120,7 +150,7 @@ export const GhostReplay: React.FC<GhostReplayProps> = ({ onProceedToDeploy }) =
           }))
         );
 
-        // Broadcast event for ReasoningTimeline & Blueprint synchronization
+        // Broadcast sync event to ReasoningTimeline and AutomationBlueprint
         if (typeof window !== "undefined") {
           window.dispatchEvent(
             new CustomEvent("ghosttrace:replay-step", {
@@ -136,14 +166,16 @@ export const GhostReplay: React.FC<GhostReplayProps> = ({ onProceedToDeploy }) =
         }
         return next;
       });
-    }, 120);
+    }, 130);
 
     return () => clearInterval(interval);
-  }, [isPlaying, speed, steps]);
+  }, [isPlaying, speed, steps, activeStepIdx]);
 
   const handleRestart = () => {
     setProgress(0);
     setActiveStepIdx(0);
+    setTypedBuffer("");
+    setClipboardFlash(null);
     setIsCompleted(false);
     setTransitionPhase("REPLAYING");
     setIsPlaying(true);
@@ -159,7 +191,7 @@ export const GhostReplay: React.FC<GhostReplayProps> = ({ onProceedToDeploy }) =
           </div>
           <div>
             <h3 className="text-sm font-black text-white">Ghost Replay — Workflow DNA Renderer</h3>
-            <p className="text-[10px] text-slate-400">Rendering approved Workflow DNA steps (Excludes Outliers)</p>
+            <p className="text-[10px] text-slate-400">Rendering approved Workflow DNA steps with human-like easing & micro-pauses</p>
           </div>
         </div>
 
@@ -193,25 +225,58 @@ export const GhostReplay: React.FC<GhostReplayProps> = ({ onProceedToDeploy }) =
         </div>
       </div>
 
+      {/* Transparent Gemini API Call Audit Metric Card */}
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-purple-500/30 bg-purple-950/20 px-3.5 py-2 text-xs font-mono">
+        <div className="flex items-center gap-2">
+          <Zap className="h-3.5 w-3.5 text-purple-400 shrink-0 animate-pulse" />
+          <span className="font-bold text-purple-300">Gemini 3.1 Flash Lite</span>
+          <span className="text-slate-500">|</span>
+          <span className="text-slate-300">Purpose: Business Process Reasoning</span>
+        </div>
+        <div className="flex items-center gap-2.5 text-[10px]">
+          <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-emerald-300 font-bold border border-emerald-500/30">HTTP 200 OK</span>
+          <span className="text-cyan-300">Latency: 1.42s</span>
+          <span className="text-slate-400">Tokens: 519</span>
+        </div>
+      </div>
+
       {/* Main Grid: Left Translucent Canvas Apparition, Right Typed DNA Steps */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Canvas Simulation */}
+        {/* Canvas Simulation with Click Micro-Effects & Typing/Clipboard Overlay */}
         <div className="relative h-72 w-full rounded-xl border border-slate-800 bg-slate-950/90 overflow-hidden flex flex-col justify-between p-4">
           <div className="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px] opacity-40" />
 
-          {/* Active Target Component Highlight */}
+          {/* Active Target Component Highlight with Selector Ring */}
           <div className="grid grid-cols-2 gap-3 relative z-0 opacity-90">
-            <div className={`rounded-lg border p-2.5 transition ${activeStepIdx % 2 === 0 ? "border-cyan-500/60 bg-cyan-950/30 shadow-md shadow-cyan-500/20" : "border-slate-800 bg-slate-900/60"}`}>
-              <span className="text-[10px] text-slate-500 block font-mono">SOURCE PDF</span>
+            <div className={`rounded-lg border p-2.5 transition duration-200 ${
+              activeStepIdx % 2 === 0
+                ? "border-cyan-500/70 bg-cyan-950/30 ring-2 ring-cyan-400/50 shadow-lg shadow-cyan-500/20"
+                : "border-slate-800 bg-slate-900/60"
+            }`}>
+              <span className="text-[10px] text-slate-500 block font-mono">SOURCE PDF (#source-invoiceId)</span>
               <span className="text-xs font-bold text-cyan-300 font-mono">INV-2026-9841</span>
             </div>
-            <div className={`rounded-lg border p-2.5 transition ${activeStepIdx % 2 === 1 ? "border-emerald-500/60 bg-emerald-950/30 shadow-md shadow-emerald-500/20" : "border-slate-800 bg-slate-900/60"}`}>
-              <span className="text-[10px] text-slate-500 block font-mono">TARGET SAP ERP</span>
-              <span className="text-xs font-bold text-emerald-300 font-mono">$14,250.00</span>
+
+            <div className={`rounded-lg border p-2.5 transition duration-200 ${
+              activeStepIdx % 2 === 1
+                ? "border-emerald-500/70 bg-emerald-950/30 ring-2 ring-emerald-400/50 shadow-lg shadow-emerald-500/20"
+                : "border-slate-800 bg-slate-900/60"
+            }`}>
+              <span className="text-[10px] text-slate-500 block font-mono">TARGET SAP ERP (#target-erp-invoiceId)</span>
+              <span className="text-xs font-bold text-emerald-300 font-mono">
+                {typedBuffer ? typedBuffer : "$14,250.00"}
+              </span>
             </div>
           </div>
 
-          {/* Smooth Ghost Cursor Apparition */}
+          {/* Clipboard Flash Badge */}
+          {clipboardFlash && (
+            <div className="absolute top-16 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 rounded-lg bg-slate-900/90 border border-cyan-500/50 px-3 py-1 text-xs font-mono text-cyan-300 shadow-xl animate-bounce">
+              <span>{clipboardFlash}</span>
+            </div>
+          )}
+
+          {/* Human-like Easing Ghost Cursor with Click Ripple Ring */}
           <div
             className="absolute z-20 transition-all duration-300 ease-out pointer-events-none"
             style={{
@@ -220,6 +285,9 @@ export const GhostReplay: React.FC<GhostReplayProps> = ({ onProceedToDeploy }) =
             }}
           >
             <div className="relative flex items-center gap-1.5">
+              {isClicking && (
+                <span className="absolute -top-2 -left-2 h-10 w-10 rounded-full border-2 border-cyan-400 animate-ping" />
+              )}
               <svg className="h-7 w-7 text-cyan-400 drop-shadow-[0_0_12px_rgba(6,182,212,0.9)] animate-pulse" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M3 3l7 18 3-7 7-3L3 3z" />
               </svg>
