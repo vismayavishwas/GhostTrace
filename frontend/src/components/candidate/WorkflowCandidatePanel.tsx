@@ -253,23 +253,32 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
                       : "border-slate-800 bg-slate-950/40 text-slate-400 hover:border-slate-700"
                   }`}
                 >
-                  <div className="flex items-center gap-2.5">
+                  <div className="flex items-center gap-2.5 flex-1 min-w-0 pr-2">
                     {isChecked ? (
                       <CheckSquare className="h-4 w-4 text-amber-400 shrink-0" />
                     ) : (
                       <Square className="h-4 w-4 text-slate-600 shrink-0" />
                     )}
-                    <div>
-                      <span className="font-semibold text-xs text-slate-200 block">{item.label}</span>
-                      <span className="text-[10px] font-mono text-slate-500">{item.reason}</span>
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-bold text-xs text-slate-100 truncate block">
+                        {item.label || "Observed Action"}
+                      </span>
+                      <span className="text-[10px] font-mono text-amber-300/70 truncate">{item.reason}</span>
                     </div>
                   </div>
-                  <code className="text-[9px] font-mono bg-slate-900 px-1.5 py-0.5 rounded text-cyan-400">
-                    {item.selector}
-                  </code>
+                  <span className="text-[10px] font-mono bg-slate-900/90 px-2 py-0.5 rounded border border-slate-700/80 text-cyan-300 font-semibold shrink-0">
+                    {item.selector.includes("source")
+                      ? "[ Source Field ]"
+                      : item.selector.includes("target")
+                      ? "[ Target Form ]"
+                      : item.selector.includes("button")
+                      ? "[ Action Button ]"
+                      : "[ UI Element ]"}
+                  </span>
                 </div>
               );
             })}
+
           </div>
 
           {/* Batch Submit Action Buttons */}
