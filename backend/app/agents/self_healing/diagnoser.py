@@ -168,9 +168,13 @@ class FailureDiagnoser:
             f"{surrounding_code}\n\n"
             f"=== ORIGINAL SOURCE CODE ===\n"
             f"{full_source}\n\n"
-            f"INSTRUCTIONS:\n"
-            f"Repair the Playwright Python script to fix the error.\n"
-            f"1. Fix the broken selector, syntax, or timeout parameter.\n"
-            f"2. Maintain modular function structure (`async def step_X_...`).\n"
-            f"3. Return ONLY valid, executable Python source code."
+            f"INSTRUCTIONS FOR 5-LEVEL AI SELF-HEALING:\n"
+            f"Analyze the error across all 5 levels of self-healing and re-synthesize the repaired script:\n"
+            f"- Level 1 (Selector Healing): Patch updated CSS/XPath selectors (e.g. `#submit-btn` -> `#submit_button`).\n"
+            f"- Level 2 (Locator Healing): Relocate element if moved into a new div, iframe, or modal container.\n"
+            f"- Level 3 (Structural Healing): Re-sequence step order if form step order changed (e.g. `Invoice -> Vendor -> Amount` instead of `Invoice -> Amount -> Vendor`).\n"
+            f"- Level 4 (Semantic Healing): Re-map fields if semantic labels changed (e.g. `Invoice Number` -> `Document ID`).\n"
+            f"- Level 5 (Intent Healing): Re-synthesize step flow if UI interaction intent expanded (e.g. `Click Save` -> `Click Review` -> `Click Confirm`).\n\n"
+            f"Return ONLY valid, executable Python Playwright source code."
         )
+

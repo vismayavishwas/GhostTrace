@@ -20,7 +20,9 @@ class FailureDiagnosis(BaseModel):
     failing_selector: Optional[str] = Field(default=None, description="UI selector that caused runtime error")
     
     probable_cause: str = Field(default="Unknown Runtime Error", description="Categorized cause (Syntax, Selector, Timeout)")
+    healing_level: str = Field(default="Level 1 — Selector Healing", description="Self-healing level (Level 1 Selector, Level 2 Locator, Level 3 Structural, Level 4 Semantic, Level 5 Intent)")
     traceback: str = Field(default="", description="Full captured Python exception traceback")
+
     surrounding_code: str = Field(default="", description="Code snippet surrounding the failing line")
     repair_prompt: str = Field(default="", description="Structured prompt constructed for Gemini repair engine")
 
@@ -43,6 +45,8 @@ class HealingRecord(BaseModel):
     
     failing_line: Optional[int] = Field(default=None, description="Failing line number")
     failing_step_name: Optional[str] = Field(default=None, description="Name of failing step")
+    healing_level: str = Field(default="Level 1 — Selector Healing", description="Self-healing level executed")
+
     
     original_traceback: str = Field(default="", description="Original error traceback before repair")
     patched_traceback: Optional[str] = Field(default=None, description="New traceback if repair attempt failed, or None if passed")
