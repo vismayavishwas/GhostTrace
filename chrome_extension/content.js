@@ -52,22 +52,26 @@
       app_title: document.title,
     };
 
-    // Direct HTTP POST fetch to backend (reliable across origins)
-    fetch("http://127.0.0.1:8000/api/v1/telemetry/events", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    })
-      .then((res) => res.json())
-      .then((data) => console.log("GhostTrace Telemetry Posted:", data))
-      .catch((err) => console.warn("GhostTrace Telemetry Post Error:", err));
-
-    // Fallback Chrome runtime message
-    try {
-      chrome.runtime.sendMessage({ action: "POST_TELEMETRY", payload });
-    } catch (e) {
-      // Extension context check ignore
+    // Send telemetry through extension background service worker (bypasses HTTPS mixed-content CSP restrictions)
+    if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.sendMessage) {
+      chrome.runtime.sendMessage({ action: "POST_TELEMETRY", payload }, (response) => {
+        if (chrome.runtime.lastError) {
+          // Direct fallback if extension context invalidated
+          fetch("http://127.0.0.1:8000/api/v1/telemetry/events", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          }).catch(() => {});
+        }
+      });
+    } else {
+      fetch("http://127.0.0.1:8000/api/v1/telemetry/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }).catch(() => {});
     }
+
   }
 
   // Click Event Listener
