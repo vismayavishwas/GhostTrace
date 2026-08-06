@@ -31,8 +31,13 @@ class SemanticEvent:
         self.input_masked = getattr(raw_event, "input_value", None) or getattr(raw_event, "input_masked", None)
 
     @property
+    def pasted_value(self) -> str:
+        return str(self.input_masked or "")
+
+    @property
     def event_type(self):
         return self.operation
+
 
     def to_dict(self) -> Dict[str, Any]:
         return {
