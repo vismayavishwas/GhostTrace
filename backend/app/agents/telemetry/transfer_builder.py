@@ -46,17 +46,14 @@ class TransferBuilder:
         transfers: List[SemanticTransfer] = []
         pending_transfers: List[Dict[str, Any]] = []
 
-        unprocessed_events = [e for e in events if getattr(e, "event_id", None) not in self._processed_event_ids]
-        if not unprocessed_events:
+        if not events:
             return []
 
-        for raw_e in unprocessed_events:
-            if getattr(raw_e, "event_id", None):
-                self._processed_event_ids.add(raw_e.event_id)
-
+        for raw_e in events:
             sem_e = SemanticNormalizer.normalize(raw_e)
             if not sem_e:
                 continue
+
 
             # Detect Start of Intent Window (COPY / SELECT)
             if sem_e.operation in ["COPY", "SELECT"]:

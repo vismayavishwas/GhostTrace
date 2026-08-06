@@ -69,16 +69,49 @@ export const InteractiveSandboxApp: React.FC = () => {
       setStatusMsg("");
     };
 
+    const handleGlobalClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target) return;
+      const tag = target.tagName.toLowerCase();
+      const id = target.id ? `#${target.id}` : "";
+      const cls = target.className && typeof target.className === "string" ? `.${target.className.split(" ")[0]}` : "";
+      const selector = id || (tag + cls) || "element";
+      const text = target.innerText || target.getAttribute("aria-label") || target.getAttribute("placeholder") || tag;
+      
+      dispatchTelemetry("CLICK", selector, text.slice(0, 30));
+    };
+
+    const handleGlobalCopy = () => {
+      const selection = window.getSelection()?.toString() || "";
+      if (selection) {
+        dispatchTelemetry("COPY", "window.selection", selection.slice(0, 30));
+      }
+    };
+
+    const handleGlobalPaste = (e: ClipboardEvent) => {
+      const text = e.clipboardData?.getData("text") || "";
+      const target = e.target as HTMLElement;
+      const id = target?.id ? `#${target.id}` : (target?.tagName.toLowerCase() || "input");
+      dispatchTelemetry("PASTE", id, text.slice(0, 30));
+    };
+
     if (typeof window !== "undefined") {
       window.addEventListener("ghosttrace:reset-sandbox", handleReset);
+      window.addEventListener("click", handleGlobalClick);
+      window.addEventListener("copy", handleGlobalCopy);
+      window.addEventListener("paste", handleGlobalPaste);
     }
 
     return () => {
       if (typeof window !== "undefined") {
         window.removeEventListener("ghosttrace:reset-sandbox", handleReset);
+        window.removeEventListener("click", handleGlobalClick);
+        window.removeEventListener("copy", handleGlobalCopy);
+        window.removeEventListener("paste", handleGlobalPaste);
       }
     };
   }, []);
+
 
 
   const getDomainSamples = () => {
