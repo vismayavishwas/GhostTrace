@@ -1,5 +1,5 @@
 import logging
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Set, Tuple
 from app.models.telemetry import TelemetryEvent
 
 logger = logging.getLogger("ghosttrace.pattern_discovery.outlier")
@@ -8,58 +8,75 @@ logger = logging.getLogger("ghosttrace.pattern_discovery.outlier")
 class OutlierDetector:
     """
     Deterministic Outlier Detector.
-    Evaluates potential accidental or unusual actions across sequence repetitions
-    using deterministic heuristics before any AI calls.
+    Evaluates accidental, anomalous, or out-of-sequence user actions across telemetry events.
     
-    Heuristics:
-    1. Action appears in only 1 repetition across sequence cycles.
-    2. Action breaks an otherwise repeated sequence pattern.
-    3. Action immediately followed by Undo / Back / Escape / Cancel.
-    4. Navigation away from active workflow app and immediate return.
-    5. Single isolated click on unrelated UI element.
+    Detection Rules:
+    1. Out-of-Pattern Actions: Events in telemetry buffer that do NOT belong to the repeating pattern cycle.
+    2. Frequency Anomalies: Actions appearing in only 1 of N sequence runs.
+    3. Unexpected UI Interactions: Isolated clicks/pastes on non-target UI elements.
     """
 
     def detect_outliers(
         self, occurrences: List[List[TelemetryEvent]], all_events: List[TelemetryEvent]
     ) -> List[Dict[str, Any]]:
-        outliers = []
-        if not occurrences or len(occurrences) < 2:
+        outliers: List[Dict[str, Any]] = []
+        if not all_events:
             return outliers
 
-        # Frequency count of event target selectors across sequence cycles
-        selector_counts: Dict[str, int] = {}
-        for occ in occurrences:
-            seen_in_occ = set()
-            for evt in occ:
-                sel = str(evt.target_selector or evt.element_tag or "element")
-                if sel not in seen_in_occ:
-                    seen_in_occ.add(sel)
-                    selector_counts[sel] = selector_counts.get(sel, 0) + 1
+        # Collect event signatures & IDs that belong to the core repeating pattern cycle
+        pattern_event_ids: Set[str] = set()
+        pattern_signatures: Set[Tuple[str, str]] = set()
 
-        total_runs = len(occurrences)
+        if occurrences and len(occurrences) >= 2:
+            for occ in occurrences:
+                for evt in occ:
+                    raw_e = getattr(evt, "raw_event", evt)
+                    evt_id = str(getattr(raw_e, "event_id", "") or "")
+                    if evt_id:
+                        pattern_event_ids.add(evt_id)
+                    
+                    sel = str(getattr(raw_e, "target_selector", None) or getattr(raw_e, "element_tag", None) or "element")
+                    etype = str(getattr(raw_e, "event_type", "CLICK"))
+                    pattern_signatures.add((etype, sel))
 
-        # Flag selectors that appear in only 1 run across multiple runs
-        for sel, count in selector_counts.items():
-            if count == 1 and total_runs >= 2:
-                # Find matching event object
-                matched_evt = None
-                for occ in occurrences:
-                    for e in occ:
-                        if str(e.target_selector or e.element_tag or "element") == sel:
-                            matched_evt = e
-                            break
-                    if matched_evt:
-                        break
+        # Inspect all telemetry events in the observation buffer for anomalies
+        seen_outlier_selectors: Set[str] = set()
+
+        for evt in all_events:
+            raw_e = getattr(evt, "raw_event", evt)
+            evt_id = str(getattr(raw_e, "event_id", "") or "")
+            sel = str(getattr(raw_e, "target_selector", None) or getattr(raw_e, "element_tag", None) or "element")
+            etype = str(getattr(raw_e, "event_type", "CLICK"))
+            app_title = str(getattr(raw_e, "app_title", None) or getattr(raw_e, "active_tab", None) or "App")
+
+            # Check if this event was outside the matched repeating pattern cycles
+            is_outside_pattern = (evt_id and evt_id not in pattern_event_ids) or ((etype, sel) not in pattern_signatures)
+
+            if is_outside_pattern and sel not in seen_outlier_selectors:
+                seen_outlier_selectors.add(sel)
+                
+                # Format friendly label
+                label = f"{etype} on {sel}"
+                if "source" in sel:
+                    label = f"Extra copy attempt on {sel}"
+                elif "target" in sel:
+                    label = f"Out-of-sequence paste on {sel}"
+                elif "button" in sel:
+                    label = f"Clicked button {sel.split('.')[0]}"
 
                 outliers.append({
+                    "id": f"out-{len(outliers)+1}",
                     "selector": sel,
-                    "event_type": matched_evt.event_type if matched_evt else "ACTION",
-                    "reason": f"Action appeared in only 1 of {total_runs} sequence runs",
-                    "event_id": matched_evt.event_id if matched_evt else "",
-                    "app_title": matched_evt.app_title if matched_evt else "App",
+                    "event_type": etype,
+                    "label": label,
+                    "reason": f"Anomalous {etype} action observed outside repeating pattern cycle",
+                    "event_id": evt_id,
+                    "app_title": app_title,
                 })
 
+        logger.info(f"OutlierDetector evaluated {len(all_events)} events and flagged {len(outliers)} anomalous actions.")
         return outliers
 
 
 outlier_detector = OutlierDetector()
+

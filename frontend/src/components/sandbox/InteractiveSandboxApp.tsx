@@ -152,22 +152,30 @@ export const InteractiveSandboxApp: React.FC = () => {
       }
     } catch {}
 
-    setFormData((prev) => {
-      const nextForm = { ...prev, [fieldKey]: textToPaste };
-      if (nextForm.f1 && nextForm.f2 && nextForm.f3) {
-        setTimeout(() => {
-          if (sampleIndex < samples.length - 1) {
-            setSampleIndex((idx) => idx + 1);
-            setFormData({ f1: "", f2: "", f3: "" });
-            setStatusMsg(`[Sample Advanced] Moved to Record #${sampleIndex + 2} of 8`);
-          }
-        }, 1000);
-      }
-      return nextForm;
-    });
-
+    setFormData((prev) => ({ ...prev, [fieldKey]: textToPaste }));
     dispatchTelemetry("PASTE", `#target-${fieldKey}`, textToPaste);
   };
+
+  const handleNextRecord = () => {
+    if (sampleIndex < samples.length - 1) {
+      const nextIdx = sampleIndex + 1;
+      setSampleIndex(nextIdx);
+      setFormData({ f1: "", f2: "", f3: "" });
+      setStatusMsg(`[Record Advanced] Moved to Record ${nextIdx + 1} of 8`);
+    } else {
+      setStatusMsg(`[End of Records] Completed all 8 ${domain} records!`);
+    }
+  };
+
+  const handlePrevRecord = () => {
+    if (sampleIndex > 0) {
+      const prevIdx = sampleIndex - 1;
+      setSampleIndex(prevIdx);
+      setFormData({ f1: "", f2: "", f3: "" });
+      setStatusMsg(`[Record Moved] Back to Record ${prevIdx + 1} of 8`);
+    }
+  };
+
 
   const handleAutoFillRemaining = async () => {
     setIsAutoFilling(true);
@@ -402,9 +410,34 @@ export const InteractiveSandboxApp: React.FC = () => {
                 </button>
               </div>
             </div>
+
+            {/* Manual Navigation Controls (Explicit user control per record) */}
+            <div className="flex items-center justify-between border-t border-slate-800 pt-3 mt-1">
+              <button
+                suppressHydrationWarning
+                disabled={sampleIndex === 0}
+                onClick={handlePrevRecord}
+                className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800 disabled:opacity-40 transition"
+              >
+                ⬅️ Prev Record
+              </button>
+
+              <span className="text-[11px] font-mono text-cyan-400 font-bold">
+                Record {sampleIndex + 1} of {samples.length}
+              </span>
+
+              <button
+                suppressHydrationWarning
+                onClick={handleNextRecord}
+                className="flex items-center gap-1.5 rounded-lg border border-cyan-500/40 bg-cyan-500/20 px-3 py-1.5 text-xs font-bold text-cyan-300 hover:bg-cyan-500/30 transition shadow-lg"
+              >
+                <span>Next Record ➡️</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
+
 
       {statusMsg && (
         <div className="rounded-xl border border-cyan-500/30 bg-slate-950 px-3.5 py-1.5 text-[11px] font-mono text-cyan-300 animate-pulse">

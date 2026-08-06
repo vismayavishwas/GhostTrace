@@ -114,32 +114,51 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
   };
 
   return (
-    <div className="flex flex-col gap-4 rounded-2xl border border-cyan-500/40 bg-gradient-to-r from-cyan-950/80 via-slate-900/90 to-purple-950/80 p-5 shadow-2xl backdrop-blur-xl">
-      {/* Top Main Candidate Discovery Header */}
-      <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 shadow-lg shadow-cyan-500/10 shrink-0">
-            <Sparkles className="h-6 w-6 animate-spin" />
-          </div>
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-sm font-black text-white">{title}</h3>
-              <span className="rounded-full bg-cyan-500/20 px-2.5 py-0.5 text-[10px] font-extrabold text-cyan-300 border border-cyan-500/30">
-                {confidencePct}% Confidence
-              </span>
-              <span className="rounded-full bg-slate-800 px-2.5 py-0.5 text-[10px] font-mono text-slate-300 border border-slate-700">
-                Candidate v{version}
-              </span>
-              <span className="rounded-full bg-purple-500/20 px-2.5 py-0.5 text-[10px] font-extrabold text-purple-300 border border-purple-500/30">
-                🏢 {dept}
-              </span>
-              <span className="rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-[10px] font-extrabold text-emerald-300 border border-emerald-500/30">
-                🔁 {obsCount}
-              </span>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-md p-4 overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative flex flex-col gap-5 w-full max-w-3xl rounded-2xl border border-cyan-500/50 bg-gradient-to-br from-slate-900 via-slate-950 to-purple-950/90 p-6 shadow-2xl shadow-cyan-500/20 backdrop-blur-2xl">
+        
+        {/* Dismiss Modal Close Button */}
+        {onObserveFurther && (
+          <button
+            suppressHydrationWarning
+            onClick={onObserveFurther}
+            className="absolute top-4 right-4 rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white transition"
+          >
+            ✕
+          </button>
+        )}
+
+        {/* Top Main Candidate Discovery Header */}
+        <div className="flex flex-col md:flex-row items-start justify-between gap-4 border-b border-slate-800 pb-4">
+          <div className="flex items-center gap-3.5">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 shadow-lg shadow-cyan-500/10 shrink-0">
+              <Sparkles className="h-6 w-6 animate-pulse" />
             </div>
-            <p className="text-xs text-slate-300 mt-1">{summaryText}</p>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-cyan-500/20 px-2.5 py-0.5 text-[10px] font-mono font-extrabold text-cyan-300 border border-cyan-500/30">
+                  🎉 WORKFLOW PATTERN DETECTED
+                </span>
+                <span className="rounded-full bg-slate-800 px-2.5 py-0.5 text-[10px] font-mono text-slate-300 border border-slate-700">
+                  Candidate v{version}
+                </span>
+                <span className="rounded-full bg-purple-500/20 px-2.5 py-0.5 text-[10px] font-extrabold text-purple-300 border border-purple-500/30">
+                  🏢 {dept}
+                </span>
+              </div>
+              <h3 className="text-base font-black text-white mt-1">{title}</h3>
+              <p className="text-xs text-slate-300 mt-0.5">{summaryText}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="text-right">
+              <span className="text-2xl font-black text-cyan-400 block">{confidencePct}%</span>
+              <span className="text-[10px] font-mono text-slate-400">Learning Confidence</span>
+            </div>
           </div>
         </div>
+
 
         {/* Action Buttons: ⚡ Analyze Workflow vs 👁 Observe Further (Unlocked only after outlier review) */}
         <div className="flex flex-wrap items-center gap-3 shrink-0">
@@ -295,6 +314,8 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
           <span>Observe additional repetitions before analysis. (Confidence {confidencePct}% &lt; 70% threshold)</span>
         </div>
       )}
+      </div>
     </div>
   );
 };
+
