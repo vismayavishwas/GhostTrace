@@ -114,8 +114,9 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
   };
 
   return (
-    <div className="fixed top-20 right-6 z-50 w-full max-w-md animate-in slide-in-from-right-8 duration-300">
-      <div className="relative flex flex-col gap-4 w-full rounded-2xl border border-cyan-500/50 bg-gradient-to-br from-slate-900/95 via-slate-950/95 to-purple-950/95 p-5 shadow-2xl shadow-cyan-500/25 backdrop-blur-2xl max-h-[calc(100vh-6rem)] overflow-y-auto">
+    <div className="fixed bottom-6 left-6 z-50 w-full max-w-md animate-in slide-in-from-bottom-8 duration-300">
+      <div className="relative flex flex-col gap-4 w-full rounded-2xl border border-cyan-500/50 bg-gradient-to-br from-slate-900/95 via-slate-950/95 to-purple-950/95 p-5 shadow-2xl shadow-cyan-500/25 backdrop-blur-2xl max-h-[calc(100vh-8rem)] overflow-y-auto">
+
         
         {/* Dismiss Side Drawer Close Button */}
         {onObserveFurther && (

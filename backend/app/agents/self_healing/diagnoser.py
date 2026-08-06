@@ -34,28 +34,37 @@ class FailureDiagnoser:
                 failing_selector = sel_match.group(1)
 
 
-        # 3. Categorize Probable Cause via GeminiService with deterministic traceback fallback
+        # 3. Pre-Healing Verification: Distinguish Accidental User Mistake vs Genuine Target UI Failure
+        from app.agents.pattern_discovery.correction_memory import global_correction_memory
+
+        is_accidental_user_mistake = False
+        if failing_selector:
+            clean_sel = failing_selector.replace("#", "").replace(".", "")
+            if global_correction_memory.is_known_accidental_correction("source_entity", clean_sel):
+                is_accidental_user_mistake = True
+                logger.info(f"Pre-Healing Verification: Isolated failure on '{failing_selector}' as an Accidental User Correction. Skipping UI script self-healing.")
+
+        # 4. Categorize Probable Cause via GeminiService with deterministic traceback fallback
         from app.services.gemini_service import gemini_service
 
         diag_prompt = (
             f"Analyze this Python Playwright traceback and classify the primary error cause as one of: "
-            f"SyntaxError, SelectorNotFoundError, TimeoutError, AssertionError.\n\n"
+            f"SyntaxError, SelectorNotFoundError, TimeoutError, AssertionError, AccidentalUserMistake.\n\n"
             f"Traceback:\n{stderr[:1000]}"
         )
         def rule_fallback():
-            return self._categorize_cause(stderr)
+            return "AccidentalUserMistake" if is_accidental_user_mistake else self._categorize_cause(stderr)
 
         gemini_cause, elapsed, status = gemini_service.generate(
             prompt=diag_prompt,
             purpose="failure_diagnosis",
             fallback_fn=rule_fallback
         )
-        probable_cause = gemini_cause if (gemini_cause and not status.startswith("FALLBACK")) else self._categorize_cause(stderr)
+        probable_cause = "AccidentalUserMistake" if is_accidental_user_mistake else (gemini_cause if (gemini_cause and not status.startswith("FALLBACK")) else self._categorize_cause(stderr))
 
-
-        # 4. Extract Surrounding Code Snippet
-
+        # 5. Extract Surrounding Code Snippet
         surrounding_code = self._get_surrounding_code(artifact.source_code, failing_line)
+
 
         # 5. Construct Structured Repair Prompt for Gemini
         repair_prompt = self._build_repair_prompt(
