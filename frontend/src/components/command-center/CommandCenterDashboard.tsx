@@ -110,7 +110,8 @@ export const CommandCenterDashboard: React.FC = () => {
       />
 
       {/* Live Interactive Sandboxed Enterprise Demo Web App */}
-      {currentStage === "OBSERVE" && <InteractiveSandboxApp />}
+      {(currentStage === "OBSERVE" || currentStage === "OPERATIONS") && <InteractiveSandboxApp />}
+
 
       {/* Main 3-Column Enterprise Operating System Layout */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 flex-1">

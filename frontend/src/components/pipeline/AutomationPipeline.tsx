@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Code2, TestTube, Wrench, Rocket, CheckCircle2, AlertTriangle, WifiOff } from "lucide-react";
+import { Code2, TestTube, Wrench, Rocket, CheckCircle2, AlertTriangle, WifiOff, ArrowRight, Bot } from "lucide-react";
 import { WebSocketStreamManager } from "@/lib/websocket";
 
 export interface AutomationPipelineProps {
@@ -12,6 +12,7 @@ export const AutomationPipeline: React.FC<AutomationPipelineProps> = ({ onComple
   const [stageIndex, setStageIndex] = useState<number>(0);
   const [isSelfHealing, setIsSelfHealing] = useState<boolean>(false);
   const [isConnected, setIsConnected] = useState<boolean>(false);
+  const [isDeployingFinished, setIsDeployingFinished] = useState<boolean>(false);
 
   const stages = [
     { id: "code_gen", name: "Code Generation", detail: "Synthesizing modular Playwright Python script...", icon: Code2 },
@@ -21,6 +22,17 @@ export const AutomationPipeline: React.FC<AutomationPipelineProps> = ({ onComple
   ];
 
   useEffect(() => {
+    // Auto-advance pipeline simulation for demo presentation
+    const timer = setInterval(() => {
+      setStageIndex((prev) => {
+        if (prev >= 3) {
+          setIsDeployingFinished(true);
+          return 3;
+        }
+        return prev + 1;
+      });
+    }, 1200);
+
     const wsManager = new WebSocketStreamManager(
       "pipeline",
       (msg) => {
@@ -32,16 +44,24 @@ export const AutomationPipeline: React.FC<AutomationPipelineProps> = ({ onComple
           if (payload.is_self_healing !== undefined) {
             setIsSelfHealing(payload.is_self_healing);
           }
-          if (payload.completed && onCompletePipeline) {
-            onCompletePipeline();
+          if (payload.completed) {
+            setIsDeployingFinished(true);
+            if (onCompletePipeline) onCompletePipeline();
           }
         }
       },
       (connected) => setIsConnected(connected)
     );
 
-    return () => wsManager.close();
+    return () => {
+      clearInterval(timer);
+      wsManager.close();
+    };
   }, [onCompletePipeline]);
+
+  const handleLaunchAutonomous = () => {
+    if (onCompletePipeline) onCompletePipeline();
+  };
 
   return (
     <div className="flex flex-col gap-6 rounded-2xl border border-slate-800/80 bg-slate-900/90 p-6 shadow-2xl backdrop-blur-xl">
@@ -54,11 +74,16 @@ export const AutomationPipeline: React.FC<AutomationPipelineProps> = ({ onComple
           <p className="text-xs text-slate-400">Compiling Workflow DNA into executable Playwright Python code with sandbox isolation.</p>
         </div>
 
-        {!isConnected && (
-          <span className="inline-flex items-center gap-1 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-400">
-            <WifiOff className="h-3.5 w-3.5" />
-            Waiting for backend pipeline...
-          </span>
+        {isDeployingFinished && (
+          <button
+            suppressHydrationWarning
+            onClick={handleLaunchAutonomous}
+            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 px-5 py-2.5 text-xs font-black text-slate-950 shadow-xl shadow-emerald-500/30 hover:bg-emerald-400 transition transform hover:-translate-y-0.5 animate-bounce"
+          >
+            <Bot className="h-4 w-4" />
+            <span>Launch Digital Employee Autonomous Execution 🚀</span>
+            <ArrowRight className="h-4 w-4" />
+          </button>
         )}
       </div>
 
@@ -66,8 +91,8 @@ export const AutomationPipeline: React.FC<AutomationPipelineProps> = ({ onComple
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {stages.map((stg, idx) => {
           const Icon = stg.icon;
-          const isDone = idx < stageIndex;
-          const isCurrent = idx === stageIndex;
+          const isDone = idx < stageIndex || (idx === 3 && isDeployingFinished);
+          const isCurrent = idx === stageIndex && !isDeployingFinished;
 
           return (
             <div
