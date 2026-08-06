@@ -49,22 +49,28 @@ class SemanticDeviationDetector:
 
         # 2. Check for anomalous out-of-baseline transfers across runs
         for dest_key, run_set in run_entity_destinations.items():
-            # If target received conflicting sources or isolated transfers
             if len(run_set) > 1:
                 for src in run_set:
-                    # Check persistent memory layer first
-                    if global_correction_memory.is_known_accidental_correction(src, dest_key):
-                        logger.info(f"Auto-filtered known accidental correction pattern from memory: {src} -> {dest_key}")
-                        continue
+                    is_known = global_correction_memory.is_known_accidental_correction(src, dest_key)
+
+                    if is_known:
+                        logger.info(f"Previously confirmed accidental correction pattern matched in memory: {src} -> {dest_key}. Applying confidence penalty for adaptive verification.")
+                        reason_text = "Previously confirmed as accidental correction pattern. Lower confidence — verify if workflow intent changed."
+                        confidence_penalty = 0.25
+                    else:
+                        reason_text = "Semantic mapping deviation observed in sequence cycle."
+                        confidence_penalty = 0.0
 
                     deviations.append({
                         "id": f"dev-{len(deviations)+1}",
                         "source_entity": src,
                         "destination_entity": dest_key,
                         "label": f"Field ({src.upper()}) was pasted into Field ({dest_key.upper()})",
-                        "reason": f"Semantic mapping deviation observed in sequence cycle",
-                        "is_known_memory": False
+                        "reason": reason_text,
+                        "confidence_penalty": confidence_penalty,
+                        "is_known_memory": is_known
                     })
+
 
         logger.info(f"SemanticDeviationDetector evaluated {total_runs} cycles and detected {len(deviations)} semantic deviations.")
         return deviations

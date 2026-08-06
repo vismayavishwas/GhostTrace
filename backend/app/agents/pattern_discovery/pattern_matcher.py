@@ -4,27 +4,29 @@ from app.models.telemetry import TelemetryEvent
 from app.agents.telemetry.semantic_normalizer import SemanticEvent, SemanticNormalizer
 import re
 
-def get_semantic_signature(event: Any) -> Tuple[str, str, str, str]:
-    """Generates a structural signature tuple for normalized semantic events."""
-    evt_type = getattr(event, "semantic_type", None) or getattr(event, "event_type", "ACTION")
-    evt_str = str(evt_type.value if hasattr(evt_type, "value") else evt_type).upper()
+def get_semantic_signature(event: Any) -> Tuple[str, str, str]:
+    """
+    Generates a purely semantic signature tuple for pattern discovery.
+    100% decoupled from DOM target_selector strings (zero selector comparison).
+    """
+    op = getattr(event, "operation", None) or getattr(event, "semantic_type", "ACTION")
+    op_str = str(op.value if hasattr(op, "value") else op).upper()
 
-    raw_selector = str(event.target_selector or "")
-    normalized_selector = re.sub(r"nth-child\(\d+\)", "nth-child(N)", raw_selector)
-    normalized_selector = re.sub(r'data-row="\d+"', 'data-row="N"', normalized_selector)
+    entity = getattr(event, "semantic_entity", None) or "semantic:unknown"
+    app = getattr(event, "app_title", None) or "App"
     
     return (
-        evt_str,
-        normalized_selector,
-        str(event.element_tag or "").upper(),
-        str(event.app_title or "")
+        op_str,
+        str(entity),
+        str(app)
     )
+
 
 
 @dataclass
 class PatternOccurrence:
     """Stores a detected pattern candidate with normalized event ID references and occurrences."""
-    signature_tuple: Tuple[Tuple[str, str, str, str], ...]
+    signature_tuple: Tuple[Tuple[str, str, str], ...]
     sequence_length: int
     occurrences: List[List[Any]] = field(default_factory=list)
     
@@ -56,7 +58,8 @@ class PatternMatcher:
         self.min_repetitions = min_repetitions
         
         # Incremental index: signature_tuple -> list of occurrences
-        self._pattern_index: Dict[Tuple[Tuple[str, str, str, str], ...], List[List[Any]]] = {}
+        self._pattern_index: Dict[Tuple[Tuple[str, str, str], ...], List[List[Any]]] = {}
+
 
     def clear(self):
         """Clears pattern index."""

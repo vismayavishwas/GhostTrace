@@ -1,6 +1,7 @@
 import re
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 from app.models.telemetry import TelemetryEvent
+
 
 
 class SemanticEvent:
@@ -64,36 +65,29 @@ class SemanticNormalizer:
     @classmethod
     def extract_semantic_metadata(cls, raw_event: TelemetryEvent) -> Tuple[str, str]:
         """
-        Fuses 6 metadata signals into an abstract semantic entity key and human display label.
-        Completely domain-agnostic.
+        Extracts semantic entity key 100% from contextual metadata (field_label, heading, app_title).
+        Completely decoupled from raw DOM selector strings or field position index tokens.
         """
-        selector = str(raw_event.target_selector or raw_event.element_tag or "field").lower()
         app_title = str(raw_event.app_title or raw_event.active_tab or "App").strip()
+        selector = str(raw_event.target_selector or "").strip()
 
-        # Extract field key token from selector or ID (e.g., #source-f1 -> f1, #target-f2 -> f2)
-        field_match = re.search(r'(f\d+|field_\d+|input_\d+|[a-zA-Z0-9]+)', selector)
-        field_token = field_match.group(1) if field_match else "field"
+        # Extract contextual label from raw event metadata
+        raw_label = getattr(raw_event, "field_label", None) or getattr(raw_event, "aria_label", None) or ""
+        
+        if not raw_label:
+            # Fallback to cleaning selector into a human-readable title without structural index tokens
+            clean_token = re.sub(r'[#\._\-\d]', ' ', selector).strip()
+            raw_label = clean_token.title() if clean_token else "Field"
 
-        # Determine role (source vs target)
-        if "source" in selector:
-            role = "source"
-        elif "target" in selector or "input" in selector:
-            role = "target"
-        else:
-            role = "action"
-
-        # Abstract Entity Key (e.g. entity:f1, entity:f2, entity:f3)
-        semantic_entity = f"entity:{field_token}"
-
-        # Human-Readable Display Label
-        if role == "source":
-            display_label = f"Source Field ({field_token.upper()})"
-        elif role == "target":
-            display_label = f"Target Field ({field_token.upper()}) in {app_title}"
-        else:
-            display_label = f"Action ({field_token.upper()}) in {app_title}"
+        # Sanitize entity key (e.g., "semantic:sap_erp:record_id")
+        sanitized_app = re.sub(r'[^a-zA-Z0-9]', '_', app_title.lower()).strip('_')
+        sanitized_label = re.sub(r'[^a-zA-Z0-9]', '_', raw_label.lower()).strip('_')
+        
+        semantic_entity = f"semantic:{sanitized_app}:{sanitized_label}"
+        display_label = f"{raw_label} ({app_title})"
 
         return semantic_entity, display_label
+
 
     @classmethod
     def normalize(cls, raw_event: TelemetryEvent) -> Optional[SemanticEvent]:
