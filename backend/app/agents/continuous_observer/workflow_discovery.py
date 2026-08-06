@@ -2,6 +2,8 @@ import logging
 from typing import List, Dict, Tuple, Any, Optional
 from collections import defaultdict
 from app.agents.continuous_observer.models import ObservationEvent, WorkflowCandidate
+from app.agents.telemetry.semantic_normalizer import SemanticNormalizer
+
 
 logger = logging.getLogger("ghosttrace.continuous_observer.discovery")
 
@@ -65,10 +67,13 @@ class WorkflowDiscoveryEngine:
         for seq_len in range(self.min_sequence_length, min(self.max_sequence_length + 1, n + 1)):
             for i in range(n - seq_len + 1):
                 window = observations[i : i + seq_len]
-                sig_tuple = tuple(
-                    f"{obs.telemetry_event.event_type}:{obs.telemetry_event.target_selector or obs.telemetry_event.element_tag or 'element'}"
-                    for obs in window
-                )
+                sig_list = []
+                for obs in window:
+                    sem = SemanticNormalizer.normalize(obs.telemetry_event)
+                    entity = sem.semantic_entity if sem else f"obs:{obs.telemetry_event.event_type}"
+                    sig_list.append(entity)
+                sig_tuple = tuple(sig_list)
+
 
                 self._pattern_counts[sig_tuple].append(window)
 

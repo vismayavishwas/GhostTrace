@@ -101,15 +101,16 @@ class SemanticNormalizer:
             fingerprint_token = f"heading_{clean_heading}_{val_structure}"
             display_title = f"{heading} Field"
         else:
-            # Unlabeled Enterprise UI Fallback (textbox_17, input_3) -> Uses Data Payload Structure & Selector Hash
-            sel_clean = re.sub(r'[^a-zA-Z0-9]', '_', selector.lower()).strip('_')
-            fingerprint_token = f"payload_{val_structure}_{sel_clean[:12]}"
-            display_title = f"Data Field [{sel_clean[:10]}]"
+            # Unlabeled Enterprise UI Fallback (textbox_17, input_3) -> Normalizes role without index numbers (e.g. #target-f1 -> target_field)
+            clean_role = "source_field" if "source" in selector.lower() else ("target_field" if "target" in selector.lower() else "data_field")
+            fingerprint_token = f"payload_{clean_role}_{val_structure}"
+            display_title = f"{clean_role.replace('_', ' ').title()}"
 
         semantic_entity = f"fingerprint:{app_key}:{fingerprint_token}"
         display_label = f"{display_title} ({app_title})"
 
         return semantic_entity, display_label
+
 
 
 
