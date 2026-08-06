@@ -31,12 +31,8 @@ export interface WorkflowCandidatePanelProps {
   onObserveFurther?: () => void;
 }
 
-const DEFAULT_OUTLIERS: OutlierItem[] = [
-  { id: "out-1", label: "Clicked Help button", selector: "#help-btn", reason: "Observed 1x across repetitions" },
-  { id: "out-2", label: "Opened Settings menu", selector: "#settings-nav", reason: "Breaks repeated sequence cycle" },
-  { id: "out-3", label: "Scrolled to page footer", selector: "footer", reason: "Single isolated event" },
-  { id: "out-4", label: "Clicked empty whitespace", selector: "body", reason: "Isolated click on body" },
-];
+
+
 
 export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
   candidateId = "cand-default",

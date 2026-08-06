@@ -11,46 +11,13 @@ export interface ObserverDashboardProps {
   onCandidateSelect?: (candidate: CandidateData) => void;
 }
 
-const DEFAULT_SAMPLE_CANDIDATES: CandidateData[] = [
-  {
-    candidate_id: "cand-001",
-    name: "Product Search Flow",
-    observed_steps: ["Login Button Click", "Enter Search Keyword", "Submit Action"],
-    occurrence_count: 20,
-    confidence_score: 0.91,
-    success_rate: 0.95,
-    applications_involved: ["E-Commerce ERP"],
-    discovered_at: new Date().toISOString(),
-  },
-  {
-    candidate_id: "cand-002",
-    name: "Invoice Approval Pipeline",
-    observed_steps: ["Navigate Workspace", "Enter Form Details", "Submit Action"],
-    occurrence_count: 14,
-    confidence_score: 0.88,
-    success_rate: 0.92,
-    applications_involved: ["SAP ERP"],
-    discovered_at: new Date().toISOString(),
-  },
-];
-
-const DEFAULT_SAMPLE_NOTIFICATIONS: NotificationData[] = [
-  {
-    notification_id: "notif-001",
-    notification_type: "CANDIDATE_DISCOVERED",
-    title: "New Workflow Candidate: Product Search Flow",
-    message: "Observed 20 times across E-Commerce ERP. Confidence: 91%, Success Rate: 95%.",
-    severity: "SUCCESS",
-    timestamp: new Date().toISOString(),
-  },
-];
-
 export const ObserverDashboard: React.FC<ObserverDashboardProps> = ({
-  candidates = DEFAULT_SAMPLE_CANDIDATES,
-  notifications = DEFAULT_SAMPLE_NOTIFICATIONS,
-  telemetryCount = 1420,
+  candidates = [],
+  notifications = [],
+  telemetryCount = 0,
   onCandidateSelect,
 }) => {
+
   return (
     <div className="flex flex-col gap-6 w-full max-w-7xl mx-auto p-6">
       {/* Top Banner & Stats Overview */}
