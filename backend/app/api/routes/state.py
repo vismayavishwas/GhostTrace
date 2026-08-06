@@ -41,7 +41,8 @@ async def _execute_orchestration_background():
         observer = get_global_observer()
         events = observer.buffer.get_recent()
 
-        
+        _BP_CACHE = {}
+
         initial_state = GhostTraceGraphState(
             session_id=current_graph_state["session_id"],
             workflow_id=current_graph_state["workflow_id"],
@@ -58,43 +59,68 @@ async def _execute_orchestration_background():
         logger.error(f"Error during LangGraph background execution: {e}", exc_info=True)
 
 
-def get_dynamic_state_data() -> Dict[str, Any]:
-    observer = get_global_observer()
-    events = observer.buffer.get_recent()
+@router.get("")
+async def get_current_state():
+    """
+    Returns the current active graph execution state for live dashboard sync.
+    If no active execution state exists, returns default OBSERVE state.
+    """
+    global latest_graph_state, _BP_CACHE
 
-    event_count = len(events) or len(in_memory_events)
+    if latest_graph_state:
+        state_dict = latest_graph_state.model_dump()
+        return {
+            "current_stage": state_dict.get("current_stage", "OBSERVE"),
+            "confidence_score": state_dict.get("confidence_score", 0.0),
+            "repetition_count": state_dict.get("repetition_count", 0),
+            "noise_filtered_count": state_dict.get("noise_filtered_count", 0),
+            "candidate_name": state_dict.get("candidate_name", "Waiting for interaction events..."),
+            "active_agents": state_dict.get("active_agents", ["ObserverAgent"]),
+            "unlocked_stages": state_dict.get("unlocked_stages", ["OBSERVE"]),
+            "workflow_dna": state_dict.get("workflow_dna"),
+            "code_artifact": state_dict.get("code_artifact"),
+            "sandbox_result": state_dict.get("sandbox_result"),
+            "self_healing_summary": state_dict.get("self_healing_summary"),
+            "business_process": state_dict.get("business_process"),
+        }
 
+    # Estimate metrics dynamically from in_memory_events
+    events = get_global_observer().buffer.get_recent() or in_memory_events
+    event_count = len(events)
+    repetition_count = max(0, event_count // 4)
+    noise_count = max(0, event_count // 6)
+    confidence = min(0.97, round(0.50 + (repetition_count * 0.15), 2)) if event_count > 0 else 0.0
+
+    candidate_name = "Waiting for interaction events..."
     business_process_dict = None
-    if event_count < 4:
-        confidence = 0.0
-        repetition_count = 0
-        noise_count = 0
-        candidate_name = "Waiting for repeated actions..."
-    else:
-        repetition_count = max(1, event_count // 4)
-        noise_count = max(0, event_count // 6)
-        confidence = min(0.97, round(0.50 + (repetition_count * 0.15), 2))
 
-        ref_event = events[-1].model_dump() if events else in_memory_events[-1]
-        first_event = events[0].model_dump() if events else in_memory_events[0]
-        source_app = ref_event.get("active_tab") or ref_event.get("app_title") or "Source App"
-        target_app = first_event.get("active_tab") or first_event.get("app_title") or "Target App"
+    if event_count > 0:
+        ref_event = events[-1]
+        first_event = events[0]
+        source_app = getattr(ref_event, "active_tab", None) or (ref_event.get("active_tab") if isinstance(ref_event, dict) else "Source App")
+        target_app = getattr(first_event, "active_tab", None) or (first_event.get("active_tab") if isinstance(first_event, dict) else "Target App")
         candidate_name = f"{source_app} → {target_app}"
 
-        try:
-            from app.agents.business_process import business_process_agent
-            step_titles = []
-            raw_items = events or in_memory_events
-            for e in raw_items[:8]:
-                evt_type = getattr(e, "event_type", None) or (e.get("event_type") if isinstance(e, dict) else "ACTION")
-                selector = getattr(e, "target_selector", None) or (e.get("target_selector") if isinstance(e, dict) else "element")
-                step_titles.append(f"{evt_type} on {selector}")
+        cache_key = (event_count, repetition_count)
+        if cache_key in _BP_CACHE:
+            business_process_dict = _BP_CACHE[cache_key]
+            candidate_name = business_process_dict.get("workflow_name", candidate_name)
+        else:
+            try:
+                from app.agents.business_process import business_process_agent
+                step_titles = []
+                for e in events[:8]:
+                    evt_type = getattr(e, "event_type", None) or (e.get("event_type") if isinstance(e, dict) else "ACTION")
+                    selector = getattr(e, "target_selector", None) or (e.get("target_selector") if isinstance(e, dict) else "element")
+                    step_titles.append(f"{evt_type} on {selector}")
 
-            meta = business_process_agent.analyze_process(candidate_name, step_titles, source_app, target_app, repetition_count=repetition_count)
-            business_process_dict = meta.model_dump()
-            candidate_name = meta.workflow_name
-        except Exception as e:
-            logger.warning(f"Error extracting business process metadata: {e}")
+                meta = business_process_agent.analyze_process(candidate_name, step_titles, str(source_app), str(target_app), repetition_count=repetition_count)
+                business_process_dict = meta.model_dump()
+                candidate_name = meta.workflow_name
+                _BP_CACHE[cache_key] = business_process_dict
+            except Exception as e:
+                logger.warning(f"Error extracting business process metadata: {e}")
+
 
 
 

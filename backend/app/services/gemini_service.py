@@ -3,6 +3,7 @@ import time
 import logging
 from typing import Optional, Callable, Tuple, Any
 from app.core.config import settings
+import concurrent.futures
 
 logger = logging.getLogger("ghosttrace.gemini")
 
@@ -12,13 +13,13 @@ class GeminiService:
     Centralized Google Gemini API Service wrapping google.genai Client calls,
     latency instrumentation, token metadata logging, and multi-model fallback cascade.
     """
-    def __init__(self, primary_model: str = "gemini-3.1-flash-lite"):
+    def __init__(self, primary_model: str = "gemini-2.5-flash"):
         self.primary_model = primary_model
         self.cascade_models = [
-            "gemini-3.1-flash-lite",
-            "gemini-3.5-flash-lite",
+            "gemini-2.5-flash",
+            "gemini-1.5-flash",
             "gemini-flash-latest",
-            "gemma-4-31b-it"
+            "gemini-3.5-flash-lite"
         ]
         self.api_key = settings.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
         self._client = None
@@ -54,11 +55,16 @@ class GeminiService:
             logger.info(f"Calling Gemini API model '{model_name}' for purpose '{purpose}'...")
 
             try:
-                response = self._client.models.generate_content(
-                    model=model_name,
-                    contents=prompt
-                )
-                elapsed = time.perf_counter() - t0
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(
+                        self._client.models.generate_content,
+                        model=model_name,
+                        contents=prompt
+                    )
+                    response = future.result(timeout=3.0)
+
+                t1 = time.perf_counter()
+                elapsed = t1 - t0
 
                 candidate = response.candidates[0] if response.candidates else None
                 finish_reason = getattr(candidate, "finish_reason", "STOP") if candidate else "STOP"
