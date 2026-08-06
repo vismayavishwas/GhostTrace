@@ -61,8 +61,9 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
   const effectiveScore = currentScore > 0 ? currentScore : confidenceScore;
   const confidencePct = Math.round(effectiveScore * 100);
   
-  // Rule: Unlock Analyze button directly when no outliers exist OR after review
-  const isAnalyzeEnabled = (!isReviewPending || outlierList.length === 0) && effectiveScore >= 0.70;
+  // Rule: Enable Analyze button directly when no outliers exist OR after review, for any confidence >= 0.33 (1+ cycle)
+  const isAnalyzeEnabled = (!isReviewPending || outlierList.length === 0) && (effectiveScore >= 0.30 || outliers.length > 0);
+
 
 
   const title = businessProcess?.workflow_name || candidateName;
