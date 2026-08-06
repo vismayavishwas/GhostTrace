@@ -98,10 +98,19 @@ async def reset_telemetry_state():
         logger.warning(f"Error resetting SQLite DB: {e}")
 
     try:
+        from app.orchestration.nodes import get_global_pattern_discovery
+        pd = get_global_pattern_discovery()
+        if hasattr(pd, "sequence_buffer") and hasattr(pd.sequence_buffer, "clear"):
+            pd.sequence_buffer.clear()
+    except Exception as e:
+        logger.warning(f"Error resetting pattern discovery buffer: {e}")
+
+    try:
         from app.api.routes.state import reset_graph_state
         reset_graph_state()
     except Exception as e:
         logger.warning(f"Error resetting graph state: {e}")
+
 
 
     logger.info("Shadow Mode telemetry & discovery state successfully reset.")

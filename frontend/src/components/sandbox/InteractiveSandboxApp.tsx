@@ -50,17 +50,30 @@ export const InteractiveSandboxApp: React.FC = () => {
     setTimeout(() => setStatusMsg(""), 2000);
   };
 
-  const handleCopy = (fieldKey: string, value: string) => {
-    navigator.clipboard.writeText(value);
+  const handleCopy = async (fieldKey: string, value: string) => {
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText(value);
+      }
+    } catch {}
     setCopiedField(fieldKey);
     dispatchTelemetry("COPY", `#source-${fieldKey}`, value);
     setTimeout(() => setCopiedField(null), 1500);
   };
 
-  const handlePaste = (fieldKey: string, value: string) => {
+  const handlePaste = async (fieldKey: string, sampleFallback: string) => {
+    let textToPaste = sampleFallback;
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        const clip = await navigator.clipboard.readText();
+        if (clip && clip.trim().length > 0) {
+          textToPaste = clip;
+        }
+      }
+    } catch {}
+
     setFormData((prev) => {
-      const nextForm = { ...prev, [fieldKey]: value };
-      // If all 3 fields are filled in current run, auto advance sample index!
+      const nextForm = { ...prev, [fieldKey]: textToPaste };
       if (nextForm.invoiceId && nextForm.amount && nextForm.vendor) {
         setTimeout(() => {
           if (sampleIndex < INVOICE_SAMPLES.length - 1) {
@@ -72,12 +85,21 @@ export const InteractiveSandboxApp: React.FC = () => {
       }
       return nextForm;
     });
-    dispatchTelemetry("PASTE", `#target-erp-${fieldKey}`, value);
+
+    dispatchTelemetry("PASTE", `#target-erp-${fieldKey}`, textToPaste);
+  };
+
+  const handlePasteWrongData = (fieldKey: string) => {
+    const wrongText = `ERR_TYPO_${Math.floor(Math.random() * 900 + 100)}`;
+    setFormData((prev) => ({ ...prev, [fieldKey]: wrongText }));
+    setStatusMsg(`[Mistake Injected] Pasted wrong value '${wrongText}' (Testing Noise Filter)`);
+    dispatchTelemetry("NOISE_TYPO", `#target-erp-${fieldKey}`, wrongText);
   };
 
   const handleInputClick = (fieldKey: string) => {
     dispatchTelemetry("CLICK", `#target-erp-${fieldKey}`, "");
   };
+
 
   const handleAutoFillRemaining = async () => {
     setIsAutoFilling(true);
@@ -233,6 +255,14 @@ export const InteractiveSandboxApp: React.FC = () => {
                 >
                   Paste
                 </button>
+                <button
+                  suppressHydrationWarning
+                  onClick={() => handlePasteWrongData("invoiceId")}
+                  title="Paste wrong/noisy data to test GhostTrace Noise Filter"
+                  className="rounded-md bg-rose-500/20 border border-rose-500/30 px-2 py-1 text-[10px] font-bold text-rose-300 hover:bg-rose-500/30 transition"
+                >
+                  Paste Wrong (Noise)
+                </button>
               </div>
             </div>
 
@@ -255,6 +285,14 @@ export const InteractiveSandboxApp: React.FC = () => {
                   className="rounded-md bg-cyan-500/20 border border-cyan-500/30 px-2 py-1 text-[10px] font-bold text-cyan-300 hover:bg-cyan-500/30 transition"
                 >
                   Paste
+                </button>
+                <button
+                  suppressHydrationWarning
+                  onClick={() => handlePasteWrongData("amount")}
+                  title="Paste wrong/noisy data to test GhostTrace Noise Filter"
+                  className="rounded-md bg-rose-500/20 border border-rose-500/30 px-2 py-1 text-[10px] font-bold text-rose-300 hover:bg-rose-500/30 transition"
+                >
+                  Paste Wrong (Noise)
                 </button>
               </div>
             </div>
@@ -279,8 +317,17 @@ export const InteractiveSandboxApp: React.FC = () => {
                 >
                   Paste
                 </button>
+                <button
+                  suppressHydrationWarning
+                  onClick={() => handlePasteWrongData("vendor")}
+                  title="Paste wrong/noisy data to test GhostTrace Noise Filter"
+                  className="rounded-md bg-rose-500/20 border border-rose-500/30 px-2 py-1 text-[10px] font-bold text-rose-300 hover:bg-rose-500/30 transition"
+                >
+                  Paste Wrong (Noise)
+                </button>
               </div>
             </div>
+
           </div>
         </div>
       </div>
