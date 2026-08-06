@@ -54,9 +54,10 @@ class PatternDiscoveryAgent:
         
         # 2. Incremental pattern evaluation
         occurrences: List[PatternOccurrence] = self.matcher.process_incremental_event(
-            new_event=event,
-            full_window=self.buffer.get_window()
+            new_raw_event=event,
+            full_raw_window=self.buffer.get_window()
         )
+
         
         newly_emitted_candidates: List[WorkflowCandidate] = []
 
