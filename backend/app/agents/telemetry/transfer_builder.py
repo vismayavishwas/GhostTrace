@@ -1,6 +1,7 @@
 import logging
 from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Optional, Tuple, Set
+
 from app.models.telemetry import TelemetryEvent
 from app.agents.telemetry.semantic_normalizer import SemanticEvent, SemanticNormalizer
 
@@ -33,17 +34,26 @@ class TransferBuilder:
     2. Immediate Correction Awareness:
        If a user pastes Value A into Target B, and within the same Intent Window performs Undo/Backspace
        or pastes Value A into Target C, TransferBuilder cancels out the first paste as an Immediate User Correction.
+    3. Idempotency: Ensures each telemetry event ID is processed into a transfer exactly ONCE.
     """
     def __init__(self):
         self._current_window_events: List[TelemetryEvent] = []
         self._active_source_event: Optional[SemanticEvent] = None
+        self._processed_event_ids: Set[str] = set()
 
     def process_telemetry_events(self, events: List[TelemetryEvent]) -> List[SemanticTransfer]:
         """Processes sequence of telemetry events into structured SemanticTransfers with immediate correction resolution."""
         transfers: List[SemanticTransfer] = []
         pending_transfers: List[Dict[str, Any]] = []
 
-        for raw_e in events:
+        unprocessed_events = [e for e in events if getattr(e, "event_id", None) not in self._processed_event_ids]
+        if not unprocessed_events:
+            return []
+
+        for raw_e in unprocessed_events:
+            if getattr(raw_e, "event_id", None):
+                self._processed_event_ids.add(raw_e.event_id)
+
             sem_e = SemanticNormalizer.normalize(raw_e)
             if not sem_e:
                 continue
