@@ -97,6 +97,13 @@ async def reset_telemetry_state():
     except Exception as e:
         logger.warning(f"Error resetting SQLite DB: {e}")
 
+    try:
+        from app.api.routes.state import reset_graph_state
+        reset_graph_state()
+    except Exception as e:
+        logger.warning(f"Error resetting graph state: {e}")
+
+
     logger.info("Shadow Mode telemetry & discovery state successfully reset.")
     return {"status": "SUCCESS", "message": "Shadow Mode state reset successfully."}
 

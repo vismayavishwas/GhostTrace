@@ -26,6 +26,14 @@ active_orchestration_task: Optional[asyncio.Task] = None
 latest_graph_state: Optional[GhostTraceGraphState] = None
 
 
+def reset_graph_state():
+    global latest_graph_state, current_graph_state
+    latest_graph_state = None
+    current_graph_state["active_node"] = "OBSERVING"
+    current_graph_state["execution_status"] = "IDLE"
+
+
+
 async def _execute_orchestration_background():
     global latest_graph_state
     try:

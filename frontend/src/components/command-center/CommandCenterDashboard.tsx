@@ -23,6 +23,14 @@ export const CommandCenterDashboard: React.FC = () => {
   const [noiseFilteredCount, setNoiseFilteredCount] = useState<number>(0);
   const [candidateName, setCandidateName] = useState<string>("Waiting for interaction events...");
 
+  const handleResetShadowMode = () => {
+    setCurrentStage("OBSERVE");
+    setConfidenceScore(0.0);
+    setRepetitionCount(0);
+    setNoiseFilteredCount(0);
+    setCandidateName("Waiting for interaction events...");
+  };
+
   useEffect(() => {
     // Poll graph state from backend
     const interval = setInterval(() => {
@@ -32,17 +40,13 @@ export const CommandCenterDashboard: React.FC = () => {
           if (state.repetition_count !== undefined) setRepetitionCount(state.repetition_count);
           if (state.noise_filtered_count !== undefined) setNoiseFilteredCount(state.noise_filtered_count);
           if (state.candidate_name) setCandidateName(state.candidate_name);
-
-          // Auto-transition to ANALYZE when backend detects events/repetition
-          if (state.confidence_score > 0 || (state.event_count && state.event_count > 0)) {
-            setCurrentStage((prev) => (prev === "OBSERVE" ? "ANALYZE" : prev));
-          }
         }
       });
     }, 1000);
 
     return () => clearInterval(interval);
   }, []);
+
 
   const handleGrantPermission = (selectedApps: string[]) => {
     setMonitoredApps(selectedApps);
@@ -90,7 +94,9 @@ export const CommandCenterDashboard: React.FC = () => {
           <ShadowModePanel
             repetitionCount={repetitionCount}
             confidenceScore={confidenceScore}
+            onReset={handleResetShadowMode}
           />
+
         </div>
 
         {/* Center Column (6 cols): MAIN WORKSPACE (WHAT you're looking at) */}
