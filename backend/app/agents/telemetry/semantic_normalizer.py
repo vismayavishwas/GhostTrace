@@ -21,7 +21,8 @@ class SemanticEvent:
     def event_type(self):
         return self.semantic_type
 
-    def to_dict((self)) -> Dict[str, Any]:
+    def to_dict(self) -> Dict[str, Any]:
+
         return {
             "event_id": self.event_id,
             "semantic_type": self.semantic_type,
