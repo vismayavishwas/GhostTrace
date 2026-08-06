@@ -23,6 +23,7 @@ export interface WorkspaceControllerProps {
   onProceedFromDNA: () => void;
   onProceedFromBlueprint: () => void;
   onPipelineComplete: () => void;
+  onResetShadowMode?: () => void;
 }
 
 export const WorkspaceController: React.FC<WorkspaceControllerProps> = ({
@@ -37,6 +38,7 @@ export const WorkspaceController: React.FC<WorkspaceControllerProps> = ({
   onProceedFromDNA,
   onProceedFromBlueprint,
   onPipelineComplete,
+  onResetShadowMode,
 }) => {
   const [reconstructionLoading, setReconstructionLoading] = useState<boolean>(false);
   const [showApprovalModal, setShowApprovalModal] = useState<boolean>(false);
@@ -60,16 +62,13 @@ export const WorkspaceController: React.FC<WorkspaceControllerProps> = ({
       {/* Dynamic Content Views */}
       <div className="flex-1">
         {currentStage === "OBSERVE" && (
-          <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-800 bg-slate-900/80 p-12 text-center h-full">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-xl">
-              <span className="text-2xl animate-pulse">👁️</span>
-            </div>
-            <h3 className="mt-4 text-base font-bold text-slate-100">Continuous Observation Active</h3>
-            <p className="mt-1 max-w-md text-xs text-slate-400">
-              GhostTrace is quietly observing cross-application interaction patterns in the background.
-            </p>
-          </div>
+          <ShadowModePanel
+            repetitionCount={repetitionCount}
+            confidenceScore={confidenceScore}
+            onReset={onResetShadowMode}
+          />
         )}
+
 
         {currentStage === "ANALYZE" && (
           <div className="flex flex-col gap-6 rounded-2xl border border-slate-800/80 bg-slate-900/90 p-8 shadow-2xl backdrop-blur-xl">

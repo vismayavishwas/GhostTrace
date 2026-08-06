@@ -7,17 +7,20 @@ import re
 
 def get_event_signature(event: TelemetryEvent) -> Tuple[str, str, str, str]:
     """Generates a structural signature tuple for deterministic comparison with row/index normalization."""
+    raw_type = event.event_type.value if hasattr(event.event_type, "value") else (event.event_type.name if hasattr(event.event_type, "name") else str(event.event_type))
+    evt_str = str(raw_type).upper()
+
     raw_selector = str(event.target_selector or "")
-    # Normalize dynamic numbers in selectors and XPaths (e.g. tr:nth-child(2) -> tr:nth-child(N), #cell-12 -> #cell-N, //td[@data-row="2"] -> //td[@data-row="N"])
     normalized_selector = re.sub(r"\d+", "N", raw_selector)
     normalized_selector = re.sub(r'="\d+"', '="N"', normalized_selector)
     
     return (
-        str(event.event_type).upper(),
+        evt_str,
         normalized_selector,
         str(event.element_tag or "").upper(),
         str(event.app_title or "")
     )
+
 
 
 

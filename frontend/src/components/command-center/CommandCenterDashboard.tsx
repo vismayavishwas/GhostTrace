@@ -146,8 +146,10 @@ export const CommandCenterDashboard: React.FC = () => {
             onProceedFromDNA={handleProceedFromDNA}
             onProceedFromBlueprint={handleProceedFromBlueprint}
             onPipelineComplete={handlePipelineComplete}
+            onResetShadowMode={handleResetShadowMode}
           />
         </div>
+
 
         {/* Right Column (3 cols): REASONING TIMELINE (WHY it happened) */}
         <div className="lg:col-span-3 flex flex-col gap-6">

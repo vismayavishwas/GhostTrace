@@ -91,10 +91,11 @@ async def get_current_state():
         repetition_count = max(c.repetition_count for c in candidates)
         confidence = max(c.confidence_score for c in candidates)
     else:
-        repetition_count = 1 if event_count >= 2 else 0
-        confidence = min(0.85, round(0.40 + (event_count * 0.05), 2)) if event_count > 0 else 0.0
+        repetition_count = 0
+        confidence = 0.0
 
     noise_count = max(0, event_count // 6)
+
     candidate_name = "Waiting for interaction events..."
 
     if event_count > 0:
