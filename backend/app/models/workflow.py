@@ -16,10 +16,12 @@ class WorkflowCandidate(BaseModel):
     sequence: List[TelemetryEvent] = Field(default_factory=list, description="Sequence of telemetry events in pattern")
     confidence_score: float = Field(default=0.0, ge=0.0, le=1.0, description="Statistical pattern confidence score (0.0 - 1.0)")
     repetition_count: int = Field(default=1, ge=1, description="Number of times sequence was observed")
-    description: str = Field(default="", description="Human-readable summary of pattern")
-    detected_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="Timestamp of pattern detection")
+    version: int = Field(default=1, ge=1, description="Candidate version number (v1, v2, etc.)")
+    previous_version_id: Optional[str] = Field(default=None, description="Previous candidate version ID for version lineage")
+    outliers: List[Dict[str, Any]] = Field(default_factory=list, description="List of detected potential outlier actions for HITL review")
 
     model_config = ConfigDict(use_enum_values=True)
+
 
 
 

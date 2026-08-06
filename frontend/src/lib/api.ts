@@ -82,3 +82,18 @@ export async function resetTelemetryState() {
   }
 }
 
+export async function refineCandidate(candidateId: string, choice: "EXCLUDE" | "INCLUDE", targetSelector?: string) {
+  try {
+    const res = await fetch(`${API_BASE_URL}/telemetry/candidates/${candidateId}/refine`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ choice, target_selector: targetSelector }),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+

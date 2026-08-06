@@ -25,6 +25,7 @@ export const CommandCenterDashboard: React.FC = () => {
   const [noiseFilteredCount, setNoiseFilteredCount] = useState<number>(0);
   const [candidateName, setCandidateName] = useState<string>("Waiting for interaction events...");
   const [businessProcess, setBusinessProcess] = useState<any>(null);
+  const [candidateDismissed, setCandidateDismissed] = useState<boolean>(false);
 
   const handleResetShadowMode = () => {
     setCurrentStage("OBSERVE");
@@ -33,7 +34,9 @@ export const CommandCenterDashboard: React.FC = () => {
     setNoiseFilteredCount(0);
     setCandidateName("Waiting for interaction events...");
     setBusinessProcess(null);
+    setCandidateDismissed(false);
   };
+
 
   useEffect(() => {
     // Poll graph state from backend
@@ -81,6 +84,11 @@ export const CommandCenterDashboard: React.FC = () => {
   const handlePipelineComplete = () => {
     setUnlockedStages(["OBSERVE", "ANALYZE", "REPLAY", "DNA", "BLUEPRINT", "DEPLOY", "OPERATIONS"]);
     setCurrentStage("OPERATIONS");
+  };
+
+  const handleObserveFurther = () => {
+    setCandidateDismissed(true);
+    setCurrentStage("OBSERVE");
   };
 
   return (
@@ -137,14 +145,16 @@ export const CommandCenterDashboard: React.FC = () => {
 
       {/* Bottom Bar: Candidate Discovery Panel (Unlocked on pattern discovery, requires explicit user click to analyze) */}
       <div className="flex flex-col gap-4">
-        {(repetitionCount >= 2 || confidenceScore >= 0.70) && (
+        {!candidateDismissed && (repetitionCount >= 2 || confidenceScore >= 0.70) && (
           <WorkflowCandidatePanel
             confidenceScore={confidenceScore}
             candidateName={candidateName}
             businessProcess={businessProcess}
             onAnalyzeTrigger={handleAnalyzeTrigger}
+            onObserveFurther={handleObserveFurther}
           />
         )}
+
 
         {currentStage === "OPERATIONS" && (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
