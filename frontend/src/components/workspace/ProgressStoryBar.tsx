@@ -14,12 +14,13 @@ export interface ProgressStoryBarProps {
 const STAGES: { id: WorkspaceStage; label: string; icon: string }[] = [
   { id: "OBSERVE", label: "Observe", icon: "👁️" },
   { id: "ANALYZE", label: "Analyze", icon: "🧠" },
-  { id: "REPLAY", label: "Replay", icon: "👻" },
   { id: "DNA", label: "Workflow DNA", icon: "🧬" },
   { id: "BLUEPRINT", label: "Blueprint", icon: "📐" },
+  { id: "REPLAY", label: "Ghost Replay", icon: "👻" },
   { id: "DEPLOY", label: "Deploy Pipeline", icon: "⚙️" },
   { id: "OPERATIONS", label: "Live Operations", icon: "🚀" },
 ];
+
 
 export const ProgressStoryBar: React.FC<ProgressStoryBarProps> = ({
   currentStage,

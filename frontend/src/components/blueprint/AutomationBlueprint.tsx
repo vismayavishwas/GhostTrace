@@ -37,12 +37,14 @@ export const AutomationBlueprint: React.FC<AutomationBlueprintProps> = ({ onProc
         </div>
 
         <button
+          suppressHydrationWarning
           onClick={onProceedToDeploy}
           className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-purple-500 px-5 py-2.5 text-xs font-bold text-slate-950 shadow-lg shadow-cyan-500/25 transition-all hover:brightness-110"
         >
-          <span>Compile & Deploy Agent</span>
+          <span>Proceed to Ghost Replay Simulation 👻</span>
           <ArrowRight className="h-4 w-4" />
         </button>
+
       </div>
 
       {/* Blueprint Steps Flow */}

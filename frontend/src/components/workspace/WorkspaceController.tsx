@@ -125,6 +125,14 @@ export const WorkspaceController: React.FC<WorkspaceControllerProps> = ({
           </div>
         )}
 
+        {currentStage === "DNA" && (
+          <WorkflowDNACollapse onProceed={onProceedFromDNA} />
+        )}
+
+        {currentStage === "BLUEPRINT" && (
+          <AutomationBlueprint onProceedToDeploy={onProceedFromBlueprint} />
+        )}
+
         {currentStage === "REPLAY" && (
           <div>
             {reconstructionLoading ? (
@@ -134,17 +142,9 @@ export const WorkspaceController: React.FC<WorkspaceControllerProps> = ({
                 <p className="text-xs text-slate-400">Synthesizing 60fps ghost cursor path from telemetry</p>
               </div>
             ) : (
-              <GhostReplay />
+              <GhostReplay onProceedToDeploy={() => setShowApprovalModal(true)} />
             )}
           </div>
-        )}
-
-        {currentStage === "DNA" && (
-          <WorkflowDNACollapse onProceed={onProceedFromDNA} />
-        )}
-
-        {currentStage === "BLUEPRINT" && (
-          <AutomationBlueprint onProceedToDeploy={() => setShowApprovalModal(true)} />
         )}
 
         {showApprovalModal && (
@@ -156,6 +156,7 @@ export const WorkspaceController: React.FC<WorkspaceControllerProps> = ({
             onReject={() => setShowApprovalModal(false)}
           />
         )}
+
 
         {currentStage === "DEPLOY" && (
           <AutomationPipeline onCompletePipeline={onPipelineComplete} />

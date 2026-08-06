@@ -66,25 +66,31 @@ export const CommandCenterDashboard: React.FC = () => {
   };
 
   const handleAnalyzeTrigger = () => {
-    setUnlockedStages(["OBSERVE", "ANALYZE", "REPLAY", "DNA"]);
-    setCurrentStage("REPLAY");
+    setUnlockedStages(["OBSERVE", "ANALYZE", "DNA"]);
+    setCurrentStage("DNA");
     triggerGraphExecution({ action: "ANALYZE" });
   };
 
   const handleProceedFromDNA = () => {
-    setUnlockedStages(["OBSERVE", "ANALYZE", "REPLAY", "DNA", "BLUEPRINT"]);
+    setUnlockedStages(["OBSERVE", "ANALYZE", "DNA", "BLUEPRINT"]);
     setCurrentStage("BLUEPRINT");
   };
 
   const handleProceedFromBlueprint = () => {
-    setUnlockedStages(["OBSERVE", "ANALYZE", "REPLAY", "DNA", "BLUEPRINT", "DEPLOY"]);
+    setUnlockedStages(["OBSERVE", "ANALYZE", "DNA", "BLUEPRINT", "REPLAY"]);
+    setCurrentStage("REPLAY");
+  };
+
+  const handleProceedFromReplay = () => {
+    setUnlockedStages(["OBSERVE", "ANALYZE", "DNA", "BLUEPRINT", "REPLAY", "DEPLOY"]);
     setCurrentStage("DEPLOY");
   };
 
   const handlePipelineComplete = () => {
-    setUnlockedStages(["OBSERVE", "ANALYZE", "REPLAY", "DNA", "BLUEPRINT", "DEPLOY", "OPERATIONS"]);
+    setUnlockedStages(["OBSERVE", "ANALYZE", "DNA", "BLUEPRINT", "REPLAY", "DEPLOY", "OPERATIONS"]);
     setCurrentStage("OPERATIONS");
   };
+
 
   const handleObserveFurther = () => {
     setCandidateDismissed(true);
