@@ -113,37 +113,40 @@ export const ReasoningTimeline: React.FC<ReasoningTimelineProps> = ({
         const { stepIndex, activeStep, totalSteps, isComplete } = e.detail;
         const timeStr = new Date().toLocaleTimeString();
 
-        if (isComplete) {
-          setIsCompleted(true);
-          const completeLog: ReasoningLog = {
-            id: `replay-complete-${Date.now()}`,
-            timestamp: timeStr,
-            message: "Autonomous Execution Complete",
-            status: "CHECK",
-            meta: `All ${totalRecords} records processed (${confidencePct}% accuracy)`,
-          };
-          setLogs((prev) => [completeLog, ...prev.slice(0, 24)]);
-        } else {
-          const recordNum = Math.min(8, Math.max(1, Math.ceil((stepIndex / totalSteps) * 8)));
-          setActiveRecord(recordNum);
+        setTimeout(() => {
+          if (isComplete) {
+            setIsCompleted(true);
+            const completeLog: ReasoningLog = {
+              id: `replay-complete-${Date.now()}`,
+              timestamp: timeStr,
+              message: "Autonomous Execution Complete",
+              status: "CHECK",
+              meta: `All ${totalRecords} records processed (${confidencePct}% accuracy)`,
+            };
+            setLogs((prev) => [completeLog, ...prev.slice(0, 24)]);
+          } else {
+            const recordNum = Math.min(8, Math.max(1, Math.ceil((stepIndex / totalSteps) * 8)));
+            setActiveRecord(recordNum);
 
-          const stepLog: ReasoningLog = {
-            id: `exec-step-${stepIndex}-${Date.now()}`,
-            timestamp: timeStr,
-            message: `Invoice ${recordNum} / ${totalRecords}: ${activeStep.title}`,
-            status: "REPLAY",
-            meta: `Action: ${activeStep.actionType} on ${activeStep.selector} ✓`,
-          };
+            const stepLog: ReasoningLog = {
+              id: `exec-step-${stepIndex}-${Date.now()}`,
+              timestamp: timeStr,
+              message: `Record ${recordNum} / ${totalRecords}: ${activeStep.title}`,
+              status: "REPLAY",
+              meta: `Action: ${activeStep.actionType} on ${activeStep.selector} ✓`,
+            };
 
-          setLogs((prev) => {
-            if (prev.length > 0 && prev[0].message.startsWith(`Invoice ${recordNum}`)) {
-              return prev;
-            }
-            return [stepLog, ...prev.slice(0, 24)];
-          });
-        }
+            setLogs((prev) => {
+              if (prev.length > 0 && prev[0].message.startsWith(`Record ${recordNum}`)) {
+                return prev;
+              }
+              return [stepLog, ...prev.slice(0, 24)];
+            });
+          }
+        }, 0);
       }
     };
+
 
     if (typeof window !== "undefined") {
       window.addEventListener("ghosttrace:replay-step", handleReplaySync);

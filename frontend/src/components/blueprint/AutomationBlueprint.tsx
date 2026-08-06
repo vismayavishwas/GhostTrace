@@ -26,8 +26,26 @@ export interface AutomationBlueprintProps {
 
 export const AutomationBlueprint: React.FC<AutomationBlueprintProps> = ({ onProceedToDeploy }) => {
   const [activeStepIdx, setActiveStepIdx] = useState<number>(-1);
+  const [dynamicSteps, setDynamicSteps] = useState<BlueprintStep[]>(BLUEPRINT_STEPS);
 
   useEffect(() => {
+    import("@/lib/api").then(({ fetchGraphState }) => {
+      fetchGraphState().then((state) => {
+        if (state) {
+          const srcApp = state.business_process?.workflow_name || state.candidate_name || "Source Application";
+          const steps: BlueprintStep[] = [
+            { step_index: 1, phase: "INPUT", title: `Ingest Stream from ${srcApp}`, detail: "Live browser interaction trigger", icon: FileText },
+            { step_index: 2, phase: "VALIDATE", title: "Validate Schema & Semantic Entities", detail: "Positions & metadata signals checked", icon: CheckCircle2 },
+            { step_index: 3, phase: "EXTRACT", title: "Extract Semantic Field Intent", detail: "Abstract intent window aggregation", icon: Cpu },
+            { step_index: 4, phase: "TRANSFORM", title: "Format Automated Playwright Script", detail: "Target field mapping & locator synthesis", icon: Database },
+            { step_index: 5, phase: "SUBMIT", title: "Execute Cross-Application Automation", detail: "Autonomous form entry & replay", icon: Send },
+            { step_index: 6, phase: "NOTIFY", title: "Post Audit Log & Status Receipt", detail: "Enterprise process timeline update", icon: Bell },
+          ];
+          setDynamicSteps(steps);
+        }
+      });
+    });
+
     const handleReplaySync = (e: any) => {
       if (e.detail && e.detail.stepIndex !== undefined) {
         setActiveStepIdx(e.detail.stepIndex - 1);
@@ -44,6 +62,7 @@ export const AutomationBlueprint: React.FC<AutomationBlueprintProps> = ({ onProc
       }
     };
   }, []);
+
 
   return (
     <div className="flex flex-col gap-6 rounded-2xl border border-slate-800/80 bg-slate-900/90 p-6 shadow-2xl backdrop-blur-xl">
@@ -68,8 +87,9 @@ export const AutomationBlueprint: React.FC<AutomationBlueprintProps> = ({ onProc
 
       {/* Blueprint Steps Flow (Glowing sync during Ghost Replay) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {BLUEPRINT_STEPS.map((step, idx) => {
+        {dynamicSteps.map((step, idx) => {
           const Icon = step.icon;
+
           const isActive = idx === activeStepIdx;
           const isDone = idx < activeStepIdx;
 

@@ -50,24 +50,36 @@ export const GhostReplay: React.FC<GhostReplayProps> = ({ onProceedToDeploy }) =
     fetchTelemetryEvents().then((data) => {
       if (Array.isArray(data) && data.length > 0) {
         const filtered = data
-          .filter((evt: any) => !evt.target_selector?.includes("help") && !evt.target_selector?.includes("settings"))
+          .filter((evt: any) => {
+            const sel = (evt.target_selector || "").toLowerCase();
+            const tag = (evt.element_tag || "").toLowerCase();
+            // Filter out generic un-actionable layout noise wrappers
+            return !["span", "div.flex-1", "body", "h2", "div.flex", "p.text"].some(k => sel.includes(k) || tag.includes(k));
+          })
           .slice(0, 8);
 
         if (filtered.length > 0) {
-          const constructed: ReplayStep[] = filtered.map((evt: any, idx: number) => ({
-            stepIndex: idx + 1,
-            title: `${(evt.event_type || 'ACTION').toUpperCase()} on ${evt.target_selector || 'element'}`,
-            actionType: (evt.event_type || 'ACTION').toUpperCase(),
-            target: evt.target_selector || 'element',
-            selector: evt.target_selector || 'element',
-            appContext: evt.app_title || 'Enterprise Portal',
-            sampleValue: "INV-2026-9841",
-            done: false,
-          }));
+          const constructed: ReplayStep[] = filtered.map((evt: any, idx: number) => {
+            const op = (evt.event_type || 'ACTION').toUpperCase();
+            const sel = evt.target_selector || 'element';
+            const cleanTitle = op === "COPY" ? `Copy Field from ${evt.app_title || 'Source App'}` :
+                             (op === "PASTE" ? `Paste Field into ${evt.app_title || 'Target App'}` : `${op} on ${sel}`);
+            return {
+              stepIndex: idx + 1,
+              title: cleanTitle,
+              actionType: op,
+              target: sel,
+              selector: sel,
+              appContext: evt.app_title || 'Enterprise Portal',
+              sampleValue: evt.input_masked || "Sample Data",
+              done: false,
+            };
+          });
           setSteps(constructed);
         }
       }
     });
+
 
     const wsManager = new WebSocketStreamManager(
       "replay",
@@ -150,14 +162,18 @@ export const GhostReplay: React.FC<GhostReplayProps> = ({ onProceedToDeploy }) =
           }))
         );
 
-        // Broadcast sync event to ReasoningTimeline and AutomationBlueprint
+        // Broadcast sync event to ReasoningTimeline and AutomationBlueprint (deferred out of render loop)
         if (typeof window !== "undefined") {
-          window.dispatchEvent(
-            new CustomEvent("ghosttrace:replay-step", {
-              detail: { stepIndex: stepIdx + 1, activeStep: currentStep, totalSteps: steps.length, isComplete: false },
-            })
-          );
+          const detailObj = { stepIndex: stepIdx + 1, activeStep: currentStep, totalSteps: steps.length, isComplete: false };
+          setTimeout(() => {
+            window.dispatchEvent(
+              new CustomEvent("ghosttrace:replay-step", {
+                detail: detailObj,
+              })
+            );
+          }, 0);
         }
+
 
         if (next >= 100) {
           setIsCompleted(true);
