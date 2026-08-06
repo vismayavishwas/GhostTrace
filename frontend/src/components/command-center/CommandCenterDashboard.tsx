@@ -13,6 +13,8 @@ import { DigitalEmployeeCard } from "../employee/DigitalEmployeeCard";
 import { AutomationImpactCard } from "../impact/AutomationImpactCard";
 import { fetchGraphState, triggerGraphExecution } from "@/lib/api";
 
+import { InteractiveSandboxApp } from "../sandbox/InteractiveSandboxApp";
+
 export const CommandCenterDashboard: React.FC = () => {
   const [showPermissionModal, setShowPermissionModal] = useState<boolean>(false);
   const [monitoredApps, setMonitoredApps] = useState<string[]>(["Chrome", "SAP ERP", "Excel"]);
@@ -47,10 +49,8 @@ export const CommandCenterDashboard: React.FC = () => {
       });
     }, 1000);
 
-
     return () => clearInterval(interval);
   }, []);
-
 
   const handleGrantPermission = (selectedApps: string[]) => {
     setMonitoredApps(selectedApps);
@@ -90,8 +90,12 @@ export const CommandCenterDashboard: React.FC = () => {
         confidenceScore={confidenceScore}
       />
 
+      {/* Live Interactive Sandboxed Enterprise Demo Web App */}
+      {currentStage === "OBSERVE" && <InteractiveSandboxApp />}
+
       {/* Main 3-Column Enterprise Operating System Layout */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 flex-1">
+
         {/* Left Column (3 cols): AI WORKFORCE (WHO is thinking) */}
         <div className="lg:col-span-3 flex flex-col gap-6">
           <AIWorkforce currentStage={currentStage} />
