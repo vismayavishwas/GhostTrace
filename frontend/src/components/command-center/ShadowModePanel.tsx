@@ -40,45 +40,44 @@ export const ShadowModePanel: React.FC<ShadowModePanelProps> = ({
   };
 
   useEffect(() => {
-    // Initial fetch from REST API
-    fetchTelemetryEvents()
-      .then((data) => {
-        if (Array.isArray(data) && data.length > 0) {
-          const mapped = data.map((item: any, idx: number) => ({
-            id: item.event_id || `evt-${idx}`,
-            title: `${item.event_type} on ${item.target_selector || item.element_tag || 'element'}`,
-            app: item.app_title || item.active_tab || "Web App",
-            timestamp: item.timestamp ? new Date(item.timestamp).toLocaleTimeString() : "Just now",
-            completed: true,
-          }));
-          setActions(mapped);
-        }
-        setIsLoading(false);
-      })
-      .catch(() => setIsLoading(false));
+    const syncTelemetry = () => {
+      fetchTelemetryEvents()
+        .then((data) => {
+          if (Array.isArray(data)) {
+            const mapped = data.map((item: any, idx: number) => ({
+              id: item.event_id || `evt-${idx}`,
+              title: `${item.event_type} on ${item.target_selector || item.element_tag || 'element'}`,
+              app: item.app_title || item.active_tab || "Web App",
+              timestamp: item.timestamp ? new Date(item.timestamp).toLocaleTimeString() : "Just now",
+              completed: true,
+            }));
+            setActions(mapped);
+          }
+          setIsLoading(false);
+        })
+        .catch(() => setIsLoading(false));
+    };
+
+    syncTelemetry();
+    const interval = setInterval(syncTelemetry, 1000);
 
     // Connect to live WebSocket stream
     const wsManager = new WebSocketStreamManager(
       "telemetry",
       (msg) => {
         if (msg && msg.payload) {
-          const item = msg.payload;
-          const newAct: SemanticAction = {
-            id: item.event_id || `evt-${Date.now()}`,
-            title: `${item.event_type} on ${item.target_selector || 'element'}`,
-            app: item.app_title || item.active_tab || "Web App",
-            timestamp: new Date().toLocaleTimeString(),
-            completed: true,
-          };
-
-          setActions((prev) => [newAct, ...prev.slice(0, 19)]);
+          syncTelemetry();
         }
       },
       (connected) => setIsConnected(connected)
     );
 
-    return () => wsManager.close();
+    return () => {
+      clearInterval(interval);
+      wsManager.close();
+    };
   }, []);
+
 
   const confidencePct = Math.round(confidenceScore * 100);
 

@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from "react";
 import { Play, Pause, RotateCcw, CheckCircle2, WifiOff } from "lucide-react";
 import { fetchTelemetryEvents } from "@/lib/api";
+import { WebSocketStreamManager } from "@/lib/websocket";
+
 
 export interface ReplayStep {
   title: string;

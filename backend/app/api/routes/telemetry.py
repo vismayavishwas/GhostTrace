@@ -62,8 +62,20 @@ async def post_telemetry_event(payload: Dict[str, Any]):
 
 @router.get("/events")
 async def get_telemetry_events():
-    """Returns stored telemetry events."""
-    return in_memory_events
+    """Returns stored telemetry events in reverse chronological order (newest first)."""
+    observer = get_global_observer()
+    buffer_events = observer.buffer.get_recent()
+    if buffer_events:
+        items = []
+        for e in reversed(buffer_events):
+            if hasattr(e, "model_dump"):
+                items.append(e.model_dump())
+            elif isinstance(e, dict):
+                items.append(e)
+        return items
+
+    return list(reversed(in_memory_events))
+
 
 
 @router.post("/reset")
