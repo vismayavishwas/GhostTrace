@@ -251,17 +251,9 @@ export const InteractiveSandboxApp: React.FC = () => {
                 <button
                   suppressHydrationWarning
                   onClick={() => handlePaste("invoiceId", currentSample.invoiceId)}
-                  className="rounded-md bg-cyan-500/20 border border-cyan-500/30 px-2 py-1 text-[10px] font-bold text-cyan-300 hover:bg-cyan-500/30 transition"
+                  className="rounded-md bg-cyan-500/20 border border-cyan-500/30 px-2.5 py-1 text-[10px] font-bold text-cyan-300 hover:bg-cyan-500/30 transition"
                 >
                   Paste
-                </button>
-                <button
-                  suppressHydrationWarning
-                  onClick={() => handlePasteWrongData("invoiceId")}
-                  title="Paste wrong/noisy data to test GhostTrace Noise Filter"
-                  className="rounded-md bg-rose-500/20 border border-rose-500/30 px-2 py-1 text-[10px] font-bold text-rose-300 hover:bg-rose-500/30 transition"
-                >
-                  Paste Wrong (Noise)
                 </button>
               </div>
             </div>
@@ -282,17 +274,9 @@ export const InteractiveSandboxApp: React.FC = () => {
                 <button
                   suppressHydrationWarning
                   onClick={() => handlePaste("amount", currentSample.amount)}
-                  className="rounded-md bg-cyan-500/20 border border-cyan-500/30 px-2 py-1 text-[10px] font-bold text-cyan-300 hover:bg-cyan-500/30 transition"
+                  className="rounded-md bg-cyan-500/20 border border-cyan-500/30 px-2.5 py-1 text-[10px] font-bold text-cyan-300 hover:bg-cyan-500/30 transition"
                 >
                   Paste
-                </button>
-                <button
-                  suppressHydrationWarning
-                  onClick={() => handlePasteWrongData("amount")}
-                  title="Paste wrong/noisy data to test GhostTrace Noise Filter"
-                  className="rounded-md bg-rose-500/20 border border-rose-500/30 px-2 py-1 text-[10px] font-bold text-rose-300 hover:bg-rose-500/30 transition"
-                >
-                  Paste Wrong (Noise)
                 </button>
               </div>
             </div>
@@ -313,20 +297,13 @@ export const InteractiveSandboxApp: React.FC = () => {
                 <button
                   suppressHydrationWarning
                   onClick={() => handlePaste("vendor", currentSample.vendor)}
-                  className="rounded-md bg-cyan-500/20 border border-cyan-500/30 px-2 py-1 text-[10px] font-bold text-cyan-300 hover:bg-cyan-500/30 transition"
+                  className="rounded-md bg-cyan-500/20 border border-cyan-500/30 px-2.5 py-1 text-[10px] font-bold text-cyan-300 hover:bg-cyan-500/30 transition"
                 >
                   Paste
                 </button>
-                <button
-                  suppressHydrationWarning
-                  onClick={() => handlePasteWrongData("vendor")}
-                  title="Paste wrong/noisy data to test GhostTrace Noise Filter"
-                  className="rounded-md bg-rose-500/20 border border-rose-500/30 px-2 py-1 text-[10px] font-bold text-rose-300 hover:bg-rose-500/30 transition"
-                >
-                  Paste Wrong (Noise)
-                </button>
               </div>
             </div>
+
 
           </div>
         </div>
