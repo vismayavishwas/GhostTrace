@@ -148,11 +148,10 @@ async def get_current_state():
         sel = out.get("selector", "element")
         outlier_items.append({
             "id": f"out-{idx+1}",
-            "label": out.get("label") or f"Action on {sel}",
+            "label": f"Action on {sel}",
             "selector": sel,
             "reason": out.get("reason", "Observed 1x across sequence repetitions")
         })
-
 
     return {
         **current_graph_state,
