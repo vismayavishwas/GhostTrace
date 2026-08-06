@@ -124,13 +124,8 @@ export const CommandCenterDashboard: React.FC = () => {
         {/* Left Column (3 cols): AI WORKFORCE (WHO is thinking) */}
         <div className="lg:col-span-3 flex flex-col gap-6">
           <AIWorkforce currentStage={currentStage} />
-          <ShadowModePanel
-            repetitionCount={repetitionCount}
-            confidenceScore={confidenceScore}
-            onReset={handleResetShadowMode}
-          />
-
         </div>
+
 
         {/* Center Column (6 cols): MAIN WORKSPACE (WHAT you're looking at) */}
         <div className="lg:col-span-6 flex flex-col gap-6">

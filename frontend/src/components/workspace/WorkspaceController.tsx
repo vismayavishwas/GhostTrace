@@ -8,7 +8,9 @@ import { AutomationBlueprint } from "../blueprint/AutomationBlueprint";
 import { AutomationPipeline } from "../pipeline/AutomationPipeline";
 import { HumanApprovalModal } from "../governance/HumanApprovalModal";
 import { ObserverDashboard } from "../observer/ObserverDashboard";
+import { ShadowModePanel } from "../command-center/ShadowModePanel";
 import { Brain, ArrowRight, Zap, CheckCircle2 } from "lucide-react";
+
 
 
 export interface WorkspaceControllerProps {
