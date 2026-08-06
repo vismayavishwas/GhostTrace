@@ -133,28 +133,43 @@ async def get_current_state():
 
     from app.agents.telemetry.transfer_builder import global_transfer_builder
     from app.agents.pattern_discovery.mapping_memory import global_mapping_memory
-    from app.agents.pattern_discovery.learning_planner import global_learning_planner
     from app.agents.pattern_discovery.deviation_detector import global_deviation_detector
 
+    # 1. Process transfers from telemetry events
     transfers = global_transfer_builder.process_telemetry_events(events)
+
+    # 2. Record transfers in Mapping Memory so memory updates observation counts
+    for xfer in transfers:
+        if not xfer.is_immediate_correction:
+            global_mapping_memory.record_transfer(xfer)
+
+    # 3. Detect expected vs observed destination deviations
     detected_deviations = global_deviation_detector.detect_deviations(transfers)
     
     outlier_items = []
     for idx, dev in enumerate(detected_deviations):
         outlier_items.append({
             "id": f"dev-{idx+1}",
-            "label": dev.get("label") or f"Field ({dev.get('source_entity', 'source').upper()}) pasted into Field ({dev.get('observed_destination', 'dest').upper()})",
-            "selector": f"#target-{dev.get('observed_destination', 'dest')}",
+            "label": dev.get("label") or f"Field ({dev.get('source_entity', 'source')}) pasted into Field ({dev.get('observed_destination', 'dest')})",
+            "selector": f"#{dev.get('observed_destination', 'dest')}",
             "reason": dev.get("reason", "Expected destination mismatch observed")
         })
 
     all_maps = global_mapping_memory.get_all_mappings()
     if all_maps:
         max_occ = max(m.get("occurrences", 0) for m in all_maps)
-        max_conf = max(m.get("confidence", 0.0) for m in all_maps)
         if max_occ > 0:
-            repetition_count = max_occ
-            confidence = max_conf
+            repetition_count = max(repetition_count, max_occ)
+
+    # Deterministic Sample-Weighted Confidence: 1 rep = 33%, 2 reps = 67%, 3+ reps = 100%
+    if repetition_count >= 3:
+        confidence = 1.00
+    elif repetition_count == 2:
+        confidence = 0.67
+    elif repetition_count == 1:
+        confidence = 0.33
+    else:
+        confidence = 0.00
 
     if repetition_count >= 1:
         try:
@@ -163,8 +178,8 @@ async def get_current_state():
             bp_meta = business_process_agent.analyze_process(
                 candidate_name=candidate_name,
                 steps=step_strs,
-                source_app=source_app if source_app != "Source App" else "PDF Invoice Portal",
-                target_app=target_app if target_app != "Target App" else "SAP ERP Financials",
+                source_app=source_app if source_app != "Source App" else "PDF Portal",
+                target_app=target_app if target_app != "Target App" else "ERP System",
                 repetition_count=repetition_count,
                 avg_duration_sec=12.5
             )
@@ -172,8 +187,6 @@ async def get_current_state():
             _STORED_BUSINESS_PROCESS = business_process_dict
         except Exception as e:
             logger.warning(f"Error calling BusinessProcessAgent: {e}")
-
-
 
     return {
         **current_graph_state,
@@ -186,6 +199,7 @@ async def get_current_state():
         "business_process": business_process_dict,
         "outliers": outlier_items,
     }
+
 
 
 
