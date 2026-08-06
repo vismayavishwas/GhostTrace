@@ -1,5 +1,6 @@
 from typing import Optional, List, Dict, Any
-from app.models.telemetry import TelemetryEvent, TelemetryEventType
+from app.models.telemetry import TelemetryEvent
+
 
 class SemanticEvent:
     """
