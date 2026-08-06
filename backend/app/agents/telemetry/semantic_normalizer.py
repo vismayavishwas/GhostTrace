@@ -16,7 +16,8 @@ class SemanticEvent:
         self.element_tag = raw_event.element_tag
         self.app_title = raw_event.app_title
         self.timestamp = raw_event.timestamp
-        self.input_masked = raw_event.input_masked
+        self.input_masked = getattr(raw_event, "input_value", None) or getattr(raw_event, "input_masked", None)
+
 
     @property
     def event_type(self):
