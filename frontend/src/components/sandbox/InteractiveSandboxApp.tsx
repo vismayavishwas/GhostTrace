@@ -73,11 +73,12 @@ export const InteractiveSandboxApp: React.FC = () => {
       const rawTarget = e.target as HTMLElement;
       if (!rawTarget) return;
 
-      // Find closest interactive element or element with ID or attribute
-      const target = (rawTarget.closest("button, input, textarea, select, a, [role='button'], [id]") as HTMLElement) || rawTarget;
+      // Find closest interactive element or element with an explicit ID
+      const target = rawTarget.closest("button, input, textarea, select, a, [role='button'], [id]") as HTMLElement;
+      if (!target) return; // Ignore clicks on generic layout divs/containers without explicit IDs
       
       const tag = target.tagName.toLowerCase();
-      if (tag === "body" || tag === "html") return;
+      if (tag === "body" || tag === "html" || tag === "main" || tag === "section") return;
 
       const id = target.id ? `#${target.id}` : "";
       const cls = target.className && typeof target.className === "string" ? `.${target.className.split(" ")[0]}` : "";
@@ -86,6 +87,7 @@ export const InteractiveSandboxApp: React.FC = () => {
       const text = (target as HTMLInputElement).value || target.innerText || target.getAttribute("aria-label") || target.getAttribute("placeholder") || tag;
       dispatchTelemetry("CLICK", selector, text.slice(0, 30));
     };
+
 
 
 
