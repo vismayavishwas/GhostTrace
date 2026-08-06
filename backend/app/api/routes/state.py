@@ -96,10 +96,17 @@ async def get_current_state():
 
     noise_count = max(0, event_count // 6)
 
-    candidate_name = "Waiting for interaction events..."
+    dna_dict = None
+    if latest_graph_state and hasattr(latest_graph_state, "workflow_dna") and latest_graph_state.workflow_dna:
+        try:
+            dna_dict = latest_graph_state.workflow_dna.model_dump()
+        except Exception:
+            pass
 
-    dna_dict = latest_graph_state.workflow_dna.model_dump() if (latest_graph_state and getattr(latest_graph_state, "workflow_dna", None)) else None
-    business_process_dict = latest_graph_state.business_process if (latest_graph_state and getattr(latest_graph_state, "business_process", None)) else _STORED_BUSINESS_PROCESS
+    business_process_dict = _STORED_BUSINESS_PROCESS
+    if latest_graph_state and hasattr(latest_graph_state, "business_process") and latest_graph_state.business_process:
+        business_process_dict = latest_graph_state.business_process
+
 
     if event_count > 0:
         ref_event = events[-1]
