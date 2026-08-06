@@ -90,14 +90,25 @@ async def get_current_state():
 
     pd = get_global_pattern_discovery()
     candidates = pd.get_discovered_candidates() if pd else []
+    
+    max_reps = 0
+    if pd and hasattr(pd, "matcher") and pd.matcher._pattern_index:
+        for occurrences in pd.matcher._pattern_index.values():
+            if len(occurrences) > max_reps:
+                max_reps = len(occurrences)
+
     if candidates:
-        repetition_count = max(c.repetition_count for c in candidates)
+        repetition_count = max(max(c.repetition_count for c in candidates), max_reps)
         confidence = max(c.confidence_score for c in candidates)
+    elif max_reps >= 2:
+        repetition_count = max_reps
+        confidence = min(0.96, round(0.70 + (max_reps * 0.08), 2))
     else:
-        repetition_count = 0
+        repetition_count = max_reps
         confidence = 0.0
 
     noise_count = max(0, event_count // 6)
+
 
     dna_dict = None
     if latest_graph_state and hasattr(latest_graph_state, "workflow_dna") and latest_graph_state.workflow_dna:

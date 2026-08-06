@@ -10,7 +10,6 @@ def get_semantic_signature(event: Any) -> Tuple[str, str, str, str]:
     evt_str = str(evt_type.value if hasattr(evt_type, "value") else evt_type).upper()
 
     raw_selector = str(event.target_selector or "")
-    # Normalize dynamic table/row indexes (e.g. tr:nth-child(2) -> tr:nth-child(N), data-row="2" -> data-row="N")
     normalized_selector = re.sub(r"nth-child\(\d+\)", "nth-child(N)", raw_selector)
     normalized_selector = re.sub(r'data-row="\d+"', 'data-row="N"', normalized_selector)
     
@@ -43,7 +42,8 @@ class PatternOccurrence:
 class PatternMatcher:
     """
     Incremental pattern matcher.
-    Operates strictly on normalized SemanticEvent sequences for domain-agnostic workflow pattern discovery.
+    Evaluates semantic workflow event sequences and sub-sequences (pairs, triads, full workflows)
+    to discover repeating cross-application interaction patterns with high resilience to human click order.
     """
     def __init__(
         self,
@@ -68,11 +68,12 @@ class PatternMatcher:
         full_raw_window: List[TelemetryEvent]
     ) -> List[PatternOccurrence]:
         """
-        Evaluates pattern occurrences incrementally by normalizing raw telemetry window into SemanticEvents.
+        Evaluates pattern occurrences incrementally across semantic event subsequences.
+        Returns all matched pattern occurrences meeting minimum repetition thresholds.
         """
         matched_candidates: List[PatternOccurrence] = []
         
-        # 1. Pipeline Stage: Normalize raw telemetry window into business SemanticEvents
+        # 1. Normalize raw telemetry window into business SemanticEvents
         semantic_window: List[SemanticEvent] = []
         for raw_e in full_raw_window:
             sem_e = SemanticNormalizer.normalize(raw_e)
@@ -83,7 +84,7 @@ class PatternMatcher:
         if n < self.min_sequence_length:
             return matched_candidates
 
-        # 2. Evaluate suffix lengths ending at the latest normalized semantic event
+        # 2. Evaluate suffix lengths ending at the latest normalized semantic event (lengths 2 to max_sequence_length)
         for length in range(self.min_sequence_length, min(n + 1, self.max_sequence_length + 1)):
             subseq = semantic_window[-length:]
             sig_tuple = tuple(get_semantic_signature(e) for e in subseq)
@@ -95,8 +96,11 @@ class PatternMatcher:
                 existing_occurrences = self._pattern_index[sig_tuple]
                 last_occ = existing_occurrences[-1]
                 
-                # Non-overlapping occurrence check
-                if subseq[0].timestamp >= last_occ[-1].timestamp and subseq[0].event_id != last_occ[0].event_id:
+                # Check for non-overlapping occurrence
+                last_end_time = str(last_occ[-1].timestamp)
+                curr_start_time = str(subseq[0].timestamp)
+                
+                if curr_start_time >= last_end_time and subseq[0].event_id != last_occ[0].event_id:
                     if subseq[0].event_id not in [e.event_id for e in last_occ]:
                         existing_occurrences.append(subseq)
 
