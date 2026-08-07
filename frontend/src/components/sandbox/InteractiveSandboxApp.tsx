@@ -69,34 +69,13 @@ export const InteractiveSandboxApp: React.FC = () => {
       setStatusMsg("");
     };
 
-    const handleGlobalCopy = () => {
-      const activeEl = typeof document !== "undefined" ? (document.activeElement as HTMLElement) : null;
-      if (activeEl && !activeEl.closest("#sandbox-app")) return;
-      const selection = window.getSelection()?.toString() || "";
-      if (selection) {
-        dispatchTelemetry("COPY", "window.selection", selection.slice(0, 30));
-      }
-    };
-
-    const handleGlobalPaste = (e: ClipboardEvent) => {
-      const target = e.target as HTMLElement;
-      if (!target || !target.closest("#sandbox-app")) return;
-      const text = e.clipboardData?.getData("text") || "";
-      const id = target?.id ? `#${target.id}` : (target?.tagName.toLowerCase() || "input");
-      dispatchTelemetry("PASTE", id, text.slice(0, 30));
-    };
-
     if (typeof window !== "undefined") {
       window.addEventListener("ghosttrace:reset-sandbox", handleReset);
-      window.addEventListener("copy", handleGlobalCopy);
-      window.addEventListener("paste", handleGlobalPaste);
     }
 
     return () => {
       if (typeof window !== "undefined") {
         window.removeEventListener("ghosttrace:reset-sandbox", handleReset);
-        window.removeEventListener("copy", handleGlobalCopy);
-        window.removeEventListener("paste", handleGlobalPaste);
       }
     };
   }, []);
@@ -135,18 +114,13 @@ export const InteractiveSandboxApp: React.FC = () => {
     const isSource = selector.includes("source");
     const appTitle = isSource ? titles.sourceTitle : titles.targetTitle;
 
-    let labelText = explicitLabel || "";
-    if (!labelText) {
-      const selLower = String(selector || "").toLowerCase();
-      if (selLower.includes("f1") || selLower.includes(currentSample.field1Key.toLowerCase())) {
-        labelText = currentSample.field1Label;
-      } else if (selLower.includes("f2") || selLower.includes(currentSample.field2Key.toLowerCase())) {
-        labelText = currentSample.field2Label;
-      } else if (selLower.includes("f3") || selLower.includes(currentSample.field3Key.toLowerCase())) {
-        labelText = currentSample.field3Label;
-      } else {
-        labelText = "Field";
-      }
+    let labelText = explicitLabel || "Field";
+    if (selector.includes("f1")) {
+      labelText = currentSample.field1Label;
+    } else if (selector.includes("f2")) {
+      labelText = currentSample.field2Label;
+    } else if (selector.includes("f3")) {
+      labelText = currentSample.field3Label;
     }
 
     const payload = {
