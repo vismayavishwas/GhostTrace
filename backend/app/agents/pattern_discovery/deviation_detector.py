@@ -1,75 +1,150 @@
 import logging
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from app.agents.telemetry.transfer_builder import SemanticTransfer
 from app.agents.pattern_discovery.mapping_memory import global_mapping_memory
 
 logger = logging.getLogger("ghosttrace.pattern_discovery.deviation_detector")
 
 
+def format_clean_entity_label(raw_sel: str = "", entity_key: str = "") -> str:
+    """Formats raw selectors or semantic entity keys into clean human-readable field labels without raw DOM IDs."""
+    target = (entity_key or raw_sel or "").lower()
+    token = target.split(":")[-1] if ":" in target else target
+    token = token.replace("lbl_", "").replace("hdg_", "").replace("elem_", "").replace("#", "").replace(".", " ").strip()
+    token = token.replace("source-", "").replace("target-", "").replace("source_", "").replace("target_", "")
+
+    aliases = {
+        "invoiceid": "Invoice ID",
+        "invoice_id": "Invoice ID",
+        "amount": "Total Amount",
+        "vendor": "Vendor Name",
+        "cgpa": "CGPA Score",
+        "experience": "Years Experience",
+        "dealsize": "Deal Size ARR",
+        "deal_size": "Deal Size ARR",
+        "customer": "Customer Name",
+        "email": "Email Address",
+        "f1": "Invoice ID",
+        "f2": "Total Amount",
+        "f3": "Vendor Name",
+    }
+
+    for k, v in aliases.items():
+        if token == k or f"_{k}" in token or f"-{k}" in token or k in token:
+            return v
+
+    clean = token.replace("_", " ").replace("-", " ").strip().title()
+    return clean if clean else "Field"
+
+
 class DeviationDetector:
     """
-    100% Dynamic Positional & Mapping Deviation Detector.
-    Zero hardcoded field names, zero domain regexes, zero string assumptions.
+    Expected vs Observed Mapping & Step Sequence Deviation Detector.
     
-    Algorithm:
-    1. Mapping Deviation: Compares Expected Destination for source_entity from Mapping Memory vs Observed Destination.
-    2. Sequence Step Deviation: Compares Step i destination against established step i template.
+    Detects:
+    1. Wrong destination field (e.g. pasting Invoice ID into Amount field)
+    2. Missing step (e.g. skipping Amount step)
+    3. Reordered step (e.g. pasting Vendor before Amount)
     """
     def __init__(self):
-        self._established_sequence_dests: List[str] = []
+        self.baseline_sequence: List[Tuple[str, str]] = []
 
-    def set_sequence_template(self, dest_entities: List[str]):
-        """Sets established sequence destination template from workflow discovery."""
-        self._established_sequence_dests = [d.lower() for d in dest_entities]
+    def clear(self):
+        """Resets detector state."""
+        self.baseline_sequence.clear()
+
+    def set_sequence_template(self, transfers: List[SemanticTransfer]):
+        """Sets the established baseline sequence template (source_entity, destination_entity)."""
+        self.baseline_sequence = [(x.source_entity, x.destination_entity) for x in transfers if not x.is_immediate_correction]
 
     def detect_deviations(self, transfers: List[SemanticTransfer]) -> List[Dict[str, Any]]:
-        """Detects deviations by comparing expected stable mappings & positional step sequence against observed transfers."""
+        """Detects deviations by comparing expected stable mappings & baseline sequences against observed transfers."""
         deviations: List[Dict[str, Any]] = []
+        valid_transfers = [x for x in transfers if not x.is_immediate_correction]
 
-        for idx, xfer in enumerate(transfers):
-            if xfer.is_immediate_correction:
-                continue
+        if not valid_transfers:
+            return deviations
 
-            expected_dest = global_mapping_memory.get_expected_destination(xfer.source_entity)
+        # Auto-establish baseline sequence if not explicitly set and transfers exist
+        if not self.baseline_sequence and len(valid_transfers) >= 2:
+            self.set_sequence_template(valid_transfers)
+
+        # 1. Detect Wrong Destination Fields (Mapping Memory or Positional Baseline)
+        for idx, xfer in enumerate(valid_transfers):
+            src = xfer.source_entity
+            expected_dest = global_mapping_memory.get_expected_destination(src)
+            
+            positional_dest = None
+            if self.baseline_sequence and idx < len(self.baseline_sequence):
+                positional_dest = self.baseline_sequence[idx][1]
+
+            target_expected = expected_dest or positional_dest
             observed_dest = xfer.destination_entity.lower()
 
-            # Positional Sequence Step Expectation (Step idx in current sequence)
-            positional_expected = None
-            if idx < len(self._established_sequence_dests):
-                positional_expected = self._established_sequence_dests[idx]
+            src_clean = format_clean_entity_label("", src)
+            exp_clean = format_clean_entity_label("", target_expected or "")
+            obs_clean = format_clean_entity_label("", observed_dest)
 
-            target_expected = expected_dest or positional_expected
-
-            logger.info(
-                f"[STAGE 4: DEVIATION_DETECTOR] Comparing Step {idx+1} | Source='{xfer.source_entity}' | "
-                f"ExpectedDest='{target_expected or 'NONE'}' | ObservedDest='{observed_dest}'"
-            )
-
-            # Pure Entity Key Comparison — 100% Dynamic
-            if target_expected and observed_dest != target_expected:
+            if target_expected and target_expected.lower() != observed_dest:
                 logger.info(
-                    f"🚨 [STAGE 4: DEVIATION_DETECTOR] DEVIATION FLAGGED! | Step={idx+1} | "
+                    f"🚨 [DEVIATION DETECTED] Wrong Destination Field | Step={idx+1} | Source='{src}' | "
                     f"Expected='{target_expected}' != Observed='{observed_dest}'"
                 )
-                src_token = xfer.source_entity.split(":")[-1].replace("_", " ").title()
-                exp_token = target_expected.split(":")[-1].replace("_", " ").title()
-                obs_token = observed_dest.split(":")[-1].replace("_", " ").title()
-
                 deviations.append({
-                    "id": f"dev-{len(deviations)+1}",
-                    "source_entity": xfer.source_entity,
+                    "id": f"dev-wrong-dest-{len(deviations)+1}",
+                    "source_entity": src,
                     "expected_destination": target_expected,
                     "observed_destination": observed_dest,
-                    "label": f"Field ({src_token}) pasted into Field ({obs_token}) at Step {idx+1}",
-                    "reason": f"Workflow Deviation Mismatch: Expected Step {idx+1} target '{exp_token}' but observed '{obs_token}'",
-                    "transfer_id": xfer.transfer_id
+                    "label": f"Field ({src_clean}) pasted into Field ({obs_clean})",
+                    "reason": f"Expected destination '{exp_clean}' but observed '{obs_clean}'",
+                    "selector": obs_clean,
+                    "transfer_id": xfer.transfer_id,
+                    "group": "Wrong Field Target"
                 })
 
-        logger.info(f"[STAGE 4: DEVIATION_DETECTOR] Evaluated {len(transfers)} transfers -> Identified {len(deviations)} expectation mismatches.")
+        # 2. Detect Reordered Steps against baseline sequence
+        if self.baseline_sequence and len(valid_transfers) >= 2:
+            observed_srcs = [x.source_entity for x in valid_transfers]
+            expected_src_order = [s for s, _ in self.baseline_sequence if s in observed_srcs]
+            if observed_srcs != expected_src_order and len(observed_srcs) == len(expected_src_order):
+                for idx, (obs_s, exp_s) in enumerate(zip(observed_srcs, expected_src_order)):
+                    if obs_s != exp_s:
+                        obs_clean = format_clean_entity_label("", obs_s)
+                        exp_clean = format_clean_entity_label("", exp_s)
+                        deviations.append({
+                            "id": f"dev-reordered-{len(deviations)+1}",
+                            "source_entity": obs_s,
+                            "expected_destination": "reordered",
+                            "observed_destination": obs_s,
+                            "label": f"Reordered Step: Field ({obs_clean}) pasted out of baseline sequence",
+                            "reason": f"Expected Field ({exp_clean}) before Field ({obs_clean})",
+                            "selector": obs_clean,
+                            "transfer_id": valid_transfers[idx].transfer_id,
+                            "group": "Sequence Reordering"
+                        })
+                        break
+
+        # 3. Detect Missing Steps against baseline sequence
+        if self.baseline_sequence and len(valid_transfers) < len(self.baseline_sequence):
+            observed_src_set = {x.source_entity for x in valid_transfers}
+            for exp_src, exp_dest in self.baseline_sequence:
+                if exp_src not in observed_src_set:
+                    src_clean = format_clean_entity_label("", exp_src)
+                    dest_clean = format_clean_entity_label("", exp_dest)
+                    deviations.append({
+                        "id": f"dev-missing-{len(deviations)+1}",
+                        "source_entity": exp_src,
+                        "expected_destination": exp_dest,
+                        "observed_destination": "missing",
+                        "label": f"Missing Step: Skipped Field ({src_clean}) → Field ({dest_clean})",
+                        "reason": f"Workflow baseline expected step '{src_clean} → {dest_clean}'",
+                        "selector": dest_clean,
+                        "transfer_id": "missing-step",
+                        "group": "Omitted Action"
+                    })
+
+        logger.info(f"[STAGE 4: DEVIATION_DETECTOR] Evaluated {len(valid_transfers)} transfers -> Flagged {len(deviations)} mistakes.")
         return deviations
-
-
-
 
 
 global_deviation_detector = DeviationDetector()

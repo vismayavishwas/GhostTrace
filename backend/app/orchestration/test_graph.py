@@ -9,7 +9,7 @@ from app.orchestration import GhostTraceOrchestrator, GhostTraceGraphState
 
 def create_sample_telemetry_sequence() -> list:
     t0 = datetime.now(timezone.utc)
-    return [
+    single_seq = [
         TelemetryEvent(
             event_type=EventType.NAVIGATION,
             coordinates_x=100, coordinates_y=200,
@@ -23,6 +23,7 @@ def create_sample_telemetry_sequence() -> list:
             timestamp=datetime.fromtimestamp(t0.timestamp() + 1.0, tz=timezone.utc)
         )
     ]
+    return single_seq + single_seq
 
 
 

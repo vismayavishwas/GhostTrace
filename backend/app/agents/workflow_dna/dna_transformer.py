@@ -6,44 +6,47 @@ from app.models.workflow import WorkflowCandidate, WorkflowDNA, WorkflowDNAStep
 
 logger = logging.getLogger("ghosttrace.workflow_dna.transformer")
 
-# Deterministic keyword to action name rules
-SELECTOR_ACTION_RULES: List[Tuple[str, str]] = [
-    ("submit", "Submit Form"),
-    ("save", "Save Record"),
-    ("search", "Search Records"),
-    ("login", "Authenticate User"),
-    ("nav", "Navigate Workspace"),
-    ("invoice", "Process Invoice"),
-    ("input", "Enter Input Data"),
-    ("btn", "Execute Action"),
-    ("button", "Click Button"),
-    ("link", "Follow Link"),
-    ("a", "Navigate Link"),
-]
-
-
 class DNATransformer:
     """
-    Deterministic rule-based transformer converting TelemetryEvent sequences into
+    100% Dynamic Transformer converting TelemetryEvent sequences into
     high-level semantic WorkflowDNA steps.
     """
     def transform_candidate(self, candidate: WorkflowCandidate) -> WorkflowDNA:
         """
-        Transforms a WorkflowCandidate into a validated WorkflowDNA model using rule-based mappings.
+        Transforms a WorkflowCandidate into a validated WorkflowDNA model using dynamic semantic normalization.
         """
         events = candidate.sequence
         steps: List[WorkflowDNAStep] = []
         apps_involved: Set[str] = set()
         inputs_schema: Dict[str, Any] = {}
 
+        from app.agents.telemetry.transfer_builder import global_transfer_builder
+        from app.agents.pattern_discovery.deviation_detector import format_clean_entity_label
+
+        transfers = global_transfer_builder.process_telemetry_events(events)
+        field_mappings: List[Dict[str, Any]] = []
+
+        for xfer in transfers:
+            if xfer.is_immediate_correction:
+                continue
+            src_lbl = format_clean_entity_label("", xfer.source_entity)
+            dest_lbl = format_clean_entity_label("", xfer.destination_entity)
+            field_mappings.append({
+                "transfer_id": xfer.transfer_id,
+                "source_label": src_lbl,
+                "destination_label": dest_lbl,
+                "source_app": xfer.source_app,
+                "destination_app": xfer.destination_app,
+                "pasted_value": xfer.pasted_value,
+                "display_mapping": f"{src_lbl} → {dest_lbl}"
+            })
+
         for idx, event in enumerate(events, start=1):
             app_title = event.app_title or "Target Application"
             apps_involved.add(app_title)
 
-            # 1. Infer Action Name deterministically
             action_name = self._infer_action_name(event)
 
-            # 2. Extract Parameters & Inputs
             parameters: Dict[str, Any] = {}
             if event.input_value is not None:
                 param_key = f"input_step_{idx}"
@@ -55,7 +58,13 @@ class DNATransformer:
                     "default": event.input_value,
                 }
 
-            # 3. Create WorkflowDNAStep
+            # Attach matching transfer mapping metadata if available
+            raw_sel = (event.target_selector or "").lower()
+            for m in field_mappings:
+                if any(k in raw_sel for k in [m["source_label"].lower().replace(" ", ""), m["destination_label"].lower().replace(" ", "")]):
+                    parameters.update(m)
+                    break
+
             fallback_selectors = []
             if event.element_tag:
                 fallback_selectors.append(f"{event.element_tag.lower()}")
@@ -75,10 +84,11 @@ class DNATransformer:
         # Build primary workflow title and description
         app_list = sorted(list(apps_involved))
         primary_app = app_list[0] if app_list else "Application"
-        workflow_title = f"{primary_app} Workflow Automation"
+        target_app = app_list[-1] if len(app_list) > 1 else primary_app
+        workflow_title = f"{primary_app} → {target_app} Workflow Automation" if primary_app != target_app else f"{primary_app} Workflow Automation"
         workflow_desc = (
-            f"Deterministic workflow spanning {len(steps)} steps across "
-            f"{', '.join(app_list)}."
+            f"Dynamic semantic workflow mapping {len(field_mappings)} field flow(s) and {len(steps)} interaction step(s) "
+            f"across {', '.join(app_list)}."
         )
 
         output_schema = {
@@ -99,56 +109,41 @@ class DNATransformer:
                 "candidate_id": candidate.candidate_id,
                 "repetition_count": candidate.repetition_count,
                 "sequence_event_ids": candidate.sequence_event_ids,
+                "field_mappings": field_mappings,
             }
         )
 
-        logger.debug(f"DNATransformer created WorkflowDNA ID={dna.workflow_id[:8]} with {len(steps)} steps")
+        logger.debug(f"DNATransformer created WorkflowDNA ID={dna.workflow_id[:8]} with {len(steps)} steps and {len(field_mappings)} field mappings")
         return dna
 
     def _infer_action_name(self, event: TelemetryEvent) -> str:
         """
-        Determines high-level semantic action name using a hybrid architecture:
-        1. High-confidence deterministic rule match -> Instant return.
-        2. Low-confidence complex selector (e.g. div:nth-child(7) > span) -> Gemini model inference.
+        Determines semantic action name 100% dynamically from SemanticNormalizer metadata.
+        Zero hardcoded rule tables, zero inline Gemini calls in learning loop.
         """
-        selector = (event.target_selector or "").lower()
-        tag = (event.element_tag or "").lower()
+        from app.agents.telemetry.semantic_normalizer import SemanticNormalizer
+        from app.agents.pattern_discovery.deviation_detector import format_clean_entity_label
+
+        sem = SemanticNormalizer.normalize(event)
+        if sem:
+            clean_label = format_clean_entity_label(sem.display_label.split(" (")[0], sem.semantic_entity)
+            op = sem.operation.capitalize()
+            return f"{op} {clean_label}"
+
+        selector = (event.target_selector or "").replace("#", "").replace(".", " ").replace("-", " ").strip().title()
+        if not selector:
+            selector = (event.element_tag or "Element").title()
+        selector = format_clean_entity_label(selector)
+
         event_type = str(event.event_type).upper()
-
-        # Step 1: High-Confidence Deterministic Rule Matching
-        for keyword, semantic_name in SELECTOR_ACTION_RULES:
-            if keyword in selector or keyword in tag:
-                return f"{semantic_name} ({event.app_title})"
-
-        # Step 2: Low-Confidence Unrecognized Complex Selector -> Call Gemini Service
-        if len(selector) > 15 or "nth-child" in selector or ">" in selector:
-            from app.services.gemini_service import gemini_service
-            prompt = (
-                f"Analyze this DOM element selector and event type to generate a concise, human-readable action name (3-5 words).\n"
-                f"Application: {event.app_title}\n"
-                f"Event Type: {event_type}\n"
-                f"Selector: {event.target_selector}\n"
-                f"Element Tag: {event.element_tag}\n"
-                f"Output only the action name title."
-            )
-            def rule_fallback():
-                return f"Click Element {selector[:15]} ({event.app_title})"
-
-            gemini_name, elapsed, status = gemini_service.generate(
-                prompt=prompt,
-                purpose="semantic_action_inference",
-                fallback_fn=rule_fallback
-            )
-            if gemini_name and not status.startswith("FALLBACK"):
-                return f"{gemini_name} ({event.app_title})"
-
-        # Step 3: Standard Fallback Action Rules
-        if event_type in ["TYPE", "KEYPRESS"]:
-            return f"Enter Input Data ({event.app_title})"
-        elif event_type in ["CLICK", "DOUBLE_CLICK"]:
-            return f"Click Target ({event.app_title})"
-        elif event_type == "NAVIGATION":
-            return f"Navigate Page ({event.app_title})"
+        if "TYPE" in event_type or "KEY" in event_type or "PASTE" in event_type:
+            return f"Input into {selector}"
+        elif "COPY" in event_type:
+            return f"Copy from {selector}"
+        elif "CLICK" in event_type:
+            return f"Click {selector}"
+        elif "NAV" in event_type:
+            return f"Navigate to {selector}"
         else:
-            return f"Perform {event_type} ({event.app_title})"
+            return f"{event_type.capitalize()} on {selector}"
 

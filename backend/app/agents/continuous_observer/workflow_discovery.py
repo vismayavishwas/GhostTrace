@@ -9,28 +9,22 @@ logger = logging.getLogger("ghosttrace.continuous_observer.discovery")
 
 
 def _format_step_name(event_type: str, selector: Optional[str], tag: Optional[str]) -> str:
-    """Generates human-readable step descriptions."""
-    evt = str(event_type).upper()
-    sel = selector or tag or "element"
-    
+    """Generates human-readable step descriptions domain-agnostically."""
+    evt = event_type.upper()
+    clean_sel = (selector or tag or "element").replace("#", "").replace(".", " ").replace("-", " ").strip().title()
+    if not clean_sel:
+        clean_sel = "Element"
+
     if "CLICK" in evt:
-        if "login" in sel.lower():
-            return "Login Button Click"
-        elif "search" in sel.lower():
-            return "Search Input Focus"
-        elif "submit" in sel.lower():
-            return "Submit Action"
-        return f"Click {sel}"
-    elif "TYPE" in evt or "KEY" in evt:
-        if "search" in sel.lower():
-            return "Enter Search Keyword"
-        elif "user" in sel.lower() or "input" in sel.lower():
-            return "Enter Form Details"
-        return f"Enter Input in {sel}"
+        return f"Click {clean_sel}"
+    elif "TYPE" in evt or "KEY" in evt or "PASTE" in evt:
+        return f"Input into {clean_sel}"
+    elif "COPY" in evt:
+        return f"Copy from {clean_sel}"
     elif "NAV" in evt:
-        return "Navigate Workspace"
+        return f"Navigate to {clean_sel}"
     else:
-        return f"{evt.title()} on {sel}"
+        return f"{evt.capitalize()} on {clean_sel}"
 
 
 class WorkflowDiscoveryEngine:
@@ -45,7 +39,7 @@ class WorkflowDiscoveryEngine:
     """
     def __init__(
         self,
-        min_sequence_length: int = 2,
+        min_sequence_length: int = 3,
         min_occurrences: int = 2,
         min_confidence_threshold: float = 0.50
     ):
@@ -55,6 +49,18 @@ class WorkflowDiscoveryEngine:
         self._completed_cycles: List[List[ObservationEvent]] = []
         self._established_sequence_entities: List[str] = []
         self._discovered_candidates: Dict[str, WorkflowCandidate] = {}
+        self.last_completed_cycle_count: int = 0
+
+    def get_completed_cycle_count(self) -> int:
+        """Returns the number of completed sequence cycles observed so far."""
+        return self.last_completed_cycle_count
+
+    def clear(self) -> None:
+        """Resets engine state."""
+        self._completed_cycles.clear()
+        self._established_sequence_entities.clear()
+        self._discovered_candidates.clear()
+        self.last_completed_cycle_count = 0
 
     def analyze_observations(self, observations: List[ObservationEvent]) -> List[WorkflowCandidate]:
         """
@@ -63,11 +69,11 @@ class WorkflowDiscoveryEngine:
         if not observations:
             return []
 
-        # Filter out noise events and extract semantic actions
+        # Filter out noise events and extract semantic actions (Data transfer & submit operations)
         semantic_actions: List[Tuple[ObservationEvent, str]] = []
         for obs in observations:
             sem = SemanticNormalizer.normalize(obs.telemetry_event)
-            if sem and sem.operation in ["COPY", "PASTE", "SELECT", "SUBMIT", "NAVIGATE"]:
+            if sem and sem.operation in ["COPY", "PASTE", "TYPE", "SELECT", "SUBMIT", "NAVIGATE", "SUBMIT_ACTION", "FOCUS_FIELD", "EXECUTE_ACTION"]:
                 semantic_actions.append((obs, sem.semantic_entity))
 
         if len(semantic_actions) < self.min_sequence_length:
@@ -79,14 +85,25 @@ class WorkflowDiscoveryEngine:
         anchor_entity: Optional[str] = None
 
         for obs, entity in semantic_actions:
-            tag = str(obs.telemetry_event.element_tag or "").upper()
+            tag = (obs.telemetry_event.element_tag or "").upper()
             sem_op = str(getattr(obs.telemetry_event, "event_type", "")).upper()
-            is_nav = sem_op in ["SUBMIT", "NAVIGATE"] or tag in ["BUTTON", "SUBMIT"]
+            selector = (obs.telemetry_event.target_selector or "").lower()
+
+            sem = SemanticNormalizer.normalize(obs.telemetry_event)
+            norm_op = sem.operation if sem else ""
+
+            is_submit_btn = (
+                sem_op == "SUBMIT"
+                or norm_op in ["SUBMIT", "SUBMIT_ACTION"]
+                or any(k in selector for k in ["btn_submit", "btn-submit", "btn_save", "btn-save", "submit-btn", "btn-next", "next-record", "next"])
+                or tag == "SUBMIT"
+            )
+            is_nav = sem_op == "NAVIGATE" or norm_op == "NAVIGATE" or (is_submit_btn and len(current_cycle) >= 2)
 
             if anchor_entity is None:
                 anchor_entity = entity
                 current_cycle.append((obs, entity))
-            elif entity == anchor_entity or is_nav:
+            elif is_nav or (entity == anchor_entity and len(current_cycle) >= 2):
                 # Cycle Boundary Reached! Close current cycle
                 if is_nav and entity != anchor_entity:
                     current_cycle.append((obs, entity))
@@ -95,12 +112,12 @@ class WorkflowDiscoveryEngine:
                     cycles.append(current_cycle)
 
                 current_cycle = [] if is_nav else [(obs, entity)]
+                anchor_entity = entity if not is_nav else None
             else:
                 current_cycle.append((obs, entity))
 
-
-        if len(current_cycle) >= self.min_sequence_length and cycles:
-            # Add remaining open cycle if it matches sequence length
+        if len(current_cycle) >= self.min_sequence_length and len(cycles) >= 1:
+            # Add remaining open cycle if sequence template matches
             cycles.append(current_cycle)
 
         if not cycles:
@@ -118,8 +135,10 @@ class WorkflowDiscoveryEngine:
             if cycle_ents == template_ents or (len(cycle_ents) >= 2 and cycle_ents[:len(template_ents)] == template_ents):
                 matching_cycle_count += 1
 
+        self.last_completed_cycle_count = matching_cycle_count
 
-        if matching_cycle_count < 1:
+        # Require at least 2 completed matching cycles (Repetition) to discover a candidate pattern
+        if matching_cycle_count < 2:
             return []
 
         # Build candidate representing the full sequence cycle
@@ -156,8 +175,8 @@ class WorkflowDiscoveryEngine:
         seq_ids = [obs.telemetry_event.event_id for obs in cycle_obs]
         apps = list(set(obs.app_title for obs in cycle_obs))
 
-        # Dynamic sample-weighted confidence: 33% for 1 cycle, 67% for 2 cycles, 100% for 3+ cycles
-        confidence = min(1.0, round(cycle_count / 3.0, 2))
+        # Dynamic sample-weighted confidence: 33% for 1 cycle, 66% for 2 cycles, 100% for 3+ cycles
+        confidence = 0.33 if cycle_count == 1 else (0.66 if cycle_count == 2 else 1.00)
 
         source_app = apps[0] if apps else "Source App"
         target_app = apps[-1] if len(apps) > 1 else "Target App"
@@ -169,6 +188,7 @@ class WorkflowDiscoveryEngine:
             observed_steps=observed_steps,
             sequence_event_ids=seq_ids,
             occurrence_count=cycle_count,
+            repetition_count=cycle_count,
             confidence_score=confidence,
             success_rate=1.0,
             applications_involved=apps

@@ -69,29 +69,9 @@ export const InteractiveSandboxApp: React.FC = () => {
       setStatusMsg("");
     };
 
-    const handleGlobalClick = (e: MouseEvent) => {
-      const rawTarget = e.target as HTMLElement;
-      if (!rawTarget) return;
-
-      // Find closest interactive element or element with an explicit ID
-      const target = rawTarget.closest("button, input, textarea, select, a, [role='button'], [id]") as HTMLElement;
-      if (!target) return; // Ignore clicks on generic layout divs/containers without explicit IDs
-      
-      const tag = target.tagName.toLowerCase();
-      if (tag === "body" || tag === "html" || tag === "main" || tag === "section") return;
-
-      const id = target.id ? `#${target.id}` : "";
-      const cls = target.className && typeof target.className === "string" ? `.${target.className.split(" ")[0]}` : "";
-      const selector = id || (tag + (cls ? cls : "")) || "element";
-
-      const text = (target as HTMLInputElement).value || target.innerText || target.getAttribute("aria-label") || target.getAttribute("placeholder") || tag;
-      dispatchTelemetry("CLICK", selector, text.slice(0, 30));
-    };
-
-
-
-
     const handleGlobalCopy = () => {
+      const activeEl = typeof document !== "undefined" ? (document.activeElement as HTMLElement) : null;
+      if (activeEl && !activeEl.closest("#sandbox-app")) return;
       const selection = window.getSelection()?.toString() || "";
       if (selection) {
         dispatchTelemetry("COPY", "window.selection", selection.slice(0, 30));
@@ -99,15 +79,15 @@ export const InteractiveSandboxApp: React.FC = () => {
     };
 
     const handleGlobalPaste = (e: ClipboardEvent) => {
-      const text = e.clipboardData?.getData("text") || "";
       const target = e.target as HTMLElement;
+      if (!target || !target.closest("#sandbox-app")) return;
+      const text = e.clipboardData?.getData("text") || "";
       const id = target?.id ? `#${target.id}` : (target?.tagName.toLowerCase() || "input");
       dispatchTelemetry("PASTE", id, text.slice(0, 30));
     };
 
     if (typeof window !== "undefined") {
       window.addEventListener("ghosttrace:reset-sandbox", handleReset);
-      window.addEventListener("click", handleGlobalClick);
       window.addEventListener("copy", handleGlobalCopy);
       window.addEventListener("paste", handleGlobalPaste);
     }
@@ -115,7 +95,6 @@ export const InteractiveSandboxApp: React.FC = () => {
     return () => {
       if (typeof window !== "undefined") {
         window.removeEventListener("ghosttrace:reset-sandbox", handleReset);
-        window.removeEventListener("click", handleGlobalClick);
         window.removeEventListener("copy", handleGlobalCopy);
         window.removeEventListener("paste", handleGlobalPaste);
       }
@@ -153,19 +132,34 @@ export const InteractiveSandboxApp: React.FC = () => {
   };
 
   const dispatchTelemetry = async (eventType: string, selector: string, value: string) => {
+    const isSource = selector.includes("source");
+    const appTitle = isSource ? titles.sourceTitle : titles.targetTitle;
+
+    let labelText = "Field";
+    if (selector.includes("f1")) {
+      labelText = currentSample.field1Label;
+    } else if (selector.includes("f2")) {
+      labelText = currentSample.field2Label;
+    } else if (selector.includes("f3")) {
+      labelText = currentSample.field3Label;
+    }
+
     const payload = {
       event_type: eventType,
-      active_tab: titles.targetTitle,
+      active_tab: appTitle,
       url: typeof window !== "undefined" ? window.location.href : "http://localhost:3000/demo",
       target_selector: selector,
+      element_tag: isSource ? "BUTTON" : "INPUT",
+      field_label: labelText,
+      input_value: value,
+      input_masked: value ? `${value[0]}***` : "",
       xpath: `//*[@id="${selector.replace("#", "")}"]`,
       bounding_box: { x: 120, y: 240, width: 200, height: 35 },
       scroll_pos: { x: 0, y: 0 },
-      input_masked: value ? `${value[0]}***` : "",
       coordinates_x: 250.0,
       coordinates_y: 300.0,
       timestamp: new Date().toISOString(),
-      app_title: titles.targetTitle,
+      app_title: appTitle,
     };
 
     setStatusMsg(`[Telemetry Transmitted] ${eventType} on ${selector}`);
@@ -200,6 +194,7 @@ export const InteractiveSandboxApp: React.FC = () => {
   };
 
   const handleNextRecord = () => {
+    dispatchTelemetry("SUBMIT", "#btn-next-record", `Record ${sampleIndex + 2}`);
     if (sampleIndex < samples.length - 1) {
       const nextIdx = sampleIndex + 1;
       setSampleIndex(nextIdx);
@@ -251,7 +246,7 @@ export const InteractiveSandboxApp: React.FC = () => {
   if (!mounted) return null;
 
   return (
-    <div suppressHydrationWarning className="flex flex-col gap-4 rounded-2xl border border-cyan-500/30 bg-slate-900/90 p-5 shadow-2xl backdrop-blur-xl">
+    <div id="sandbox-app" suppressHydrationWarning className="flex flex-col gap-4 rounded-2xl border border-cyan-500/30 bg-slate-900/90 p-5 shadow-2xl backdrop-blur-xl">
       {/* Top Header & Domain Switcher */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
         <div className="flex items-center gap-2">

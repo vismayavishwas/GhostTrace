@@ -80,7 +80,7 @@ class PatternMatcher:
         semantic_window: List[SemanticEvent] = []
         for raw_e in full_raw_window:
             sem_e = SemanticNormalizer.normalize(raw_e)
-            if sem_e is not None:
+            if sem_e is not None and sem_e.operation in ["COPY", "PASTE", "TYPE", "SELECT", "SUBMIT", "NAVIGATE", "SUBMIT_ACTION", "FOCUS_FIELD", "EXECUTE_ACTION"]:
                 semantic_window.append(sem_e)
                 
         n = len(semantic_window)

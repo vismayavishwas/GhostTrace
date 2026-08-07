@@ -65,30 +65,39 @@ class SemanticNormalizer:
         "UPLOAD_FILE", "CHECKBOX", "OPEN_DROPDOWN", "EXECUTE_ACTION"
     }
 
-    BUSINESS_TAGS = {"INPUT", "TEXTAREA", "SELECT", "OPTION", "FORM"}
+    INTERACTIVE_TAGS = {
+        "INPUT", "TEXTAREA", "SELECT", "OPTION", "BUTTON",
+        "A", "FORM", "LABEL", "CHECKBOX", "RADIO"
+    }
+
+    INTERACTIVE_ROLES = {
+        "textbox", "button", "link", "combobox", "checkbox",
+        "radio", "option", "menuitem", "cell", "searchbox", "tab"
+    }
 
     @classmethod
     def extract_semantic_metadata(cls, raw_event: TelemetryEvent) -> Tuple[str, str]:
         """
         Constructs a Semantic Data Fingerprint fusing 5 contextual signals:
-        1. copied_value / pasted_value structural features (length, alphanumeric distribution)
+        1. copied_value / pasted_value structural features
         2. user_interaction_flow (source app vs target app data flow)
         3. surrounding_heading & container context
         4. application_title
-        5. field_label / aria_label (auxiliary signal when available)
+        5. field_label / aria_label
         
-        Completely resilient to unlabeled enterprise UIs (textbox_17, input_3, aria-label="").
+        Preserves target_selector, xpath, and bounding_box as metadata for Playwright code generation and replay.
         """
-        app_title = str(raw_event.app_title or raw_event.active_tab or "Web App").strip()
-        selector = str(raw_event.target_selector or "").strip()
+        app_title = (raw_event.app_title or getattr(raw_event, "active_tab", None) or "Web App").strip()
+        selector = (raw_event.target_selector or "").strip()
         val = str(getattr(raw_event, "input_value", None) or getattr(raw_event, "input_masked", None) or "").strip()
-        raw_label = getattr(raw_event, "field_label", None) or getattr(raw_event, "aria_label", None) or ""
-        heading = str(getattr(raw_event, "surrounding_heading", None) or "").strip()
+        meta = getattr(raw_event, "metadata", {}) or {}
+        raw_label = getattr(raw_event, "field_label", None) or meta.get("field_label") or getattr(raw_event, "aria_label", None) or meta.get("aria_label") or ""
+        heading = str(getattr(raw_event, "surrounding_heading", None) or meta.get("surrounding_heading") or "").strip()
 
         app_key = re.sub(r'[^a-zA-Z0-9]', '_', app_title.lower()).strip('_') or "app"
 
         # 1. Highest Priority: Explicit Field Label or ARIA Label
-        if raw_label and not any(j in raw_label.lower() for j in ["textbox", "element", "span"]):
+        if raw_label and not any(j in raw_label.lower() for j in ["element", "span"]):
             clean_label = re.sub(r'[^a-zA-Z0-9]', '_', raw_label.lower()).strip('_')
             fingerprint_token = f"lbl_{clean_label}"
             display_title = raw_label
@@ -97,12 +106,11 @@ class SemanticNormalizer:
             clean_heading = re.sub(r'[^a-zA-Z0-9]', '_', heading.lower()).strip('_')
             fingerprint_token = f"hdg_{clean_heading}"
             display_title = f"{heading} Field"
-        # 3. Third Priority: DOM Element ID / Name / Attribute
+        # 3. Third Priority: DOM Element ID / Name / Selector
         else:
             sel_clean = re.sub(r'[^a-zA-Z0-9]', '_', selector.lower()).strip('_')
             if not sel_clean:
-                sel_clean = "elem_" + re.sub(r'[^a-zA-Z0-9]', '_', str(raw_event.element_tag or "input").lower())
-            # Keep clean element token
+                sel_clean = "elem_" + re.sub(r'[^a-zA-Z0-9]', '_', (raw_event.element_tag or "input").lower())
             fingerprint_token = f"elem_{sel_clean[:32]}"
             display_title = f"{sel_clean[:20].replace('_', ' ').title()}"
 
@@ -115,33 +123,50 @@ class SemanticNormalizer:
 
 
 
+
     @classmethod
     def normalize(cls, raw_event: TelemetryEvent) -> Optional[SemanticEvent]:
         """
         Normalizes raw telemetry event into a domain-agnostic SemanticEvent.
-        Returns None for non-semantic layout noise (generic div/span wrapper clicks).
+        Filters out strictly non-interactive root container wrappers (e.g. body, html, generic unlabelled div/span wrapper clicks).
         """
         raw_type_str = str(raw_event.event_type.value if hasattr(raw_event.event_type, "value") else raw_event.event_type).upper()
-        selector = str(raw_event.target_selector or "").lower()
-        tag = str(raw_event.element_tag or "").upper()
+        selector = (raw_event.target_selector or "").lower().strip()
+        tag = (raw_event.element_tag or "").upper().strip()
+        meta = getattr(raw_event, "metadata", {}) or {}
+        explicit_op = str(meta.get("operation") or "").upper()
+
+        # 0. Filter out GhostTrace Platform UI elements EXCEPT sandbox interactive target elements
+        app_title = (raw_event.app_title or getattr(raw_event, "active_tab", None) or "").lower()
+        is_sandbox_elem = any(k in selector for k in ["source", "target", "f1", "f2", "f3", "btn-next", "btn-prev"])
+        if not is_sandbox_elem:
+            if "ghosttrace" in app_title or "process intelligence" in app_title:
+                return None
+
+            platform_ui_classes = [
+                "backdrop-blur", "bg-background", "absolute", "command-center",
+                "shadow-2xl", "border-cyan", "border-slate", "bg-slate", "window.selection"
+            ]
+            if any(c in selector for c in platform_ui_classes):
+                return None
 
         # 1. Direct Business Operations (COPY, PASTE, TYPE, SUBMIT, etc.)
         for op in cls.BUSINESS_OPERATIONS:
-            if op in raw_type_str:
+            if op in raw_type_str or op == explicit_op:
                 semantic_entity, display_label = cls.extract_semantic_metadata(raw_event)
                 human_op_label = f"{op.capitalize()} {display_label}"
                 return SemanticEvent(raw_event, op, semantic_entity, human_op_label)
 
-        # 2. Form Field Interactions (CLICK on input/textarea/select -> FOCUS_FIELD)
-        if raw_type_str == "CLICK" and (tag in cls.BUSINESS_TAGS or any(k in selector for k in ["source", "target", "input", "field", "form"])):
-            semantic_entity, display_label = cls.extract_semantic_metadata(raw_event)
-            return SemanticEvent(raw_event, "FOCUS_FIELD", semantic_entity, f"Focus {display_label}")
+        # 2. Filter out non-interactive layout container wrapper clicks (body, html, h4, p, empty main)
+        if tag in ["BODY", "HTML", "H4", "P"] or selector in ["body", "html", "window.selection"]:
+            return None
 
-        # 3. Action Buttons with explicit submit/action intent
-        if raw_type_str == "CLICK" and ("button" in selector and any(k in selector for k in ["submit", "save", "confirm", "process", "next"])):
-            semantic_entity, display_label = cls.extract_semantic_metadata(raw_event)
-            return SemanticEvent(raw_event, "SUBMIT_ACTION", semantic_entity, f"Submit Action in {raw_event.app_title or 'App'}")
+        # Generic div or span click with zero attributes, zero labels, zero selector info -> Layout noise
+        if tag in ["DIV", "SPAN", "SECTION", "MAIN"] and not selector and not getattr(raw_event, "field_label", None) and not getattr(raw_event, "aria_label", None):
+            return None
 
-        # Non-semantic layout noise -> Filter out for pattern discovery
-        return None
+        # 3. Domain-Agnostic Interactive Element Interaction (CLICK / KEY / SELECT on target application UI)
+        semantic_entity, display_label = cls.extract_semantic_metadata(raw_event)
+        op_label = "SUBMIT_ACTION" if tag in ["BUTTON", "SUBMIT"] or "button" in selector else "FOCUS_FIELD"
+        return SemanticEvent(raw_event, op_label, semantic_entity, f"Action on {display_label}")
 

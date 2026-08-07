@@ -84,9 +84,9 @@ async def node_pattern_discovery(state: GhostTraceGraphState) -> GhostTraceGraph
             state.discovered_candidates.extend(candidates)
 
     if not state.discovered_candidates and state.telemetry_events:
-        # Fallback candidate creation if explicit n-gram hasn't reached threshold
         step_names = [f"Step {i+1}: {e.event_type} on {e.target_selector or 'element'}" for i, e in enumerate(state.telemetry_events)]
         fallback_candidate = WorkflowCandidate(
+            candidate_id=f"wf-{hash(tuple(e.event_id for e in state.telemetry_events)) & 0xffffff:06x}",
             name="Discovered User Workflow",
             observed_steps=step_names,
             sequence_event_ids=[e.event_id for e in state.telemetry_events],
@@ -113,7 +113,7 @@ async def node_intent_validation(state: GhostTraceGraphState) -> GhostTraceGraph
         state.validated_intent = decision
     else:
         state.validated_intent = IntentDecision(
-            workflow_id=state.workflow_id or "wf-default",
+            candidate_id=state.workflow_id or "wf-default",
             choice=IntentChoice.APPROVED,
             reason="Default auto-approved"
         )
@@ -195,7 +195,15 @@ async def node_continuous_observation(state: GhostTraceGraphState) -> GhostTrace
         for evt in state.telemetry_events:
             obs_candidates = await _continuous_observer.process_telemetry_event(evt)
             if obs_candidates:
-                state.discovered_candidates.extend(obs_candidates)
+                for c in obs_candidates:
+                    state.discovered_candidates.append(
+                        WorkflowCandidate(
+                            candidate_id=c.candidate_id,
+                            sequence_event_ids=c.sequence_event_ids,
+                            confidence_score=c.confidence_score,
+                            repetition_count=c.occurrence_count
+                        )
+                    )
         state.observation_feedback = _continuous_observer.get_notifications()
     return state
 

@@ -1,6 +1,6 @@
 from typing import List, Optional
-from sqlalchemy.future import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, delete  # type: ignore
+from sqlalchemy.ext.asyncio import AsyncSession  # type: ignore
 from app.db.models import (
     SessionRecord,
     TelemetryEventRecord,
@@ -67,3 +67,8 @@ class DatabaseRepository:
         self.session.add(rec)
         await self.session.commit()
         return rec
+
+    async def clear_all_telemetry_and_candidates(self) -> None:
+        await self.session.execute(delete(TelemetryEventRecord))
+        await self.session.execute(delete(WorkflowCandidateRecord))
+        await self.session.commit()

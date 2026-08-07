@@ -40,6 +40,10 @@ class EventType(str, Enum):
     DOM_MUTATION = "DOM_MUTATION"
     APP_SWITCH = "APP_SWITCH"
     NAVIGATION = "NAVIGATION"
+    COPY = "COPY"
+    PASTE = "PASTE"
+    SELECT = "SELECT"
+    SUBMIT = "SUBMIT"
 
 
 class IntentChoice(str, Enum):

@@ -1,0 +1,13 @@
+{
+  "include": [
+    "app"
+  ],
+  "extraPaths": [
+    ".",
+    "app",
+    "C:/Users/visma/AppData/Local/Programs/Python/Python313/Lib/site-packages",
+    ".venv/Lib/site-packages"
+  ],
+  "reportMissingImports": false,
+  "reportMissingModuleSource": false
+}

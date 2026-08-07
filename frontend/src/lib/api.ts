@@ -84,10 +84,10 @@ export async function resetTelemetryState() {
 
 export async function refineCandidate(candidateId: string, choice: "EXCLUDE" | "INCLUDE", targetSelector?: string) {
   try {
-    const res = await fetch(`${API_BASE_URL}/telemetry/candidates/${candidateId}/refine`, {
+    const res = await fetch(`${API_BASE_URL}/state/refine`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ choice, target_selector: targetSelector }),
+      body: JSON.stringify({ choice, target_selector: targetSelector || "#help-btn" }),
     });
     if (!res.ok) return null;
     return await res.json();

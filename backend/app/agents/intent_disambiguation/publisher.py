@@ -1,12 +1,12 @@
 import inspect
 import logging
-from typing import Callable, List, Union, Awaitable, Tuple, Optional
+from typing import Callable, List, Union, Awaitable, Tuple, Optional, Any
 from app.models.workflow import IntentDecision, WorkflowCandidate
 
 logger = logging.getLogger("ghosttrace.intent_disambiguation.publisher")
 
 # Decision subscriber callback accepts decision and optional workflow candidate
-DecisionCallback = Callable[[IntentDecision, Optional[WorkflowCandidate]], Union[None, Awaitable[None]]]
+DecisionCallback = Callable[[IntentDecision, Optional[WorkflowCandidate]], Any]
 
 
 class DecisionPublisher:

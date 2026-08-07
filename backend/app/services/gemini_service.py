@@ -13,12 +13,12 @@ class GeminiService:
     Centralized Google Gemini API Service wrapping google.genai Client calls,
     latency instrumentation, token metadata logging, and multi-model fallback cascade.
     """
-    def __init__(self, primary_model: str = "gemini-3.1-flash-lite"):
+    def __init__(self, primary_model: str = "gemini-2.0-flash"):
         self.primary_model = primary_model
         self.cascade_models = [
-            "gemini-3.1-flash-lite",
             "gemini-2.0-flash",
-            "gemini-flash-latest"
+            "gemini-1.5-flash",
+            "gemini-1.5-pro"
         ]
         self.api_key = settings.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
         self._client = None

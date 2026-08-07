@@ -30,28 +30,35 @@ class SemanticDeviationDetector:
         run_entity_destinations: Dict[str, Set[str]] = {}
         entity_display_labels: Dict[str, str] = {}
 
-        # 1. Map entity transfers across sequence runs
+        from app.agents.telemetry.semantic_normalizer import SemanticNormalizer
+
+        # 1. Map entity transfers across sequence runs domain-agnostically
         for occ in occurrences:
+            active_source = None
             for evt in occ:
                 raw_e = getattr(evt, "raw_event", evt)
-                sel = str(getattr(raw_e, "target_selector", None) or getattr(raw_e, "element_tag", None) or "").lower()
-                etype = str(getattr(raw_e, "event_type", "ACTION")).upper()
+                sem = SemanticNormalizer.normalize(raw_e)
+                if not sem:
+                    continue
 
-                if "source" in sel:
-                    source_key = sel.replace("#source-", "").replace("source-", "")
-                    entity_display_labels[source_key] = source_key.upper()
-
-                if "target" in sel and etype == "PASTE":
-                    dest_key = sel.replace("#target-", "").replace("target-", "")
+                if sem.operation in ["COPY", "SELECT"]:
+                    active_source = sem.semantic_entity
+                elif sem.operation in ["PASTE", "TYPE"]:
+                    dest_key = sem.semantic_entity
+                    src_key = active_source or "entity:source:unknown"
+                    
                     if dest_key not in run_entity_destinations:
                         run_entity_destinations[dest_key] = set()
-                    run_entity_destinations[dest_key].add(dest_key)
+                    run_entity_destinations[dest_key].add(src_key)
 
         # 2. Check for anomalous out-of-baseline transfers across runs
         for dest_key, run_set in run_entity_destinations.items():
             if len(run_set) > 1:
                 for src in run_set:
                     is_known = global_correction_memory.is_known_accidental_correction(src, dest_key)
+                    from app.agents.pattern_discovery.deviation_detector import format_clean_entity_label
+                    src_clean = format_clean_entity_label("", src)
+                    dest_clean = format_clean_entity_label("", dest_key)
 
                     if is_known:
                         logger.info(f"Previously confirmed accidental correction pattern matched in memory: {src} -> {dest_key}. Applying confidence penalty for adaptive verification.")
@@ -65,7 +72,7 @@ class SemanticDeviationDetector:
                         "id": f"dev-{len(deviations)+1}",
                         "source_entity": src,
                         "destination_entity": dest_key,
-                        "label": f"Field ({src.upper()}) was pasted into Field ({dest_key.upper()})",
+                        "label": f"Field ({src_clean}) was pasted into Field ({dest_clean})",
                         "reason": reason_text,
                         "confidence_penalty": confidence_penalty,
                         "is_known_memory": is_known

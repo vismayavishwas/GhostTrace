@@ -51,9 +51,18 @@ export const ShadowModePanel: React.FC<ShadowModePanelProps> = ({
 
 
 
-            const mapped: SemanticAction[] = activeDataset.map((item: any, idx: number) => {
+                  const mapped: SemanticAction[] = activeDataset.map((item: any, idx: number) => {
               const evtType = (item.event_type || "ACTION").toUpperCase();
               const selector = item.target_selector || item.element_tag || "element";
+              const selLower = selector.toLowerCase();
+
+              const isPatternAction = (repetitionCount >= 1 || confidenceScore >= 0.33) && (
+                selLower.includes("source") || selLower.includes("target") || selLower.includes("f1") || selLower.includes("f2") || selLower.includes("f3") ||
+                selLower.includes("invoice") || selLower.includes("amount") || selLower.includes("vendor") || selLower.includes("name") || selLower.includes("cgpa") ||
+                selLower.includes("experience") || selLower.includes("customer") || selLower.includes("email") || selLower.includes("deal") ||
+                selLower.includes("btn-next") || selLower.includes("submit")
+              );
+
               return {
                 id: item.event_id || `evt-${idx}`,
                 eventType: evtType,
@@ -61,7 +70,7 @@ export const ShadowModePanel: React.FC<ShadowModePanelProps> = ({
                 title: `${evtType} on ${selector}`,
                 app: item.app_title || item.active_tab || "Enterprise Portal",
                 timestamp: item.timestamp ? new Date(item.timestamp).toLocaleTimeString() : "Just now",
-                isPatternMatch: repetitionCount >= 2 && idx < (repetitionCount * 6),
+                isPatternMatch: Boolean(isPatternAction),
               };
             });
             setActions(mapped);
@@ -90,9 +99,14 @@ export const ShadowModePanel: React.FC<ShadowModePanelProps> = ({
       clearInterval(interval);
       wsManager.close();
     };
-  }, [repetitionCount]);
+  }, [repetitionCount, confidenceScore]);
 
   const confidencePct = Math.round(confidenceScore * 100);
+
+  const patternActions = actions.filter((a) => a.isPatternMatch);
+  const displayedActions = viewMode === "WORKFLOW"
+    ? (patternActions.length > 0 ? patternActions : actions)
+    : actions;
 
   return (
     <div className="flex flex-col gap-4 rounded-2xl border border-slate-800/80 bg-slate-900/80 p-5 shadow-xl backdrop-blur-xl h-full">
@@ -169,7 +183,7 @@ export const ShadowModePanel: React.FC<ShadowModePanelProps> = ({
       )}
 
       {/* Clean High-Level User Actions Stream */}
-      <div className="flex flex-col gap-2 flex-1">
+      <div className="flex flex-col gap-2 flex-1 min-h-[240px]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Observed Action Stream</span>
@@ -178,17 +192,17 @@ export const ShadowModePanel: React.FC<ShadowModePanelProps> = ({
                 onClick={() => setViewMode("WORKFLOW")}
                 className={`px-2 py-0.5 text-[9px] font-bold rounded transition ${viewMode === "WORKFLOW" ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30" : "text-slate-500 hover:text-slate-300"}`}
               >
-                ⚡ Semantic Workflow
+                ⚡ Semantic Workflow ({patternActions.length})
               </button>
               <button
                 onClick={() => setViewMode("RAW")}
                 className={`px-2 py-0.5 text-[9px] font-bold rounded transition ${viewMode === "RAW" ? "bg-purple-500/20 text-purple-300 border border-purple-500/30" : "text-slate-500 hover:text-slate-300"}`}
               >
-                🔍 Raw Telemetry
+                🔍 Raw Telemetry ({actions.length})
               </button>
             </div>
           </div>
-          <span className="text-[10px] font-mono text-slate-500">{actions.length} events</span>
+          <span className="text-[10px] font-mono text-slate-500">{displayedActions.length} shown</span>
         </div>
 
         
@@ -197,21 +211,21 @@ export const ShadowModePanel: React.FC<ShadowModePanelProps> = ({
             <Loader2 className="h-4 w-4 animate-spin text-cyan-400" />
             <span>Fetching backend telemetry...</span>
           </div>
-        ) : actions.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-800 p-6 text-center text-xs text-slate-500">
+        ) : displayedActions.length === 0 ? (
+          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-800 p-6 text-center text-xs text-slate-500 min-h-[160px]">
             <span>No telemetry events recorded yet.</span>
             <span className="text-[10px] text-slate-600 mt-1">Click or copy/paste in the sandbox portal above...</span>
           </div>
         ) : (
           <div className="flex flex-col gap-2 max-h-80 overflow-y-auto pr-1">
-            {actions.map((act) => {
+            {displayedActions.map((act) => {
               const isHighlighted = act.isPatternMatch;
               return (
                 <div
                   key={act.id}
                   className={`flex items-center justify-between rounded-lg p-2.5 transition ${
                     isHighlighted
-                      ? "border border-cyan-500/50 bg-cyan-950/20 shadow-sm shadow-cyan-500/10"
+                      ? "border border-cyan-500/60 bg-cyan-950/30 shadow-md shadow-cyan-500/20 ring-1 ring-cyan-500/30"
                       : "border border-slate-800/60 bg-slate-950/40 hover:border-slate-700/80"
                   }`}
                 >
@@ -223,12 +237,12 @@ export const ShadowModePanel: React.FC<ShadowModePanelProps> = ({
                     )}
                     <div>
                       <div className="flex items-center gap-1.5">
-                        <h4 className={`text-xs font-semibold ${isHighlighted ? "text-cyan-200" : "text-slate-200"}`}>
+                        <h4 className={`text-xs font-semibold ${isHighlighted ? "text-cyan-200 font-bold" : "text-slate-200"}`}>
                           {act.title}
                         </h4>
                         {isHighlighted && (
-                          <span className="rounded bg-cyan-500/20 px-1.5 py-0.2 text-[9px] font-mono text-cyan-300 font-bold border border-cyan-500/30">
-                            PATTERN
+                          <span className="rounded bg-cyan-500/20 px-1.5 py-0.2 text-[9px] font-mono text-cyan-300 font-bold border border-cyan-500/40 shadow-sm">
+                            ✨ PATTERN ACTION
                           </span>
                         )}
                       </div>

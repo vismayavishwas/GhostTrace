@@ -51,10 +51,14 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
   const [selectedOutlierIds, setSelectedOutlierIds] = useState<Set<string>>(new Set(outliers.map(o => o.id)));
   const [isReviewPending, setIsReviewPending] = useState<boolean>(outliers.length > 0);
 
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
+
   useEffect(() => {
     setOutlierList(outliers);
     setSelectedOutlierIds(new Set(outliers.map(o => o.id)));
-    setIsReviewPending(outliers.length > 0);
+    if (outliers && outliers.length > 0) {
+      setIsReviewPending(true);
+    }
   }, [outliers]);
 
   useEffect(() => {
@@ -66,17 +70,21 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
   const effectiveScore = (currentScore > 0 && currentScore !== 0.82) ? currentScore : confidenceScore;
   const confidencePct = Math.round(effectiveScore * 100);
 
-  
-  // Rule: Enable Analyze button directly when no outliers exist OR after review, for any confidence >= 0.33 (1+ cycle)
+  // Rule: Enable Analyze button directly when no outliers exist OR after review, for any confidence >= 0.30 (1+ cycle)
   const isAnalyzeEnabled = (!isReviewPending || outlierList.length === 0) && (effectiveScore >= 0.30 || outliers.length > 0);
-
-
 
   const title = businessProcess?.workflow_name || candidateName;
   const dept = businessProcess?.department || "Operations & IT";
   const readiness = businessProcess?.automation_readiness || "High Readiness";
   const obsCount = businessProcess?.repeatability || "3 Observations";
   const summaryText = businessProcess?.summary || "Automates repetitive cross-app data entry workflow.";
+
+  const handleCloseCollapse = () => {
+    setIsCollapsed(true);
+    if (onObserveFurther) {
+      onObserveFurther();
+    }
+  };
 
   const toggleSelectAll = () => {
     if (selectedOutlierIds.size === outlierList.length) {
@@ -120,21 +128,43 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
     }
   };
 
+  if (isCollapsed) {
+    return (
+      <div
+        onClick={() => setIsCollapsed(false)}
+        className="fixed bottom-6 left-6 z-50 group flex items-center gap-3 cursor-pointer animate-in zoom-in-50 duration-300"
+        title="Click to view Discovered Workflow Candidate"
+      >
+        <div className="relative flex h-14 w-14 items-center justify-center rounded-full border-2 border-cyan-400 bg-gradient-to-br from-cyan-950 via-slate-900 to-purple-950 shadow-2xl shadow-cyan-500/50 hover:scale-110 transition-all duration-300">
+          <Sparkles className="h-6 w-6 text-cyan-400 animate-pulse" />
+          <span className={`absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black font-mono shadow-md ${
+            outlierList.length > 0 ? "bg-amber-400 text-slate-950 animate-bounce" : "bg-cyan-500 text-slate-950"
+          }`}>
+            {outlierList.length > 0 ? outlierList.length : `v${version}`}
+          </span>
+        </div>
+        <div className="hidden group-hover:flex flex-col rounded-xl border border-cyan-500/40 bg-slate-900/95 px-3 py-1.5 shadow-xl backdrop-blur-md text-xs">
+          <span className="font-bold text-cyan-300">{title}</span>
+          <span className="text-[10px] text-slate-400 font-mono">
+            {outlierList.length > 0 ? `⚠️ ${outlierList.length} mistake(s) detected — Click to review` : `✨ Click to view candidate pattern (${confidencePct}% confidence)`}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed bottom-6 left-6 z-50 w-full max-w-md animate-in slide-in-from-bottom-8 duration-300">
       <div className="relative flex flex-col gap-4 w-full rounded-2xl border border-cyan-500/50 bg-gradient-to-br from-slate-900/95 via-slate-950/95 to-purple-950/95 p-5 shadow-2xl shadow-cyan-500/25 backdrop-blur-2xl max-h-[calc(100vh-8rem)] overflow-y-auto">
 
-        
         {/* Dismiss Side Drawer Close Button */}
-        {onObserveFurther && (
-          <button
-            suppressHydrationWarning
-            onClick={onObserveFurther}
-            className="absolute top-3.5 right-3.5 rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white transition text-xs font-bold"
-          >
-            ✕
-          </button>
-        )}
+        <button
+          suppressHydrationWarning
+          onClick={handleCloseCollapse}
+          className="absolute top-3.5 right-3.5 rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white transition text-xs font-bold"
+        >
+          ✕
+        </button>
 
 
         {/* Top Main Candidate Discovery Header */}
@@ -146,7 +176,7 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="rounded-full bg-cyan-500/20 px-2.5 py-0.5 text-[10px] font-mono font-extrabold text-cyan-300 border border-cyan-500/30">
-                  🎉 WORKFLOW PATTERN DETECTED
+                  🎉 PATTERN RECOGNIZED
                 </span>
                 <span className="rounded-full bg-slate-800 px-2.5 py-0.5 text-[10px] font-mono text-slate-300 border border-slate-700">
                   Candidate v{version}
@@ -174,7 +204,7 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
           {onObserveFurther && (
             <button
               suppressHydrationWarning
-              onClick={onObserveFurther}
+              onClick={handleCloseCollapse}
               disabled={isReviewPending}
               className={`flex items-center gap-2 rounded-xl border border-slate-700 px-4 py-2.5 text-xs font-bold transition ${
                 isReviewPending
@@ -250,45 +280,41 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
           </div>
 
           {/* Outlier Checklist Items (1...N) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto py-1">
+          <div className="flex flex-col gap-2.5 max-h-56 overflow-y-auto py-1">
             {outlierList.map((item) => {
               const isChecked = selectedOutlierIds.has(item.id);
               return (
                 <div
                   key={item.id}
                   onClick={() => toggleItem(item.id)}
-                  className={`flex items-center justify-between rounded-lg border p-2.5 cursor-pointer transition select-none ${
+                  className={`flex items-start justify-between rounded-xl border p-3 cursor-pointer transition select-none ${
                     isChecked
-                      ? "border-amber-500/60 bg-amber-500/10 text-amber-100"
+                      ? "border-amber-500/60 bg-amber-500/10 text-amber-100 shadow-md"
                       : "border-slate-800 bg-slate-950/40 text-slate-400 hover:border-slate-700"
                   }`}
                 >
-                  <div className="flex items-center gap-2.5 flex-1 min-w-0 pr-2">
+                  <div className="flex items-start gap-3 flex-1 min-w-0 pr-2">
                     {isChecked ? (
-                      <CheckSquare className="h-4 w-4 text-amber-400 shrink-0" />
+                      <CheckSquare className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
                     ) : (
-                      <Square className="h-4 w-4 text-slate-600 shrink-0" />
+                      <Square className="h-4 w-4 text-slate-600 shrink-0 mt-0.5" />
                     )}
-                    <div className="flex flex-col min-w-0">
-                      <span className="font-bold text-xs text-slate-100 truncate block">
+                    <div className="flex flex-col min-w-0 gap-0.5">
+                      <span className="font-bold text-xs text-slate-100 whitespace-normal break-words block leading-snug">
                         {item.label || "Observed Action"}
                       </span>
-                      <span className="text-[10px] font-mono text-amber-300/70 truncate">{item.reason}</span>
+                      <span className="text-[10px] font-mono text-amber-300/80 whitespace-normal break-words block">
+                        {item.reason}
+                      </span>
                     </div>
                   </div>
-                  <span className="text-[10px] font-mono bg-slate-900/90 px-2 py-0.5 rounded border border-slate-700/80 text-cyan-300 font-semibold shrink-0">
-                    {item.selector.includes("source")
-                      ? "[ Source Field ]"
-                      : item.selector.includes("target")
-                      ? "[ Target Form ]"
-                      : item.selector.includes("button")
-                      ? "[ Action Button ]"
-                      : "[ UI Element ]"}
+                  <span className="text-[10px] font-mono bg-slate-900/90 px-2 py-1 rounded border border-slate-700/80 text-cyan-300 font-semibold shrink-0">
+                    {item.group ? `[ ${item.group} ]` : "[ Semantic Action ]"}
                   </span>
+
                 </div>
               );
             })}
-
           </div>
 
           {/* Batch Submit Action Buttons */}

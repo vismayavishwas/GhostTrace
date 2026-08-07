@@ -4,10 +4,10 @@ from uuid import uuid4
 from typing import List, Dict, Any
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
-from app.agents.observer import ObserverAgent
-from app.db.database import AsyncSessionLocal
-from app.db.repository import DatabaseRepository
-from app.db.models import TelemetryEventRecord
+from app.agents.observer.observer_agent import ObserverAgent  # type: ignore
+from app.db.database import AsyncSessionLocal  # type: ignore
+from app.db.repository import DatabaseRepository  # type: ignore
+from app.db.models import TelemetryEventRecord  # type: ignore
 
 from app.orchestration.nodes import get_global_observer
 
@@ -30,17 +30,22 @@ async def post_telemetry_event(payload: Dict[str, Any]):
     global_observer = get_global_observer()
     raw_event = await global_observer.process_raw_event(payload)
 
-    # Record transfer into StableMappingMemory once per event
+    # Record ONLY non-deviated transfers into StableMappingMemory once per event
     if raw_event:
         try:
             from app.agents.telemetry.transfer_builder import global_transfer_builder
             from app.agents.pattern_discovery.mapping_memory import global_mapping_memory
+            from app.agents.pattern_discovery.deviation_detector import global_deviation_detector
             from app.agents.pattern_discovery.learning_planner import global_learning_planner
 
             transfers = global_transfer_builder.process_telemetry_events([raw_event])
+            deviations = global_deviation_detector.detect_deviations(transfers)
+            dev_ids = {d.get("transfer_id") for d in deviations if d.get("transfer_id")}
+
             for xfer in transfers:
-                global_mapping_memory.record_transfer(xfer)
-                global_learning_planner.evaluate_learning_state(xfer)
+                if xfer.transfer_id not in dev_ids:
+                    global_mapping_memory.record_transfer(xfer)
+                    global_learning_planner.evaluate_learning_state(xfer)
         except Exception as e:
             logger.warning(f"Error processing transfer memory for event: {e}")
 
@@ -104,23 +109,21 @@ async def reset_telemetry_state():
         global_observer.buffer.clear()
         
     try:
-        from app.agents.continuous_observer.observer_agent import get_continuous_observer
-        c_observer = get_continuous_observer()
+        from app.orchestration.nodes import get_global_continuous_observer
+        c_observer = get_global_continuous_observer()
         if c_observer:
             if hasattr(c_observer, "discovered_candidates"):
                 c_observer.discovered_candidates.clear()
-            if hasattr(c_observer, "engine") and hasattr(c_observer.engine, "discovered_candidates"):
-                c_observer.engine.discovered_candidates.clear()
+            if hasattr(c_observer, "discovery_engine") and hasattr(c_observer.discovery_engine, "clear"):
+                c_observer.discovery_engine.clear()
     except Exception as e:
         logger.warning(f"Error resetting observer memory: {e}")
 
     # Clear SQLite DB records
     try:
         async with AsyncSessionLocal() as session:
-            from sqlalchemy import text
-            await session.execute(text("DELETE FROM telemetry_events"))
-            await session.execute(text("DELETE FROM workflow_candidates"))
-            await session.commit()
+            repo = DatabaseRepository(session)
+            await repo.clear_all_telemetry_and_candidates()
     except Exception as e:
         logger.warning(f"Error resetting SQLite DB: {e}")
 
@@ -146,6 +149,12 @@ async def reset_telemetry_state():
         logger.warning(f"Error resetting mapping memory: {e}")
 
     try:
+        from app.agents.pattern_discovery.deviation_detector import global_deviation_detector
+        global_deviation_detector.clear()
+    except Exception as e:
+        logger.warning(f"Error resetting deviation detector memory: {e}")
+
+    try:
         from app.services.call_budget import gemini_budget
         gemini_budget.reset()
     except Exception as e:
@@ -162,8 +171,7 @@ async def reset_telemetry_state():
 
     try:
         from app.agents.pattern_discovery.learning_planner import global_learning_planner
-        global_learning_planner._states.clear()
-        global_learning_planner._observation_history.clear()
+        global_learning_planner.clear()
     except Exception as e:
         logger.warning(f"Error resetting learning planner memory: {e}")
 

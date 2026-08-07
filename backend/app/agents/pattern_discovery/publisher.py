@@ -1,11 +1,11 @@
 import inspect
 import logging
-from typing import Callable, List, Union, Awaitable
+from typing import Callable, List, Union, Awaitable, Any
 from app.models.workflow import WorkflowCandidate
 
 logger = logging.getLogger("ghosttrace.pattern_discovery.publisher")
 
-CandidateCallback = Callable[[WorkflowCandidate], Union[None, Awaitable[None]]]
+CandidateCallback = Callable[[WorkflowCandidate], Any]
 
 
 class CandidatePublisher:

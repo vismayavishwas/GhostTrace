@@ -26,6 +26,7 @@ class ObserverAgent:
     ):
         self.buffer: TelemetryBuffer = buffer or TelemetryBuffer(capacity=buffer_capacity)
         self.publisher: TelemetryPublisher = publisher or TelemetryPublisher()
+        self._last_event: Optional[TelemetryEvent] = None
         logger.info(f"ObserverAgent initialized with buffer capacity={self.buffer.capacity}")
 
     def rehydrate_from_records(self, records: List[Dict[str, Any]]) -> List[TelemetryEvent]:
@@ -56,6 +57,16 @@ class ObserverAgent:
         if event is None:
             logger.warning(f"ObserverAgent dropped invalid event payload: {raw_dict}")
             return None
+
+        # Event Deduplication: Drop synthetic DOM event bubbling clicks on the same element within 250ms
+        if self._last_event:
+            same_type = (event.event_type == self._last_event.event_type)
+            same_target = (event.target_selector == self._last_event.target_selector)
+            time_delta = (event.timestamp - self._last_event.timestamp).total_seconds()
+            if same_type and same_target and abs(time_delta) < 0.25:
+                logger.debug(f"ObserverAgent dropped duplicate bubbling event ID={event.event_id}")
+                return None
+        self._last_event = event
 
         # Store in ring buffer
         self.buffer.append(event)
@@ -110,7 +121,7 @@ class ObserverAgent:
                 element_tag=raw_dict.get("element_tag", raw_dict.get("tag")),
                 input_value=raw_dict.get("input_value", raw_dict.get("value")),
                 dom_snapshot=raw_dict.get("dom_snapshot", raw_dict.get("html")),
-                app_title=raw_dict.get("app_title", raw_dict.get("title", "Unknown Application")),
+                app_title=raw_dict.get("app_title") or raw_dict.get("title") or "Unknown Application",
                 metadata=raw_dict.get("metadata", {})
             )
             return event

@@ -88,101 +88,95 @@ async def get_current_state():
     events = get_global_observer().buffer.get_recent() or in_memory_events
     event_count = len(events)
 
+    from app.orchestration.nodes import get_global_continuous_observer
+    c_observer = get_global_continuous_observer()
+    completed_cycles = 0
+    if c_observer and hasattr(c_observer, "discovery_engine"):
+        completed_cycles = c_observer.discovery_engine.get_completed_cycle_count()
+
     pd = get_global_pattern_discovery()
     candidates = pd.get_discovered_candidates() if pd else []
-    
-    max_reps = 0
-    if pd and hasattr(pd, "matcher") and pd.matcher._pattern_index:
-        for occurrences in pd.matcher._pattern_index.values():
-            if len(occurrences) > max_reps:
-                max_reps = len(occurrences)
+    if not candidates and c_observer:
+        candidates = c_observer.get_candidates()
 
-    if candidates:
-        repetition_count = max(max(c.repetition_count for c in candidates), max_reps)
-        confidence = max(c.confidence_score for c in candidates)
-    elif max_reps >= 2:
-        repetition_count = max_reps
-        confidence = min(0.96, round(0.70 + (max_reps * 0.08), 2))
+    if completed_cycles > 0:
+        repetition_count = completed_cycles
+    elif candidates:
+        repetition_count = max(c.repetition_count for c in candidates)
     else:
-        repetition_count = max_reps
-        confidence = 0.0
+        repetition_count = 0
 
-    noise_count = max(0, event_count // 6)
+    if repetition_count == 0:
+        # Initial observation phase: Cycle remains 0, confidence rises slightly per action observed (0% up to 25%)
+        confidence = min(0.25, round(event_count * 0.05, 2)) if event_count > 0 else 0.00
+    elif repetition_count == 1:
+        confidence = 0.33
+    elif repetition_count == 2:
+        confidence = 0.66
+    else:
+        confidence = 1.00
+
+    candidate_name = candidates[0].name if candidates else "Enterprise Cross-App Workflow"
+
+    # Build dynamic field mappings from telemetry transfers
+    from app.agents.telemetry.transfer_builder import global_transfer_builder
+    from app.agents.pattern_discovery.deviation_detector import global_deviation_detector, format_clean_entity_label
+
+    transfers = global_transfer_builder.process_telemetry_events(events) if events else []
+    field_mappings = []
+    for xfer in transfers:
+        if xfer.is_immediate_correction:
+            continue
+        src_lbl = format_clean_entity_label("", xfer.source_entity)
+        dest_lbl = format_clean_entity_label("", xfer.destination_entity)
+        field_mappings.append({
+            "transfer_id": xfer.transfer_id,
+            "source_label": src_lbl,
+            "destination_label": dest_lbl,
+            "source_app": xfer.source_app,
+            "destination_app": xfer.destination_app,
+            "pasted_value": xfer.pasted_value,
+            "display_mapping": f"{src_lbl} → {dest_lbl}"
+        })
+
+    # Detect mistake deviations on ANY cycle when transfers exist
+    outlier_items = []
+    if transfers:
+        detected_devs = global_deviation_detector.detect_deviations(transfers)
+        outlier_items = detected_devs
 
 
     dna_dict = None
-    if latest_graph_state and hasattr(latest_graph_state, "workflow_dna") and latest_graph_state.workflow_dna:
+    if candidates or field_mappings:
         try:
-            dna_dict = latest_graph_state.workflow_dna.model_dump()
-        except Exception:
-            pass
+            from app.agents.workflow_dna.dna_transformer import DNATransformer
+            from app.models.workflow import WorkflowCandidate
+            transformer = DNATransformer()
+            cand = candidates[0] if candidates else WorkflowCandidate(
+                candidate_id="cand-dynamic-001",
+                name=candidate_name,
+                sequence=events,
+                repetition_count=repetition_count,
+                confidence_score=confidence
+            )
+            dna_model = transformer.transform_candidate(cand)
+            dna_dict = dna_model.model_dump()
+        except Exception as e:
+            logger.warning(f"Error creating WorkflowDNA in state: {e}")
 
-    business_process_dict = _STORED_BUSINESS_PROCESS
-    if latest_graph_state and hasattr(latest_graph_state, "business_process") and latest_graph_state.business_process:
-        business_process_dict = latest_graph_state.business_process
+    if not dna_dict or not dna_dict.get("metadata", {}).get("field_mappings"):
+        if dna_dict:
+            dna_dict.setdefault("metadata", {})["field_mappings"] = field_mappings
+            dna_dict["field_mappings"] = field_mappings
+        else:
+            dna_dict = {
+                "name": candidate_name,
+                "description": "Dynamic semantic workflow mapping human-understood field flows.",
+                "field_mappings": field_mappings,
+                "metadata": {"field_mappings": field_mappings}
+            }
 
-
-    candidate_name = "Waiting for interaction events..."
-
-    if event_count > 0:
-        ref_event = events[-1]
-        first_event = events[0]
-        source_app = getattr(ref_event, "active_tab", None) or (ref_event.get("active_tab") if isinstance(ref_event, dict) else "Source App")
-        target_app = getattr(first_event, "active_tab", None) or (first_event.get("active_tab") if isinstance(first_event, dict) else "Target App")
-        candidate_name = f"{source_app} -> {target_app}"
-
-    from app.agents.telemetry.transfer_builder import global_transfer_builder
-    from app.agents.pattern_discovery.mapping_memory import global_mapping_memory
-    from app.agents.pattern_discovery.deviation_detector import global_deviation_detector
-
-    # 1. Process transfers from telemetry events
-    transfers = global_transfer_builder.process_telemetry_events(events)
-
-    # 2. Record transfers in Mapping Memory so memory updates observation counts
-    for xfer in transfers:
-        if not xfer.is_immediate_correction:
-            global_mapping_memory.record_transfer(xfer)
-
-    # Set dynamic sequence step template for positional alignment deviation check
-    if transfers:
-        # Template is extracted from the unique destination sequence of the first cycle
-        first_cycle_dests = []
-        for t in transfers:
-            if t.destination_entity not in first_cycle_dests:
-                first_cycle_dests.append(t.destination_entity)
-            else:
-                break
-        global_deviation_detector.set_sequence_template(first_cycle_dests)
-
-    # 3. Detect expected vs observed destination deviations
-    detected_deviations = global_deviation_detector.detect_deviations(transfers)
-
-    
-    outlier_items = []
-    for idx, dev in enumerate(detected_deviations):
-        outlier_items.append({
-            "id": f"dev-{idx+1}",
-            "label": dev.get("label") or f"Field ({dev.get('source_entity', 'source')}) pasted into Field ({dev.get('observed_destination', 'dest')})",
-            "selector": f"#{dev.get('observed_destination', 'dest')}",
-            "reason": dev.get("reason", "Expected destination mismatch observed")
-        })
-
-    all_maps = global_mapping_memory.get_all_mappings()
-    if all_maps:
-        max_occ = max(m.get("occurrences", 0) for m in all_maps)
-        if max_occ > 0:
-            repetition_count = max(repetition_count, max_occ)
-
-    # Deterministic Sample-Weighted Confidence: 1 rep = 33%, 2 reps = 67%, 3+ reps = 100%
-    if repetition_count >= 3:
-        confidence = 1.00
-    elif repetition_count == 2:
-        confidence = 0.67
-    elif repetition_count == 1:
-        confidence = 0.33
-    else:
-        confidence = 0.00
-
+    business_process_dict = None
     if repetition_count >= 1:
         try:
             from app.agents.business_process.business_agent import business_process_agent
@@ -190,8 +184,8 @@ async def get_current_state():
             bp_meta = business_process_agent.analyze_process(
                 candidate_name=candidate_name,
                 steps=step_strs,
-                source_app=source_app if source_app != "Source App" else "PDF Portal",
-                target_app=target_app if target_app != "Target App" else "ERP System",
+                source_app=field_mappings[0]["source_app"] if field_mappings else "PDF Portal",
+                target_app=field_mappings[-1]["destination_app"] if field_mappings else "ERP System",
                 repetition_count=repetition_count,
                 avg_duration_sec=12.5
             )
@@ -204,22 +198,19 @@ async def get_current_state():
         **current_graph_state,
         "confidence_score": round(confidence, 2),
         "repetition_count": repetition_count,
-        "noise_filtered_count": noise_count,
+        "noise_filtered_count": len([e for e in events if getattr(e, "event_type", "") == "NOISE"]),
         "candidate_name": candidate_name,
         "event_count": event_count,
         "workflow_dna": dna_dict,
+        "field_mappings": field_mappings,
         "business_process": business_process_dict,
         "outliers": outlier_items,
     }
 
 
-
-
-
-@router.get("")
-async def get_current_state():
-    """Returns current orchestrator state & dynamic confidence score."""
-    return get_dynamic_state_data()
+async def get_dynamic_state_data():
+    """Alias for state calculation used by websocket and triggers."""
+    return await get_current_state()
 
 
 class CandidateRefineRequest(BaseModel if 'BaseModel' in globals() else object):
@@ -253,14 +244,15 @@ async def run_orchestration(payload: Optional[Dict[str, Any]] = None):
     global active_orchestration_task
     current_graph_state["active_node"] = "PATTERN_DISCOVERY"
     active_orchestration_task = asyncio.create_task(_execute_orchestration_background())
-    return {"status": "TRIGGERED", "state": get_dynamic_state_data()}
+    state_data = await get_dynamic_state_data()
+    return {"status": "TRIGGERED", "state": state_data}
 
 
 @router.websocket("/ws/state")
 async def state_websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     try:
-        data = get_dynamic_state_data()
+        data = await get_dynamic_state_data()
         await websocket.send_json({
             "type": "INITIAL_STATE",
             "current_state": data.get("active_node", "IDLE"),

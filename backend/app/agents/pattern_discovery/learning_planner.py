@@ -53,6 +53,13 @@ class LearningPlanner:
         logger.info(f"[STAGE 3: LEARNING_PLANNER] State Transition -> OBSERVING | Key='{src}' -> '{dest}' | Initial Observation | Confidence=0.33")
         return "OBSERVING", "Initial observation. Keep watching.", 0.33
 
+    def clear(self) -> None:
+        """Resets learning planner state."""
+        pass
+
+    def reset(self) -> None:
+        """Resets learning planner state."""
+        self.clear()
 
 
 global_learning_planner = LearningPlanner()

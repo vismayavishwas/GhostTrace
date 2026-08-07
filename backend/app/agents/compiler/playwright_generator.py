@@ -64,17 +64,15 @@ class PlaywrightCodeGenerator:
             val_placeholder = f"input_step_{step.step_number}"
             
             lines.append('    try:')
-            if "enter" in func_slug or "input" in func_slug or "type" in func_slug:
+            is_fill = bool(step.parameters.get("value")) or any(k in func_slug for k in ["fill", "input", "type", "enter", "paste"])
+            if is_fill:
                 lines.append(f'        val = params.get("{val_placeholder}", "{step.parameters.get("value", "")}")')
                 lines.append(f'        await page.fill("{selector}", str(val), timeout=timeout_ms)')
-            elif "navigate" in func_slug or "link" in func_slug:
-                lines.append(f'        # Navigation action')
+            elif "navigate" in func_slug or "goto" in func_slug:
                 lines.append(f'        if "{selector}".startswith("http") or "{selector}".startswith("about:") or "{selector}".startswith("data:"):')
                 lines.append(f'            await page.goto("{selector}", timeout=timeout_ms)')
                 lines.append('        else:')
                 lines.append(f'            await page.click("{selector}", timeout=timeout_ms)')
-
-
             else:
                 lines.append(f'        await page.click("{selector}", timeout=timeout_ms)')
             lines.append('    except PlaywrightTimeoutError:')

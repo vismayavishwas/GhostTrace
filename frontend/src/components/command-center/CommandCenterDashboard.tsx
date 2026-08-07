@@ -28,6 +28,7 @@ export const CommandCenterDashboard: React.FC = () => {
   const [businessProcess, setBusinessProcess] = useState<any>(null);
   const [outliers, setOutliers] = useState<any[]>([]);
   const [candidateDismissed, setCandidateDismissed] = useState<boolean>(false);
+  const [workflowDNA, setWorkflowDNA] = useState<any>(null);
 
   useEffect(() => {
     // Clear old state on fresh page load/refresh
@@ -44,6 +45,7 @@ export const CommandCenterDashboard: React.FC = () => {
           if (state.candidate_name) setCandidateName(state.candidate_name);
           if (state.business_process) setBusinessProcess(state.business_process);
           if (state.outliers) setOutliers(state.outliers);
+          if (state.workflow_dna) setWorkflowDNA(state.workflow_dna);
 
           // Milestone 3: Unlock ANALYZE stage when pattern is detected (repetition >= 2 or confidence >= 0.70)
           if ((state.repetition_count && state.repetition_count >= 2) || (state.confidence_score && state.confidence_score >= 0.70)) {
@@ -51,7 +53,7 @@ export const CommandCenterDashboard: React.FC = () => {
           }
         }
       });
-    }, 1000);
+    }, 500);
 
 
     return () => clearInterval(interval);
@@ -62,10 +64,14 @@ export const CommandCenterDashboard: React.FC = () => {
     setShowPermissionModal(false);
   };
 
-  const handleAnalyzeTrigger = () => {
+  const handleAnalyzeTrigger = async () => {
+    setCandidateDismissed(true);
     setUnlockedStages(["OBSERVE", "ANALYZE", "DNA"]);
     setCurrentStage("DNA");
-    triggerGraphExecution({ action: "ANALYZE" });
+    const res = await triggerGraphExecution({ action: "ANALYZE" });
+    if (res?.state?.workflow_dna) {
+      setWorkflowDNA(res.state.workflow_dna);
+    }
   };
 
   const handleProceedFromDNA = () => {
@@ -97,6 +103,7 @@ export const CommandCenterDashboard: React.FC = () => {
     setCandidateName("Waiting for interaction events...");
     setBusinessProcess(null);
     setOutliers([]);
+    setWorkflowDNA(null);
     setCandidateDismissed(false);
     setUnlockedStages(["OBSERVE"]);
     setCurrentStage("OBSERVE");
@@ -108,7 +115,6 @@ export const CommandCenterDashboard: React.FC = () => {
 
 
   const handleObserveFurther = () => {
-    setCandidateDismissed(true);
     setCurrentStage("OBSERVE");
   };
 
@@ -146,6 +152,7 @@ export const CommandCenterDashboard: React.FC = () => {
             repetitionCount={repetitionCount}
             noiseFilteredCount={noiseFilteredCount}
             candidateName={candidateName}
+            workflowDNA={workflowDNA}
             onSelectStage={setCurrentStage}
             onAnalyzeTrigger={handleAnalyzeTrigger}
             onProceedFromDNA={handleProceedFromDNA}
@@ -171,9 +178,9 @@ export const CommandCenterDashboard: React.FC = () => {
       </div>
 
 
-      {/* Bottom Bar: Candidate Discovery Panel (Unlocked on pattern discovery, requires explicit user click to analyze) */}
+      {/* Bottom Bar: Candidate Discovery Panel (Unlocked on pattern repetition >= 1 or active HITL outliers) */}
       <div className="flex flex-col gap-4">
-        {!candidateDismissed && (repetitionCount >= 1 || (outliers && outliers.length > 0)) && (
+        {(repetitionCount >= 1 || (outliers && outliers.length > 0)) && (
           <WorkflowCandidatePanel
             confidenceScore={confidenceScore}
             candidateName={candidateName !== "Waiting for interaction events..." ? candidateName : "Discovered Cross-App Workflow"}

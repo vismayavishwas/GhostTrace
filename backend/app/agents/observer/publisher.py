@@ -1,12 +1,12 @@
 import inspect
 import logging
-from typing import Callable, List, Union, Awaitable
+from typing import Callable, List, Union, Awaitable, Any
 from app.models.telemetry import TelemetryEvent
 
 logger = logging.getLogger("ghosttrace.observer.publisher")
 
 # Subscriber callback type (sync or async function accepting TelemetryEvent)
-SubscriberCallback = Callable[[TelemetryEvent], Union[None, Awaitable[None]]]
+SubscriberCallback = Callable[[TelemetryEvent], Any]
 
 
 class TelemetryPublisher:

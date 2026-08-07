@@ -1,7 +1,7 @@
 import os
 from typing import AsyncGenerator
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker  # type: ignore
+from sqlalchemy.orm import declarative_base  # type: ignore
 
 DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "ghosttrace.db"))
 DATABASE_URL = f"sqlite+aiosqlite:///{DB_PATH}"

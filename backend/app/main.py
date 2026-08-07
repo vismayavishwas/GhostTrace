@@ -1,10 +1,10 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI  # type: ignore
+from fastapi.middleware.cors import CORSMiddleware  # type: ignore
 
-from app.core.config import settings
-from app.core.logging import setup_logging, logger
-from app.api.routes import health, telemetry, state, websocket_streams, workflows
+from app.core.config import settings  # type: ignore
+from app.core.logging import setup_logging, logger  # type: ignore
+from app.api.routes import health, telemetry, state, websocket_streams, workflows  # type: ignore
 
 
 

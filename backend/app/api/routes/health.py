@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
-from fastapi import APIRouter
-from app.core.config import settings
+from fastapi import APIRouter  # type: ignore
+from app.core.config import settings  # type: ignore
 
 router = APIRouter()
 

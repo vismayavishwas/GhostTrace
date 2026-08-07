@@ -136,7 +136,6 @@ export const ReasoningTimeline: React.FC<ReasoningTimelineProps> = ({
               meta: `Action: ${activeStep.actionType} on ${activeStep.selector} ✓`,
             };
 
-
             setLogs((prev) => {
               if (prev.length > 0 && prev[0].message.startsWith(`Record ${recordNum}`)) {
                 return prev;
@@ -148,11 +147,18 @@ export const ReasoningTimeline: React.FC<ReasoningTimelineProps> = ({
       }
     };
 
-
     if (typeof window !== "undefined") {
       window.addEventListener("ghosttrace:replay-step", handleReplaySync);
     }
 
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("ghosttrace:replay-step", handleReplaySync);
+      }
+    };
+  }, [confidencePct, playwrightActions, repetitionCount, businessProcess, candidateName, totalTelemetryEvents, totalRecords, currentStage]);
+
+  useEffect(() => {
     const wsManager = new WebSocketStreamManager(
       "reasoning",
       (msg) => {
@@ -172,12 +178,9 @@ export const ReasoningTimeline: React.FC<ReasoningTimelineProps> = ({
     );
 
     return () => {
-      if (typeof window !== "undefined") {
-        window.removeEventListener("ghosttrace:replay-step", handleReplaySync);
-      }
       wsManager.close();
     };
-  }, [confidencePct, playwrightActions, repetitionCount, businessProcess, candidateName, totalTelemetryEvents, totalRecords, currentStage]);
+  }, []);
 
   return (
     <div className="flex flex-col gap-4 rounded-2xl border border-slate-800/80 bg-slate-900/80 p-5 shadow-xl backdrop-blur-xl h-full overflow-y-auto max-h-[850px]">

@@ -78,15 +78,17 @@ class StableMappingMemory:
         return self._table[key]
 
 
-    def get_expected_destination(self, source_entity: str) -> Optional[str]:
-        """Returns the expected stable destination entity for a given source_entity, if available."""
+    def get_expected_destination(self, source_entity: str, min_occurrences: int = 1) -> Optional[str]:
+        """Returns the expected stable destination entity for a given source_entity, if available and sufficiently observed (at least min_occurrences)."""
         src = source_entity.lower()
         if src not in self._source_destinations:
             return None
 
-        # Return destination with highest occurrence count
+        # Return destination with highest occurrence count if it meets min_occurrences threshold
         sorted_dests = sorted(self._source_destinations[src].items(), key=lambda x: x[1], reverse=True)
-        return sorted_dests[0][0] if sorted_dests else None
+        if sorted_dests and sorted_dests[0][1] >= min_occurrences:
+            return sorted_dests[0][0]
+        return None
 
     def get_all_mappings(self) -> List[Dict[str, Any]]:
         """Returns snapshot of all stored stable mappings."""

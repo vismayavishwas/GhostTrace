@@ -1,12 +1,12 @@
 import inspect
 import logging
-from typing import Callable, List, Union, Awaitable
+from typing import Callable, List, Union, Awaitable, Any
 from app.agents.continuous_observer.models import WorkflowCandidate, ObserverNotification
 
 logger = logging.getLogger("ghosttrace.continuous_observer.publisher")
 
-CandidateCallback = Callable[[WorkflowCandidate], Union[None, Awaitable[None]]]
-NotificationCallback = Callable[[ObserverNotification], Union[None, Awaitable[None]]]
+CandidateCallback = Callable[[WorkflowCandidate], Any]
+NotificationCallback = Callable[[ObserverNotification], Any]
 
 
 class ObserverPublisher:
