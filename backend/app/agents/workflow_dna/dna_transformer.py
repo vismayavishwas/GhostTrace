@@ -14,8 +14,8 @@ class DNATransformer:
     Consumes SemanticEvent canonical attributes directly from SemanticNormalizer.
     """
 
-    def transform_candidate(self, candidate: WorkflowCandidate) -> WorkflowDNA:
-        events = candidate.sequence or []
+    def transform_candidate(self, candidate: Any) -> WorkflowDNA:
+        events = getattr(candidate, "sequence", None) or getattr(candidate, "events", None) or []
         steps: List[WorkflowDNAStep] = []
         apps_involved: Set[str] = set()
         inputs_schema: Dict[str, Any] = {}
