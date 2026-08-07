@@ -106,16 +106,16 @@ async def get_current_state():
     else:
         repetition_count = 0
 
-    if repetition_count == 0:
+    if repetition_count < 2:
+        # Sequence Observed — Waiting for repetition... (0 cycles, 0% confidence)
         confidence = 0.00
-    elif repetition_count == 1:
-        # Cycle 1/5: Observation baseline established with low initial confidence (33%)
-        confidence = 0.33
+        repetition_count = 0
     elif repetition_count == 2:
-        # Cycle 2/5: Sequence repeated across 2 matching completed transactions (67%)
+        # Sequence Repetition Confirmed! (2 cycles logged, 67% confidence)
         confidence = 0.67
     else:
         confidence = 1.00
+
 
 
 

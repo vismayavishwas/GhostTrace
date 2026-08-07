@@ -79,48 +79,27 @@ class WorkflowDiscoveryEngine:
         if len(semantic_actions) < self.min_sequence_length:
             return []
 
-        # Segment semantic_actions into non-overlapping cycles based on Anchor Boundaries
+        # Segment semantic_actions into non-overlapping cycles based on Anchor Repetition (Zero button keyword dependencies)
         cycles: List[List[Tuple[ObservationEvent, str]]] = []
         current_cycle: List[Tuple[ObservationEvent, str]] = []
         anchor_entity: Optional[str] = None
 
         for obs, entity in semantic_actions:
-            tag = (obs.telemetry_event.element_tag or "").upper()
-            sem_op = str(getattr(obs.telemetry_event, "event_type", "")).upper()
-            selector = (obs.telemetry_event.target_selector or "").lower()
-
-            sem = SemanticNormalizer.normalize(obs.telemetry_event)
-            norm_op = sem.operation if sem else ""
-
-            is_submit_btn = (
-                sem_op == "SUBMIT"
-                or norm_op in ["SUBMIT", "SUBMIT_ACTION"]
-                or any(k in selector for k in ["btn_submit", "btn-submit", "btn_save", "btn-save", "submit-btn", "btn-next", "next-record", "next"])
-                or tag == "SUBMIT"
-            )
-            is_nav = sem_op == "NAVIGATE" or norm_op == "NAVIGATE" or (is_submit_btn and len(current_cycle) >= 2)
-
             if anchor_entity is None:
                 anchor_entity = entity
                 current_cycle.append((obs, entity))
-            elif is_nav or (entity == anchor_entity and len(current_cycle) >= 2):
-                # Cycle Boundary Reached! Close current cycle
-                if is_nav and entity != anchor_entity:
-                    current_cycle.append((obs, entity))
-
-                if len(current_cycle) >= self.min_sequence_length:
-                    cycles.append(current_cycle)
-
-                current_cycle = [] if is_nav else [(obs, entity)]
-                anchor_entity = entity if not is_nav else None
+            elif entity == anchor_entity and len(current_cycle) >= 2:
+                # Cycle Boundary Reached via Anchor Repetition! Close current cycle
+                cycles.append(current_cycle)
+                current_cycle = [(obs, entity)]
             else:
                 current_cycle.append((obs, entity))
 
         if len(current_cycle) >= self.min_sequence_length and len(cycles) >= 1:
-            # Add remaining open cycle if sequence template matches
             cycles.append(current_cycle)
 
         if not cycles:
+            self.last_completed_cycle_count = 0
             return []
 
         # Extract sequence template from first cycle
@@ -135,7 +114,16 @@ class WorkflowDiscoveryEngine:
             if cycle_ents == template_ents or (len(cycle_ents) >= 2 and cycle_ents[:len(template_ents)] == template_ents):
                 matching_cycle_count += 1
 
-        self.last_completed_cycle_count = len(cycles)
+        # Enforce User Spec:
+        # 1 cycle observed -> Waiting for repetition (cycles = 0, confidence = 0%)
+        # 2 cycles matched -> Repetition confirmed (cycles = 2, confidence = 67%)
+        # 3+ cycles matched -> Pattern locked (cycles = 3+, confidence = 100%)
+        if matching_cycle_count < 2:
+            self.last_completed_cycle_count = 0
+            return []
+
+        self.last_completed_cycle_count = matching_cycle_count
+
 
         # Build candidate representing the full sequence cycle
         sample_obs_window = [obs for obs, _ in cycles[0]]
