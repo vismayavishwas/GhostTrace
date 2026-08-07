@@ -153,6 +153,7 @@ export const CommandCenterDashboard: React.FC = () => {
             noiseFilteredCount={noiseFilteredCount}
             candidateName={candidateName}
             workflowDNA={workflowDNA}
+            outliers={outliers}
             onSelectStage={setCurrentStage}
             onAnalyzeTrigger={handleAnalyzeTrigger}
             onProceedFromDNA={handleProceedFromDNA}

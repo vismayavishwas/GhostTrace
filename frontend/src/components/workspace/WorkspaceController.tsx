@@ -19,6 +19,7 @@ export interface WorkspaceControllerProps {
   noiseFilteredCount?: number;
   candidateName?: string;
   workflowDNA?: any;
+  outliers?: any[];
   onSelectStage: (stage: WorkspaceStage) => void;
   onAnalyzeTrigger: () => void;
   onProceedFromDNA: () => void;
@@ -35,6 +36,7 @@ export const WorkspaceController: React.FC<WorkspaceControllerProps> = ({
   noiseFilteredCount = 0,
   candidateName = "Cross-Application Workflow",
   workflowDNA,
+  outliers = [],
   onSelectStage,
   onAnalyzeTrigger,
   onProceedFromDNA,
@@ -78,6 +80,7 @@ export const WorkspaceController: React.FC<WorkspaceControllerProps> = ({
             noiseFilteredCount={noiseFilteredCount}
             candidateName={candidateName}
             workflowDNA={workflowDNA}
+            outliers={outliers}
             onProceedToDNA={onAnalyzeTrigger}
             onObserveFurther={() => onSelectStage("OBSERVE")}
           />

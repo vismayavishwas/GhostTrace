@@ -9,6 +9,7 @@ export interface ReasoningDashboardProps {
   noiseFilteredCount?: number;
   candidateName?: string;
   workflowDNA?: any;
+  outliers?: any[];
   onProceedToDNA: () => void;
   onObserveFurther?: () => void;
 }
@@ -19,6 +20,7 @@ export const ReasoningDashboard: React.FC<ReasoningDashboardProps> = ({
   noiseFilteredCount = 0,
   candidateName = "Cross-Application Workflow",
   workflowDNA,
+  outliers = [],
   onProceedToDNA,
   onObserveFurther,
 }) => {
@@ -54,7 +56,9 @@ export const ReasoningDashboard: React.FC<ReasoningDashboardProps> = ({
 
   // Build confidence explanation in plain language
   let confidenceReasoning = "";
-  if (confidenceScore >= 0.75) {
+  if (outliers.length > 0) {
+    confidenceReasoning = `Confidence is currently affected by ${outliers.length} observed deviation(s). An anomalous action was detected during shadow mode telemetry and requires human review.`;
+  } else if (confidenceScore >= 0.75) {
     confidenceReasoning = `Confidence is high (${confidencePct}%) because the semantic mapping(s) ${sampleMappingSummary} have been observed consistently across ${repetitionCount || 1} workflow cycle(s) with 0 sequence deviations.`;
   } else if (confidenceScore >= 0.35) {
     confidenceReasoning = `Confidence is at ${confidencePct}% based on ${repetitionCount || 1} consistent workflow cycle(s) and ${confirmedMappings.length} confirmed semantic field mapping(s). Additional repetitions will further solidify learning.`;
@@ -197,10 +201,25 @@ export const ReasoningDashboard: React.FC<ReasoningDashboardProps> = ({
             {confidenceReasoning}
           </p>
 
-          <div className="flex items-center gap-2 text-xs font-mono text-slate-400 pt-1">
-            <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-            <span>0 structural deviations detected in locked mapping memory.</span>
-          </div>
+          {outliers.length > 0 ? (
+            <div className="flex flex-col gap-2 rounded-lg border border-amber-500/40 bg-amber-950/30 p-3 text-xs">
+              <div className="flex items-center gap-2 text-amber-300 font-bold">
+                <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0" />
+                <span>{outliers.length} Semantic Deviation(s) Flagged</span>
+              </div>
+              {outliers.map((dev: any, idx: number) => (
+                <div key={idx} className="flex flex-col gap-0.5 font-mono text-[11px] bg-slate-950/60 p-2 rounded border border-slate-800">
+                  <span className="text-slate-200 font-bold">{dev.label || "Observed Action Deviation"}</span>
+                  <span className="text-amber-300/80 text-[10px]">{dev.reason || "Destination mismatch observed"}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-xs font-mono text-slate-400 pt-1">
+              <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+              <span>0 structural deviations detected in locked mapping memory.</span>
+            </div>
+          )}
         </div>
 
         {/* Card 4: What happens next before automation can be generated? */}
