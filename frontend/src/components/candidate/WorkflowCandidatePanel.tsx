@@ -106,12 +106,17 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
   };
 
   const handleBatchRefine = async (choice: "EXCLUDE" | "INCLUDE") => {
-    const selectedSelectors = outlierList
+    let selectedSelectors = outlierList
       .filter((o) => selectedOutlierIds.has(o.id))
-      .map((o) => o.selector);
+      .map((o) => o.selector || o.observed_destination || o.source_entity || o.id);
 
-    const targetSel = selectedSelectors.join(",") || "#help-btn";
+    if (selectedSelectors.length === 0 && outlierList.length > 0) {
+      selectedSelectors = outlierList.map((o) => o.selector || o.observed_destination || o.source_entity || o.id);
+    }
+
+    const targetSel = selectedSelectors.join(",");
     const res = await refineCandidate(candidateId, choice, targetSel);
+
 
     const prevPct = Math.round((res?.previous_confidence || effectiveScore) * 100);
     const newPct = Math.round((res?.new_confidence || 0.96) * 100);

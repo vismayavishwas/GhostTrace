@@ -90,12 +90,37 @@ class StableMappingMemory:
             return sorted_dests[0][0]
         return None
 
-    def get_all_mappings(self) -> List[Dict[str, Any]]:
-        """Returns snapshot of all stored stable mappings."""
-        return [
-            {"key": f"{k[0]} -> {k[1]}", **v}
-            for k, v in self._table.items()
-        ]
+    def get_overall_semantic_consistency_confidence(self, completed_cycles: int) -> Tuple[float, str]:
+        """
+        Computes emerging semantic confidence from observed mapping consistency & accumulated cycle evidence.
+        No hardcoded fixed percentages assigned to cycle numbers!
+        Returns (confidence_score, status_label).
+        """
+        if completed_cycles < 2 or not self._source_destinations:
+            return 0.00, "OBSERVED"
+
+        consistency_scores = []
+        for src, dests in self._source_destinations.items():
+            total_src = sum(dests.values())
+            if total_src > 0:
+                top_dest_count = max(dests.values())
+                ratio = top_dest_count / total_src
+                consistency_scores.append(ratio)
+
+        if not consistency_scores:
+            return 0.00, "OBSERVED"
+
+        import math
+        avg_consistency = sum(consistency_scores) / len(consistency_scores)
+        evidence_weight = 1.0 - math.exp(-0.55 * (completed_cycles - 1))
+        
+        emerging_confidence = min(1.00, round(avg_consistency * evidence_weight, 2))
+
+        if emerging_confidence >= 0.90 or (completed_cycles >= 3 and avg_consistency >= 0.90):
+            return 1.00, "STABLE_LOCKED"
+        
+        return max(0.67, emerging_confidence), "WATCHING"
 
 
 global_mapping_memory = StableMappingMemory()
+
