@@ -34,19 +34,16 @@ class BusinessProcessAgent:
         Calls GeminiService to dynamically classify the business process based on live runtime context.
         Enforces GeminiCallBudget so each workflow triggers Gemini at most ONCE.
         """
-        src = source_app or "Unknown Application"
-        tgt = target_app or "Unknown Application"
         obs_string = f"{repetition_count} observations"
         fallback_meta = BusinessProcessMetadata(
-            workflow_name=f"{src} → {tgt} Data Flow" if src != tgt else f"{src} Workflow",
+            workflow_name=f"{source_app} -> {target_app} Data Flow",
             department="Operations / IT",
-            business_goal=f"Transfer structured data between {src} and {tgt}",
+            business_goal=f"Transfer structured data between {source_app} and {target_app}",
             confidence=0.88,
             repeatability=obs_string,
             automation_readiness="High",
-            summary=f"Automates repetitive manual interaction pattern between {src} and {tgt}."
+            summary=f"Automates repetitive manual interaction pattern between {source_app} and {target_app}."
         )
-
 
 
         workflow_key = f"{source_app}->{target_app}:{len(steps)}"

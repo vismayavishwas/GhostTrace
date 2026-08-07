@@ -100,6 +100,25 @@ async def get_current_state():
     if not candidates and c_observer:
         candidates = c_observer.get_candidates()
 
+    if completed_cycles > 0:
+        repetition_count = completed_cycles
+    elif candidates:
+        repetition_count = max(c.repetition_count for c in candidates)
+    else:
+        repetition_count = 0
+
+    from app.agents.pattern_discovery.mapping_memory import global_mapping_memory
+    confidence, mapping_status = global_mapping_memory.get_overall_semantic_consistency_confidence(repetition_count)
+
+
+
+
+
+
+    candidate_name = getattr(candidates[0], "name", None) or getattr(candidates[0], "workflow_name", None) or "Enterprise Cross-App Workflow" if candidates else "Enterprise Cross-App Workflow"
+
+
+    # Build dynamic field mappings from telemetry transfers
     from app.agents.telemetry.transfer_builder import global_transfer_builder
     from app.agents.pattern_discovery.deviation_detector import global_deviation_detector, format_clean_entity_label
 
@@ -120,30 +139,15 @@ async def get_current_state():
             "display_mapping": f"{src_lbl} → {dest_lbl}"
         })
 
-    if completed_cycles > 0:
-        repetition_count = completed_cycles
-    elif candidates:
-        repetition_count = max(c.repetition_count for c in candidates)
-    elif len(transfers) >= 1:
-        repetition_count = 1
-    else:
-        repetition_count = 0
-
-    from app.agents.pattern_discovery.mapping_memory import global_mapping_memory
-    confidence, mapping_status = global_mapping_memory.get_overall_semantic_consistency_confidence(repetition_count)
-
+    # Detect mistake deviations on ANY cycle when transfers exist
     outlier_items = []
     if transfers:
         detected_devs = global_deviation_detector.detect_deviations(transfers)
         outlier_items = detected_devs
 
 
-
-    candidate_name = getattr(candidates[0], "name", None) or getattr(candidates[0], "workflow_name", None) if candidates else "Enterprise Cross-App Workflow"
-
     dna_dict = None
     if candidates or field_mappings:
-
         try:
             from app.agents.workflow_dna.dna_transformer import DNATransformer
             from app.models.workflow import WorkflowCandidate
@@ -180,9 +184,8 @@ async def get_current_state():
             bp_meta = business_process_agent.analyze_process(
                 candidate_name=candidate_name,
                 steps=step_strs,
-                source_app=field_mappings[0]["source_app"] if field_mappings else "Unknown Application",
-                target_app=field_mappings[-1]["destination_app"] if field_mappings else "Unknown Application",
-
+                source_app=field_mappings[0]["source_app"] if field_mappings else "PDF Portal",
+                target_app=field_mappings[-1]["destination_app"] if field_mappings else "ERP System",
                 repetition_count=repetition_count,
                 avg_duration_sec=12.5
             )

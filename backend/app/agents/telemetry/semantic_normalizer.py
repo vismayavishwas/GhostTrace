@@ -1,35 +1,7 @@
-from typing import Optional, Dict, Any, List, Tuple
-from dataclasses import dataclass, field
+import re
+from typing import Optional, List, Dict, Any, Tuple
 from app.models.telemetry import TelemetryEvent
 
-
-
-@dataclass
-class CanonicalSemanticEntity:
-    """
-    Unified canonical semantic entity contract consumed by Workflow DNA, Replay, Blueprint,
-    Business Agent, and Self-Healing.
-    """
-    entity_id: str
-    display_label: str
-    application_name: str
-    interaction_type: str
-    human_readable_name: str
-    pasted_value: Optional[str] = None
-    target_selector: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "entity_id": self.entity_id,
-            "display_label": self.display_label,
-            "application_name": self.application_name,
-            "interaction_type": self.interaction_type,
-            "human_readable_name": self.human_readable_name,
-            "pasted_value": self.pasted_value,
-            "target_selector": self.target_selector,
-            "metadata": self.metadata,
-        }
 
 
 class SemanticEvent:
@@ -66,20 +38,6 @@ class SemanticEvent:
     def event_type(self):
         return self.operation
 
-    @property
-    def canonical_entity(self) -> CanonicalSemanticEntity:
-        app_name = self.app_title or "Unknown Application"
-        label = self.display_label or "Unknown Field"
-        return CanonicalSemanticEntity(
-            entity_id=self.semantic_entity,
-            display_label=label,
-            application_name=app_name,
-            interaction_type=self.operation,
-            human_readable_name=f"{app_name} · {label}",
-            pasted_value=self.pasted_value,
-            target_selector=self.target_selector,
-        )
-
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -90,11 +48,9 @@ class SemanticEvent:
             "business_label": self.display_label,
             "target_selector": self.target_selector,
             "app_title": self.app_title,
-            "canonical_entity": self.canonical_entity.to_dict(),
             "timestamp": self.timestamp.isoformat() if hasattr(self.timestamp, "isoformat") else str(self.timestamp),
             "raw_event_type": getattr(self.raw_event.event_type, "value", str(self.raw_event.event_type)),
         }
-
 
 
 class SemanticNormalizer:
