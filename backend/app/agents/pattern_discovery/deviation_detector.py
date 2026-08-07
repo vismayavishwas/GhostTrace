@@ -7,34 +7,15 @@ logger = logging.getLogger("ghosttrace.pattern_discovery.deviation_detector")
 
 
 def format_clean_entity_label(raw_sel: str = "", entity_key: str = "") -> str:
-    """Formats raw selectors or semantic entity keys into clean human-readable field labels without raw DOM IDs."""
+    """Formats raw selectors or semantic entity keys into clean human-readable field labels without raw DOM IDs or static alias tables."""
     target = (entity_key or raw_sel or "").lower()
     token = target.split(":")[-1] if ":" in target else target
     token = token.replace("lbl_", "").replace("hdg_", "").replace("elem_", "").replace("#", "").replace(".", " ").strip()
     token = token.replace("source-", "").replace("target-", "").replace("source_", "").replace("target_", "")
 
-    aliases = {
-        "invoiceid": "Invoice ID",
-        "invoice_id": "Invoice ID",
-        "amount": "Total Amount",
-        "vendor": "Vendor Name",
-        "cgpa": "CGPA Score",
-        "experience": "Years Experience",
-        "dealsize": "Deal Size ARR",
-        "deal_size": "Deal Size ARR",
-        "customer": "Customer Name",
-        "email": "Email Address",
-        "f1": "Invoice ID",
-        "f2": "Total Amount",
-        "f3": "Vendor Name",
-    }
-
-    for k, v in aliases.items():
-        if token == k or f"_{k}" in token or f"-{k}" in token or k in token:
-            return v
-
     clean = token.replace("_", " ").replace("-", " ").strip().title()
     return clean if clean else "Field"
+
 
 
 class DeviationDetector:
