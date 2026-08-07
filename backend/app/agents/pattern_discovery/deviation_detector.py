@@ -73,8 +73,13 @@ class DeviationDetector:
             expected_dest = global_mapping_memory.get_expected_destination(src)
             
             positional_dest = None
-            if self.baseline_sequence and idx < len(self.baseline_sequence):
-                positional_dest = self.baseline_sequence[idx][1]
+            if self.baseline_sequence:
+                for s, d in self.baseline_sequence:
+                    if s.lower() == src.lower():
+                        positional_dest = d
+                        break
+                if not positional_dest and idx < len(self.baseline_sequence):
+                    positional_dest = self.baseline_sequence[idx][1]
 
             target_expected = expected_dest or positional_dest
             observed_dest = xfer.destination_entity.lower()
