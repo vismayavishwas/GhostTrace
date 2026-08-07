@@ -156,7 +156,7 @@ async def get_current_state():
                 candidate_id="cand-dynamic-001",
                 name=candidate_name,
                 sequence=events,
-                repetition_count=repetition_count,
+                repetition_count=max(1, repetition_count),
                 confidence_score=confidence
             )
             dna_model = transformer.transform_candidate(cand)
