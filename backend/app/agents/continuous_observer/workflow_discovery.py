@@ -135,11 +135,13 @@ class WorkflowDiscoveryEngine:
             if cycle_ents == template_ents or (len(cycle_ents) >= 2 and cycle_ents[:len(template_ents)] == template_ents):
                 matching_cycle_count += 1
 
-        self.last_completed_cycle_count = matching_cycle_count
-
         # Require at least 2 completed matching cycles (Repetition) to discover a candidate pattern
         if matching_cycle_count < 2:
+            self.last_completed_cycle_count = 0
             return []
+
+        self.last_completed_cycle_count = matching_cycle_count
+
 
         # Build candidate representing the full sequence cycle
         sample_obs_window = [obs for obs, _ in cycles[0]]

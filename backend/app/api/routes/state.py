@@ -106,15 +106,14 @@ async def get_current_state():
     else:
         repetition_count = 0
 
-    if repetition_count == 0:
-        # Initial observation phase: Cycle remains 0, confidence rises slightly per action observed (0% up to 25%)
-        confidence = min(0.25, round(event_count * 0.05, 2)) if event_count > 0 else 0.00
-    elif repetition_count == 1:
-        confidence = 0.33
+    if repetition_count < 2:
+        # Confidence remains 0% until sequence cycle repeats across 2+ runs
+        confidence = 0.00
     elif repetition_count == 2:
-        confidence = 0.66
+        confidence = 0.67
     else:
         confidence = 1.00
+
 
     candidate_name = candidates[0].name if candidates else "Enterprise Cross-App Workflow"
 
