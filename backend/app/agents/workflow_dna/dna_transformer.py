@@ -8,47 +8,76 @@ logger = logging.getLogger("ghosttrace.workflow_dna.transformer")
 
 class DNATransformer:
     """
-    100% Dynamic Transformer converting TelemetryEvent sequences into
-    high-level semantic WorkflowDNA steps.
+    ⭐ Pure Renderer of Learned Semantic Workflow Graph ⭐
+    Transforms TelemetryEvents & SemanticTransfers into a 100% dynamic WorkflowDNA graph.
+    Never infers, assumes, or templates field/app names or business steps.
+    Consumes SemanticEvent canonical attributes directly from SemanticNormalizer.
     """
+
     def transform_candidate(self, candidate: WorkflowCandidate) -> WorkflowDNA:
-        """
-        Transforms a WorkflowCandidate into a validated WorkflowDNA model using dynamic semantic normalization.
-        """
-        events = candidate.sequence
+        events = candidate.sequence or []
         steps: List[WorkflowDNAStep] = []
         apps_involved: Set[str] = set()
         inputs_schema: Dict[str, Any] = {}
 
         from app.agents.telemetry.transfer_builder import global_transfer_builder
+        from app.agents.telemetry.semantic_normalizer import SemanticNormalizer
         from app.agents.pattern_discovery.deviation_detector import format_clean_entity_label
 
-        transfers = global_transfer_builder.process_telemetry_events(events)
+        transfers = global_transfer_builder.process_telemetry_events(events) if events else []
         field_mappings: List[Dict[str, Any]] = []
 
         for xfer in transfers:
             if xfer.is_immediate_correction:
                 continue
-            src_lbl = format_clean_entity_label("", xfer.source_entity)
-            dest_lbl = format_clean_entity_label("", xfer.destination_entity)
+
+            src_app = xfer.source_app or "Unknown Application"
+            dest_app = xfer.destination_app or "Unknown Application"
+            src_lbl = format_clean_entity_label("", xfer.source_entity) or "Unknown Field"
+            dest_lbl = format_clean_entity_label("", xfer.destination_entity) or "Unknown Field"
+
+            if src_app != "Unknown Application": apps_involved.add(src_app)
+            if dest_app != "Unknown Application": apps_involved.add(dest_app)
+
             field_mappings.append({
                 "transfer_id": xfer.transfer_id,
+                "source_entity": xfer.source_entity,
                 "source_label": src_lbl,
+                "source_app": src_app,
+                "destination_entity": xfer.destination_entity,
                 "destination_label": dest_lbl,
-                "source_app": xfer.source_app,
-                "destination_app": xfer.destination_app,
-                "pasted_value": xfer.pasted_value,
-                "display_mapping": f"{src_lbl} → {dest_lbl}"
+                "destination_app": dest_app,
+                "pasted_value": xfer.pasted_value or "",
+                "display_mapping": f"{src_lbl} → {dest_lbl}",
+                "full_mapping_title": f"{src_app} ({src_lbl}) ➔ {dest_app} ({dest_lbl})"
             })
 
         for idx, event in enumerate(events, start=1):
-            app_title = event.app_title or "Target Application"
-            apps_involved.add(app_title)
+            sem_event = SemanticNormalizer.normalize(event)
+            if sem_event:
+                app_title = sem_event.app_title or "Unknown Application"
+                lbl = sem_event.display_label or "Unknown Field"
+                op = (sem_event.operation or "ACTION").upper()
 
-            action_name = self._infer_action_name(event)
+                if "COPY" in op:
+                    action_name = f"Copy {lbl} ({app_title})"
+                elif "PASTE" in op or "TYPE" in op:
+                    action_name = f"Paste into {lbl} ({app_title})"
+                elif "CLICK" in op:
+                    action_name = f"Click {lbl} ({app_title})"
+                else:
+                    action_name = f"{op.capitalize()} {lbl} ({app_title})"
+            else:
+                app_title = getattr(event, "app_title", None) or "Unknown Application"
+                raw_target = getattr(event, "target_selector", None) or getattr(event, "element_tag", None) or "Unknown Field"
+                clean_target = str(raw_target).replace("#", "").replace(".", " ").strip()
+                action_name = f"{getattr(event, 'event_type', 'ACTION')} on {clean_target}"
+
+            if app_title and app_title != "Unknown Application":
+                apps_involved.add(app_title)
 
             parameters: Dict[str, Any] = {}
-            if event.input_value is not None:
+            if getattr(event, "input_value", None) is not None:
                 param_key = f"input_step_{idx}"
                 parameters["value"] = event.input_value
                 parameters["placeholder_key"] = param_key
@@ -58,36 +87,37 @@ class DNATransformer:
                     "default": event.input_value,
                 }
 
-            # Attach matching transfer mapping metadata if available
-            raw_sel = (event.target_selector or "").lower()
+            raw_sel = (getattr(event, "target_selector", None) or "").lower()
             for m in field_mappings:
-                if any(k in raw_sel for k in [m["source_label"].lower().replace(" ", ""), m["destination_label"].lower().replace(" ", "")]):
+                if any(k in raw_sel for k in [m["source_label"].lower().replace(" ", ""), m["destination_label"].lower().replace(" ", "")] if k):
                     parameters.update(m)
                     break
 
             fallback_selectors = []
-            if event.element_tag:
+            if getattr(event, "element_tag", None):
                 fallback_selectors.append(f"{event.element_tag.lower()}")
-            if event.target_selector:
+            if getattr(event, "target_selector", None):
                 fallback_selectors.append(f"//{event.target_selector.replace('#', '')}")
 
             step = WorkflowDNAStep(
                 step_number=idx,
                 action_name=action_name,
                 target_app=app_title,
-                selector=event.target_selector or f"<{event.element_tag or 'element'}>",
+                selector=getattr(event, "target_selector", None) or f"<{getattr(event, 'element_tag', None) or 'element'}>",
                 fallback_selectors=fallback_selectors,
                 parameters=parameters
             )
             steps.append(step)
 
-        # Build primary workflow title and description
         app_list = sorted(list(apps_involved))
-        primary_app = app_list[0] if app_list else "Application"
+        if not app_list:
+            app_list = ["Unknown Application"]
+
+        primary_app = app_list[0]
         target_app = app_list[-1] if len(app_list) > 1 else primary_app
-        workflow_title = f"{primary_app} → {target_app} Workflow Automation" if primary_app != target_app else f"{primary_app} Workflow Automation"
+        workflow_title = f"{primary_app} → {target_app} Data Flow" if primary_app != target_app else f"{primary_app} Workflow"
         workflow_desc = (
-            f"Dynamic semantic workflow mapping {len(field_mappings)} field flow(s) and {len(steps)} interaction step(s) "
+            f"Observed semantic workflow mapping {len(field_mappings)} field transfer(s) and {len(steps)} chronological step(s) "
             f"across {', '.join(app_list)}."
         )
 
@@ -113,37 +143,7 @@ class DNATransformer:
             }
         )
 
-        logger.debug(f"DNATransformer created WorkflowDNA ID={dna.workflow_id[:8]} with {len(steps)} steps and {len(field_mappings)} field mappings")
+        logger.debug(f"DNATransformer rendered WorkflowDNA ID={dna.workflow_id[:8]} with {len(steps)} steps and {len(field_mappings)} mappings")
         return dna
 
-    def _infer_action_name(self, event: TelemetryEvent) -> str:
-        """
-        Determines semantic action name 100% dynamically from SemanticNormalizer metadata.
-        Zero hardcoded rule tables, zero inline Gemini calls in learning loop.
-        """
-        from app.agents.telemetry.semantic_normalizer import SemanticNormalizer
-        from app.agents.pattern_discovery.deviation_detector import format_clean_entity_label
-
-        sem = SemanticNormalizer.normalize(event)
-        if sem:
-            clean_label = format_clean_entity_label(sem.display_label.split(" (")[0], sem.semantic_entity)
-            op = sem.operation.capitalize()
-            return f"{op} {clean_label}"
-
-        selector = (event.target_selector or "").replace("#", "").replace(".", " ").replace("-", " ").strip().title()
-        if not selector:
-            selector = (event.element_tag or "Element").title()
-        selector = format_clean_entity_label(selector)
-
-        event_type = str(event.event_type).upper()
-        if "TYPE" in event_type or "KEY" in event_type or "PASTE" in event_type:
-            return f"Input into {selector}"
-        elif "COPY" in event_type:
-            return f"Copy from {selector}"
-        elif "CLICK" in event_type:
-            return f"Click {selector}"
-        elif "NAV" in event_type:
-            return f"Navigate to {selector}"
-        else:
-            return f"{event_type.capitalize()} on {selector}"
 
