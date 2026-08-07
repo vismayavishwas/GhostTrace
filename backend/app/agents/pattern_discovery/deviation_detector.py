@@ -88,6 +88,13 @@ class DeviationDetector:
             exp_clean = format_clean_entity_label("", target_expected or "")
             obs_clean = format_clean_entity_label("", observed_dest)
 
+            # Matching field labels (e.g. Vendor -> Vendor) are valid transfers, never wrong destination errors
+            if src_clean and obs_clean and src_clean.lower() == obs_clean.lower():
+                continue
+            if (getattr(xfer, "source_display_label", None) and getattr(xfer, "destination_display_label", None) and
+                xfer.source_display_label.strip().lower() == xfer.destination_display_label.strip().lower()):
+                continue
+
             if target_expected and target_expected.lower() != observed_dest:
                 logger.info(
                     f"🚨 [DEVIATION DETECTED] Wrong Destination Field | Step={idx+1} | Source='{src}' | "
