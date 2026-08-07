@@ -118,11 +118,12 @@ async def get_current_state():
     candidate_name = getattr(candidates[0], "name", None) or getattr(candidates[0], "workflow_name", None) or "Enterprise Cross-App Workflow" if candidates else "Enterprise Cross-App Workflow"
 
 
-    # Build dynamic field mappings from telemetry transfers
+    # Build dynamic field mappings from telemetry transfers in chronological order
     from app.agents.telemetry.transfer_builder import global_transfer_builder
     from app.agents.pattern_discovery.deviation_detector import global_deviation_detector, format_clean_entity_label
 
-    transfers = global_transfer_builder.process_telemetry_events(events) if events else []
+    chronological_events = list(reversed(events)) if events else []
+    transfers = global_transfer_builder.process_telemetry_events(chronological_events) if chronological_events else []
     field_mappings = []
     for xfer in transfers:
         if xfer.is_immediate_correction:
