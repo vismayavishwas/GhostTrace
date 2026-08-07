@@ -127,24 +127,36 @@ class DeviationDetector:
                         })
                         break
 
-        # 3. Detect Missing Steps against baseline sequence
-        if self.baseline_sequence and len(valid_transfers) < len(self.baseline_sequence):
-            observed_src_set = {x.source_entity for x in valid_transfers}
-            for exp_src, exp_dest in self.baseline_sequence:
-                if exp_src not in observed_src_set:
-                    src_clean = format_clean_entity_label("", exp_src)
-                    dest_clean = format_clean_entity_label("", exp_dest)
-                    deviations.append({
-                        "id": f"dev-missing-{len(deviations)+1}",
-                        "source_entity": exp_src,
-                        "expected_destination": exp_dest,
-                        "observed_destination": "missing",
-                        "label": f"Missing Step: Skipped Field ({src_clean}) → Field ({dest_clean})",
-                        "reason": f"Workflow baseline expected step '{src_clean} → {dest_clean}'",
-                        "selector": dest_clean,
-                        "transfer_id": "missing-step",
-                        "group": "Omitted Action"
-                    })
+        # 3. Detect Truly Skipped Steps against baseline sequence
+        if self.baseline_sequence:
+            observed_srcs = [x.source_entity for x in valid_transfers]
+            observed_src_set = set(observed_srcs)
+            baseline_srcs = [s for s, _ in self.baseline_sequence]
+
+            max_observed_idx = -1
+            for src in observed_srcs:
+                if src in baseline_srcs:
+                    idx = baseline_srcs.index(src)
+                    if idx > max_observed_idx:
+                        max_observed_idx = idx
+
+            if max_observed_idx > 0:
+                for idx in range(max_observed_idx):
+                    exp_src, exp_dest = self.baseline_sequence[idx]
+                    if exp_src not in observed_src_set:
+                        src_clean = format_clean_entity_label("", exp_src)
+                        dest_clean = format_clean_entity_label("", exp_dest)
+                        deviations.append({
+                            "id": f"dev-missing-{len(deviations)+1}",
+                            "source_entity": exp_src,
+                            "expected_destination": exp_dest,
+                            "observed_destination": "missing",
+                            "label": f"Missing Step: Skipped Field ({src_clean}) → Field ({dest_clean})",
+                            "reason": f"Workflow baseline expected step '{src_clean} → {dest_clean}'",
+                            "selector": dest_clean,
+                            "transfer_id": "missing-step",
+                            "group": "Omitted Action"
+                        })
 
         active_deviations = []
         for d in deviations:
