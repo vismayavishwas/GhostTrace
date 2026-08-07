@@ -107,14 +107,18 @@ async def get_current_state():
         repetition_count = 0
 
     if repetition_count < 2:
-        # Sequence Observed — Waiting for repetition... (0 cycles, 0% confidence)
+        # Baseline sequence observation phase: 0 cycles, 0% confidence
         confidence = 0.00
         repetition_count = 0
     elif repetition_count == 2:
-        # Sequence Repetition Confirmed! (2 cycles logged, 67% confidence)
-        confidence = 0.67
+        # Repetition confirmed across 2 completed sequence cycles
+        # Scaled progressively: 67% base + bonus per semantic transfer step (e.g. 3 transfers = 82%)
+        t_count = len([x for x in transfers if not x.is_immediate_correction]) if transfers else 0
+        confidence = min(0.88, round(0.67 + (t_count * 0.05), 2))
     else:
+        # 3+ completed sequence cycles -> 100% Fully Learned & Locked (1.00 🔒)
         confidence = 1.00
+
 
 
 

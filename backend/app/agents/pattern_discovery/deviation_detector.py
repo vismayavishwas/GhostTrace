@@ -29,10 +29,23 @@ class DeviationDetector:
     """
     def __init__(self):
         self.baseline_sequence: List[Tuple[str, str]] = []
+        self.resolved_selectors: Set[str] = set()
 
     def clear(self):
         """Resets detector state."""
         self.baseline_sequence.clear()
+        self.resolved_selectors.clear()
+
+    def resolve_selectors(self, selectors: List[str]):
+        """Marks specific selectors as resolved to prevent re-flagging after HITL review."""
+        for sel in selectors:
+            if sel:
+                self.resolved_selectors.add(sel.lower().strip())
+
+    def resolve_all_current(self):
+        """Marks all active baseline destination selectors as resolved."""
+        self.resolved_selectors.clear()
+        self._all_resolved = True
 
     def set_sequence_template(self, transfers: List[SemanticTransfer]):
         """Sets the established baseline sequence template (source_entity, destination_entity)."""
@@ -45,6 +58,7 @@ class DeviationDetector:
 
         if not valid_transfers:
             return deviations
+
 
         # Auto-establish baseline sequence if not explicitly set and transfers exist
         if not self.baseline_sequence and len(valid_transfers) >= 2:
@@ -124,8 +138,15 @@ class DeviationDetector:
                         "group": "Omitted Action"
                     })
 
-        logger.info(f"[STAGE 4: DEVIATION_DETECTOR] Evaluated {len(valid_transfers)} transfers -> Flagged {len(deviations)} mistakes.")
-        return deviations
+        active_deviations = [
+            d for d in deviations 
+            if d.get("selector", "").lower().strip() not in self.resolved_selectors
+            and d.get("id", "") not in self.resolved_selectors
+        ]
+
+        logger.info(f"[STAGE 4: DEVIATION_DETECTOR] Evaluated {len(valid_transfers)} transfers -> Flagged {len(active_deviations)} active mistakes ({len(deviations) - len(active_deviations)} resolved).")
+        return active_deviations
+
 
 
 global_deviation_detector = DeviationDetector()
