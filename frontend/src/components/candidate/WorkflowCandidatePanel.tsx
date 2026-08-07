@@ -119,8 +119,8 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
 
     setVersion(newVer);
     setCurrentScore(res?.new_confidence || 0.96);
+    setOutlierList([]);
     setIsReviewPending(false);
-    setIsCollapsed(true);
 
     if (choice === "EXCLUDE") {
       setFeedbackMsg(`✓ Candidate Updated (v${newVer}) — Excluded ${selectedOutlierIds.size} item(s). Confidence: ${prevPct}% → ${newPct}%`);
@@ -135,6 +135,14 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
       onObserveFurther();
     }
   };
+
+  const handleAnalyzeClick = () => {
+    setIsCollapsed(true);
+    if (onAnalyzeTrigger) {
+      onAnalyzeTrigger();
+    }
+  };
+
 
 
   if (isCollapsed) {
@@ -229,7 +237,8 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
 
           <button
             suppressHydrationWarning
-            onClick={onAnalyzeTrigger}
+            onClick={handleAnalyzeClick}
+
             disabled={!isAnalyzeEnabled}
             className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs font-black transition-all duration-200 shadow-xl ${
               isAnalyzeEnabled
