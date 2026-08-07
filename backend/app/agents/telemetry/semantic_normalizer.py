@@ -1,4 +1,8 @@
+from typing import Optional, Dict, Any, List, Tuple
 from dataclasses import dataclass, field
+from app.models.telemetry import TelemetryEvent
+
+
 
 @dataclass
 class CanonicalSemanticEntity:

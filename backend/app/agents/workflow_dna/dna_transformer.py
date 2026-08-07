@@ -3,8 +3,10 @@ from typing import List, Dict, Any, Set, Tuple
 from app.models.enums import EventType
 from app.models.telemetry import TelemetryEvent
 from app.models.workflow import WorkflowCandidate, WorkflowDNA, WorkflowDNAStep
+from app.agents.telemetry.semantic_normalizer import SemanticNormalizer, CanonicalSemanticEntity
 
 logger = logging.getLogger("ghosttrace.workflow_dna.transformer")
+
 
 
 class DNATransformer:
