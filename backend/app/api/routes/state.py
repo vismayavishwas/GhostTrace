@@ -100,7 +100,12 @@ async def get_current_state():
     if not candidates and c_observer:
         candidates = c_observer.get_candidates()
 
-    repetition_count = completed_cycles
+    if completed_cycles > 0:
+        repetition_count = completed_cycles
+    elif candidates:
+        repetition_count = max(c.repetition_count for c in candidates)
+    else:
+        repetition_count = 0
 
     from app.agents.pattern_discovery.mapping_memory import global_mapping_memory
     confidence, mapping_status = global_mapping_memory.get_overall_semantic_consistency_confidence(repetition_count)
@@ -135,9 +140,9 @@ async def get_current_state():
             "display_mapping": f"{src_lbl} → {dest_lbl}"
         })
 
-    # Detect mistake deviations ONLY after pattern repetition is confirmed (repetition_count >= 2)
+    # Detect mistake deviations ONLY after pattern is recognized (repetition_count >= 1)
     outlier_items = []
-    if transfers and repetition_count >= 2:
+    if transfers and repetition_count >= 1:
         if not global_deviation_detector.baseline_sequence and len(transfers) >= 2:
             global_deviation_detector.set_sequence_template(transfers)
         detected_devs = global_deviation_detector.detect_deviations(transfers)

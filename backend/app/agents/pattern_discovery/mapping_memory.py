@@ -89,13 +89,29 @@ class StableMappingMemory:
     def get_expected_destination(self, source_entity: str, min_occurrences: int = 1) -> Optional[str]:
         """Returns the expected stable destination entity for a given source_entity, if available and sufficiently observed (at least min_occurrences)."""
         src = source_entity.lower()
-        if src not in self._source_destinations:
-            return None
+        if src in self._source_destinations:
+            sorted_dests = sorted(self._source_destinations[src].items(), key=lambda x: x[1], reverse=True)
+            if sorted_dests and sorted_dests[0][1] >= min_occurrences:
+                return sorted_dests[0][0]
 
-        # Return destination with highest occurrence count if it meets min_occurrences threshold
-        sorted_dests = sorted(self._source_destinations[src].items(), key=lambda x: x[1], reverse=True)
-        if sorted_dests and sorted_dests[0][1] >= min_occurrences:
-            return sorted_dests[0][0]
+        # Fuzzy / Semantic Field Matching Fallback if exact string match not found:
+        from app.agents.pattern_discovery.deviation_detector import format_clean_entity_label
+        src_label = format_clean_entity_label("", src).lower()
+        src_app = src.split(":")[1] if ":" in src else ""
+
+        for stored_src, dests in self._source_destinations.items():
+            stored_src_label = format_clean_entity_label("", stored_src).lower()
+            stored_src_app = stored_src.split(":")[1] if ":" in stored_src else ""
+
+            if (src_app == stored_src_app) and (
+                src_label == stored_src_label or 
+                src_label in stored_src_label or 
+                stored_src_label in src_label
+            ):
+                sorted_dests = sorted(dests.items(), key=lambda x: x[1], reverse=True)
+                if sorted_dests and sorted_dests[0][1] >= min_occurrences:
+                    return sorted_dests[0][0]
+
         return None
 
     def get_overall_semantic_consistency_confidence(self, completed_cycles: int) -> Tuple[float, str]:

@@ -108,13 +108,20 @@ class SemanticNormalizer:
             clean_heading = re.sub(r'[^a-zA-Z0-9]', '_', heading.lower()).strip('_')
             fingerprint_token = f"hdg_{clean_heading}"
             display_title = f"{heading} Field"
-        # 3. Third Priority: DOM Element ID / Name / Selector Fingerprint (DO NOT INVENT DOM SELECTOR TITLES)
+        # 3. Third Priority: DOM Element ID / Name / Selector Fingerprint
         else:
-            sel_clean = re.sub(r'[^a-zA-Z0-9]', '_', selector.lower()).strip('_')
-            if not sel_clean:
-                sel_clean = "elem_" + re.sub(r'[^a-zA-Z0-9]', '_', (raw_event.element_tag or "input").lower())
-            fingerprint_token = f"elem_{sel_clean[:32]}"
-            display_title = "Unknown Field"
+            id_match = re.search(r'#([a-zA-Z0-9_-]+)', selector)
+            if id_match:
+                from app.agents.pattern_discovery.deviation_detector import format_clean_entity_label
+                core_id = id_match.group(1).lower().replace("source-", "").replace("target-", "").replace("source_", "").replace("target_", "")
+                fingerprint_token = f"lbl_{core_id}"
+                display_title = format_clean_entity_label("", core_id)
+            else:
+                sel_clean = re.sub(r'[^a-zA-Z0-9]', '_', selector.lower()).strip('_')
+                if not sel_clean:
+                    sel_clean = "elem_" + re.sub(r'[^a-zA-Z0-9]', '_', (raw_event.element_tag or "input").lower())
+                fingerprint_token = f"elem_{sel_clean[:32]}"
+                display_title = "Unknown Field"
 
         semantic_entity = f"entity:{app_key}:{fingerprint_token}"
         display_label = display_title if display_title == "Unknown Field" else display_title
