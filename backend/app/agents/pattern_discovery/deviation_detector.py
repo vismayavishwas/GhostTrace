@@ -63,10 +63,6 @@ class DeviationDetector:
         if not valid_transfers:
             return deviations
 
-        # Auto-establish baseline sequence if not explicitly set and transfers exist
-        if not self.baseline_sequence and len(valid_transfers) >= 2:
-            self.set_sequence_template(valid_transfers)
-
         # 1. Detect Wrong Destination Fields (Mapping Memory or Positional Baseline)
         for idx, xfer in enumerate(valid_transfers):
             src = xfer.source_entity
