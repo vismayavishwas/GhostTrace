@@ -119,7 +119,8 @@ async def get_current_state():
 
 
 
-    candidate_name = candidates[0].name if candidates else "Enterprise Cross-App Workflow"
+    candidate_name = getattr(candidates[0], "name", None) or getattr(candidates[0], "workflow_name", None) or "Enterprise Cross-App Workflow" if candidates else "Enterprise Cross-App Workflow"
+
 
     # Build dynamic field mappings from telemetry transfers
     from app.agents.telemetry.transfer_builder import global_transfer_builder
