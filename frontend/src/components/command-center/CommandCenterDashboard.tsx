@@ -31,14 +31,11 @@ export const CommandCenterDashboard: React.FC = () => {
   const [workflowDNA, setWorkflowDNA] = useState<any>(null);
 
   useEffect(() => {
-    // Clear old state on fresh page load/refresh
-    resetTelemetryState();
-
     // Poll graph state from backend
     const interval = setInterval(() => {
-
       fetchGraphState().then((state) => {
         if (state) {
+
           if (state.confidence_score !== undefined) setConfidenceScore(state.confidence_score);
           if (state.repetition_count !== undefined) setRepetitionCount(state.repetition_count);
           if (state.noise_filtered_count !== undefined) setNoiseFilteredCount(state.noise_filtered_count);
