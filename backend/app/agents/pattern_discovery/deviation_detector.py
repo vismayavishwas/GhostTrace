@@ -37,19 +37,30 @@ class DeviationDetector:
         self.resolved_selectors.clear()
 
     def resolve_selectors(self, selectors: List[str]):
-        """Marks specific selectors as resolved to prevent re-flagging after HITL review."""
+        """Marks specific selectors and entity tokens as resolved to prevent re-flagging after HITL review."""
         for sel in selectors:
             if sel:
                 clean_sel = sel.lower().replace("#", "").replace(".", "").replace("target-", "").replace("source-", "").strip()
                 self.resolved_selectors.add(sel.lower().strip())
                 self.resolved_selectors.add(clean_sel)
+                # Also add tokenized words (e.g. f1, f2, f3, vendor, invoice, amount)
+                for part in clean_sel.split():
+                    if part:
+                        self.resolved_selectors.add(part)
 
     def resolve_all_current(self):
-        """Marks all active baseline destination selectors as resolved."""
+        """Marks all active baseline destination selectors and deviation IDs as resolved."""
+        self.resolved_selectors.add("dev-wrong-dest")
+        self.resolved_selectors.add("dev-missing")
+        self.resolved_selectors.add("dev-reordered")
+        self.resolved_selectors.add("missing-step")
         for s, d in self.baseline_sequence:
             clean_d = d.split(":")[-1].replace("elem_", "").replace("target_", "").lower().strip()
+            clean_s = s.split(":")[-1].replace("elem_", "").replace("source_", "").lower().strip()
             self.resolved_selectors.add(d.lower().strip())
+            self.resolved_selectors.add(s.lower().strip())
             self.resolved_selectors.add(clean_d)
+            self.resolved_selectors.add(clean_s)
 
     def set_sequence_template(self, transfers: List[SemanticTransfer]):
         """Sets the established baseline sequence template (source_entity, destination_entity)."""
@@ -169,10 +180,13 @@ class DeviationDetector:
         for d in deviations:
             sel = str(d.get("selector", "")).lower().strip()
             obs = str(d.get("observed_destination", "")).lower().strip()
+            src = str(d.get("source_entity", "")).lower().strip()
             dev_id = str(d.get("id", "")).lower().strip()
+            xfer_id = str(d.get("transfer_id", "")).lower().strip()
             
             is_res = any(
-                r in sel or r in obs or r in dev_id or sel in r or obs in r
+                r in sel or r in obs or r in src or r in dev_id or r in xfer_id or
+                sel in r or obs in r or src in r
                 for r in self.resolved_selectors if r
             )
             if not is_res:
