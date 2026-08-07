@@ -132,13 +132,15 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
 
 
     const prevPct = Math.round((res?.previous_confidence || effectiveScore) * 100);
-    const newPct = Math.round((res?.new_confidence || 0.96) * 100);
+    const newConf = typeof res?.new_confidence === "number" ? res.new_confidence : effectiveScore;
+    const newPct = Math.round(newConf * 100);
     const newVer = res?.version || version + 1;
 
     setVersion(newVer);
-    setCurrentScore(res?.new_confidence || 0.96);
+    setCurrentScore(newConf);
     setOutlierList([]);
     setIsReviewPending(false);
+
 
     if (choice === "EXCLUDE") {
       setFeedbackMsg(`✓ Candidate Updated (v${newVer}) — Excluded ${selectedOutlierIds.size} item(s). Confidence: ${prevPct}% → ${newPct}%`);

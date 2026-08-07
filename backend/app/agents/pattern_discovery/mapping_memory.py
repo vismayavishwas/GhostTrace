@@ -119,7 +119,8 @@ class StableMappingMemory:
         if emerging_confidence >= 0.90 or (completed_cycles >= 3 and avg_consistency >= 0.90):
             return 1.00, "STABLE_LOCKED"
         
-        return max(0.67, emerging_confidence), "WATCHING"
+        return emerging_confidence, "WATCHING"
+
 
 
 global_mapping_memory = StableMappingMemory()

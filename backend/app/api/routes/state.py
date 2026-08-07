@@ -1,6 +1,7 @@
 import asyncio
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
+from pydantic import BaseModel
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from app.api.routes.telemetry import in_memory_events
 from app.orchestration.graph import GhostTraceOrchestrator
@@ -268,11 +269,12 @@ async def refine_candidate(payload: CandidateRefinePayload):
         "choice": choice,
         "action": choice,
         "target_selector": target_selector,
-        "new_confidence": dyn_conf if dyn_conf > 0 else 0.88,
+        "new_confidence": dyn_conf,
         "version": 2,
         "outliers": [],
         "message": f"Recorded HITL decision ({choice}) into persistent CorrectionPatternStore & resolved active deviations."
     }
+
 
 
 
