@@ -140,9 +140,9 @@ async def get_current_state():
             "display_mapping": f"{src_lbl} → {dest_lbl}"
         })
 
-    # Detect mistake deviations ONLY after pattern repetition is recognized (repetition_count >= 2)
+    # Detect mistake deviations ONLY after pattern is recognized (repetition_count >= 1)
     outlier_items = []
-    if transfers and repetition_count >= 2:
+    if transfers and repetition_count >= 1:
         if not global_deviation_detector.baseline_sequence and len(transfers) >= 2:
             global_deviation_detector.set_sequence_template(transfers)
         detected_devs = global_deviation_detector.detect_deviations(transfers)
