@@ -211,16 +211,19 @@ async def refine_workflow_candidate(candidate_id: str, payload: Dict[str, Any]):
         prev_ver = matched_candidate.version if matched_candidate else 1
         new_ver = prev_ver + 1
 
+        from app.agents.pattern_discovery.mapping_memory import global_mapping_memory
+        dyn_conf, _ = global_mapping_memory.get_overall_semantic_consistency_confidence(2)
+        new_conf = dyn_conf if dyn_conf > 0 else prev_conf
+
         if choice == "EXCLUDE":
-            new_conf = min(0.96, round(prev_conf + 0.14, 2))
             msg = "✓ Candidate Updated — Step Excluded"
         else:
-            new_conf = prev_conf
             msg = "✓ Candidate Updated — Step Included"
 
         if matched_candidate:
             matched_candidate.version = new_ver
             matched_candidate.confidence_score = new_conf
+
 
         # Suppress resolved deviation selectors permanently so state polling stays clean
         try:

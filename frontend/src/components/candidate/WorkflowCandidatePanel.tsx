@@ -20,7 +20,12 @@ export interface OutlierItem {
   label: string;
   selector: string;
   reason: string;
+  observed_destination?: string;
+  source_entity?: string;
+  expected_destination?: string;
+  group?: string;
 }
+
 
 export interface WorkflowCandidatePanelProps {
   candidateId?: string;
@@ -45,7 +50,7 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
   onObserveFurther,
 }) => {
   const [version, setVersion] = useState<number>(1);
-  const [currentScore, setCurrentScore] = useState<number>(confidenceScore || 0.82);
+  const [currentScore, setCurrentScore] = useState<number>(confidenceScore);
   const [feedbackMsg, setFeedbackMsg] = useState<string>("");
   const [outlierList, setOutlierList] = useState<OutlierItem[]>(outliers);
   const [selectedOutlierIds, setSelectedOutlierIds] = useState<Set<string>>(new Set(outliers.map(o => o.id)));
@@ -58,20 +63,23 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
     setSelectedOutlierIds(new Set(outliers.map(o => o.id)));
     if (outliers && outliers.length > 0) {
       setIsReviewPending(true);
+    } else {
+      setIsReviewPending(false);
     }
   }, [outliers]);
 
   useEffect(() => {
-    if (confidenceScore !== undefined && confidenceScore > 0) {
+    if (confidenceScore !== undefined) {
       setCurrentScore(confidenceScore);
     }
   }, [confidenceScore]);
 
-  const effectiveScore = (currentScore > 0 && currentScore !== 0.82) ? currentScore : confidenceScore;
+  const effectiveScore = currentScore > 0 ? currentScore : confidenceScore;
   const confidencePct = Math.round(effectiveScore * 100);
 
-  // Rule: Enable Analyze button directly when no outliers exist OR after review, for any confidence >= 0.30 (1+ cycle)
-  const isAnalyzeEnabled = (!isReviewPending || outlierList.length === 0) && (effectiveScore >= 0.30 || outliers.length > 0);
+  // Rule: Enable Analyze button directly when no pending review / 0 active outliers exist
+  const isAnalyzeEnabled = (!isReviewPending || outlierList.length === 0);
+
 
   const title = businessProcess?.workflow_name || candidateName;
   const dept = businessProcess?.department || "Operations & IT";
