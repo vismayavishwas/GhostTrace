@@ -11,35 +11,67 @@ export interface BlueprintStep {
   icon: any;
 }
 
-const BLUEPRINT_STEPS: BlueprintStep[] = [
-  { step_index: 1, phase: "INPUT", title: "Listen for New Gmail Invoice", detail: "PDF attachment trigger", icon: FileText },
-  { step_index: 2, phase: "VALIDATE", title: "Validate Schema & Vendor ID", detail: "Matches active vendor DB", icon: CheckCircle2 },
-  { step_index: 3, phase: "EXTRACT", title: "Extract Line Item Metadata", detail: "Parse total amount & tax", icon: Cpu },
-  { step_index: 4, phase: "TRANSFORM", title: "Format SAP ERP Payload", detail: "Map fields to ERP schema", icon: Database },
-  { step_index: 5, phase: "SUBMIT", title: "Post Invoice to SAP ERP", detail: "Automated form entry", icon: Send },
-  { step_index: 6, phase: "NOTIFY", title: "Notify Finance Team Slack", detail: "Post completion receipt", icon: Bell },
-];
-
 export interface AutomationBlueprintProps {
   onProceedToDeploy: () => void;
 }
 
 export const AutomationBlueprint: React.FC<AutomationBlueprintProps> = ({ onProceedToDeploy }) => {
   const [activeStepIdx, setActiveStepIdx] = useState<number>(-1);
-  const [dynamicSteps, setDynamicSteps] = useState<BlueprintStep[]>(BLUEPRINT_STEPS);
+  const [dynamicSteps, setDynamicSteps] = useState<BlueprintStep[]>([]);
 
   useEffect(() => {
     import("@/lib/api").then(({ fetchGraphState }) => {
       fetchGraphState().then((state) => {
         if (state) {
-          const srcApp = state.business_process?.workflow_name || state.candidate_name || "Source Application";
+          const mappings = state.field_mappings || state.workflow_dna?.metadata?.field_mappings || [];
+          const srcApp = mappings[0]?.source_app || state.candidate_name || "Unknown Application";
+          const destApp = mappings[mappings.length - 1]?.destination_app || "Unknown Application";
+
+          const mappedCount = mappings.length;
+
           const steps: BlueprintStep[] = [
-            { step_index: 1, phase: "INPUT", title: `Ingest Stream from ${srcApp}`, detail: "Live browser interaction trigger", icon: FileText },
-            { step_index: 2, phase: "VALIDATE", title: "Validate Schema & Semantic Entities", detail: "Positions & metadata signals checked", icon: CheckCircle2 },
-            { step_index: 3, phase: "EXTRACT", title: "Extract Semantic Field Intent", detail: "Abstract intent window aggregation", icon: Cpu },
-            { step_index: 4, phase: "TRANSFORM", title: "Format Automated Playwright Script", detail: "Target field mapping & locator synthesis", icon: Database },
-            { step_index: 5, phase: "SUBMIT", title: "Execute Cross-Application Automation", detail: "Autonomous form entry & replay", icon: Send },
-            { step_index: 6, phase: "NOTIFY", title: "Post Audit Log & Status Receipt", detail: "Enterprise process timeline update", icon: Bell },
+            {
+              step_index: 1,
+              phase: "INPUT",
+              title: `Ingest Stream from ${srcApp}`,
+              detail: `Live interaction trigger monitoring ${srcApp} event stream`,
+              icon: FileText
+            },
+            {
+              step_index: 2,
+              phase: "VALIDATE",
+              title: `Validate Schema (${mappedCount} Mappings)`,
+              detail: `Verify canonical semantic entities & locator bounds for ${mappedCount} fields`,
+              icon: CheckCircle2
+            },
+            {
+              step_index: 3,
+              phase: "EXTRACT",
+              title: `Extract Intent from ${srcApp}`,
+              detail: mappings.map((m: any) => m.source_label).join(", ") || "Extract source fields",
+              icon: Cpu
+            },
+            {
+              step_index: 4,
+              phase: "TRANSFORM",
+              title: `Format Payload for ${destApp}`,
+              detail: `Map source fields to target schema in ${destApp}`,
+              icon: Database
+            },
+            {
+              step_index: 5,
+              phase: "SUBMIT",
+              title: `Execute Entry into ${destApp}`,
+              detail: `Autonomous Playwright form replay into ${destApp}`,
+              icon: Send
+            },
+            {
+              step_index: 6,
+              phase: "NOTIFY",
+              title: "Post Audit Log & Status Receipt",
+              detail: "Enterprise process timeline update & execution receipt",
+              icon: Bell
+            },
           ];
           setDynamicSteps(steps);
         }
@@ -63,7 +95,6 @@ export const AutomationBlueprint: React.FC<AutomationBlueprintProps> = ({ onProc
     };
   }, []);
 
-
   return (
     <div className="flex flex-col gap-6 rounded-2xl border border-slate-800/80 bg-slate-900/90 p-6 shadow-2xl backdrop-blur-xl">
       <div className="flex items-center justify-between border-b border-slate-800/80 pb-4">
@@ -85,7 +116,7 @@ export const AutomationBlueprint: React.FC<AutomationBlueprintProps> = ({ onProc
         </button>
       </div>
 
-      {/* Blueprint Steps Flow (Glowing sync during Ghost Replay) */}
+      {/* Blueprint Steps Flow */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {dynamicSteps.map((step, idx) => {
           const Icon = step.icon;

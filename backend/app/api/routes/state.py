@@ -184,8 +184,9 @@ async def get_current_state():
             bp_meta = business_process_agent.analyze_process(
                 candidate_name=candidate_name,
                 steps=step_strs,
-                source_app=field_mappings[0]["source_app"] if field_mappings else "PDF Portal",
-                target_app=field_mappings[-1]["destination_app"] if field_mappings else "ERP System",
+                source_app=field_mappings[0]["source_app"] if field_mappings else "Unknown Application",
+                target_app=field_mappings[-1]["destination_app"] if field_mappings else "Unknown Application",
+
                 repetition_count=repetition_count,
                 avg_duration_sec=12.5
             )
