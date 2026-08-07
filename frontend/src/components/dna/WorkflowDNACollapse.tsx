@@ -34,12 +34,28 @@ export const WorkflowDNACollapse: React.FC<WorkflowDNACollapseProps> = ({ workfl
     "Observed cross-application business process graph reconstructed dynamically from live browser telemetry.";
 
   const rawMappings = workflowDNA?.metadata?.field_mappings || workflowDNA?.field_mappings || [];
-  const activeMappings = rawMappings;
+  
+  // Deduplicate mappings per sequence cycle by (source_app, source_label, dest_app, dest_label)
+  const activeMappings: any[] = [];
+  const seenMapKeys = new Set<string>();
+
+  rawMappings.forEach((m: any) => {
+    const srcLbl = m.source_label || m.source_entity || "Unknown Field";
+    const destLbl = m.destination_label || m.destination_entity || "Unknown Field";
+    const srcApp = m.source_app || "Unknown Application";
+    const destApp = m.destination_app || "Unknown Application";
+
+    const key = `${srcApp}::${srcLbl}::${destApp}::${destLbl}`;
+    if (!seenMapKeys.has(key)) {
+      seenMapKeys.add(key);
+      activeMappings.push(m);
+    }
+  });
 
   const rawSteps = workflowDNA?.steps || [];
   const activeSteps = rawSteps;
 
-  // Group mappings dynamically by Source Application -> Destination Application
+  // Group deduplicated single-cycle mappings dynamically by Source Application -> Destination Application
   const groupedApps: { [appKey: string]: { sourceApp: string; destApp: string; mappings: any[] } } = {};
 
   activeMappings.forEach((m: any) => {
