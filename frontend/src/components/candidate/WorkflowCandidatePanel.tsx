@@ -120,6 +120,7 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
     setVersion(newVer);
     setCurrentScore(res?.new_confidence || 0.96);
     setIsReviewPending(false);
+    setIsCollapsed(true);
 
     if (choice === "EXCLUDE") {
       setFeedbackMsg(`✓ Candidate Updated (v${newVer}) — Excluded ${selectedOutlierIds.size} item(s). Confidence: ${prevPct}% → ${newPct}%`);
@@ -127,6 +128,14 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
       setFeedbackMsg(`✓ Candidate Updated (v${newVer}) — Included ${selectedOutlierIds.size} item(s). Confidence: ${newPct}%`);
     }
   };
+
+  const handleObserveClick = () => {
+    setIsCollapsed(true);
+    if (onObserveFurther) {
+      onObserveFurther();
+    }
+  };
+
 
   if (isCollapsed) {
     return (
@@ -204,7 +213,8 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
           {onObserveFurther && (
             <button
               suppressHydrationWarning
-              onClick={handleCloseCollapse}
+              onClick={handleObserveClick}
+
               disabled={isReviewPending}
               className={`flex items-center gap-2 rounded-xl border border-slate-700 px-4 py-2.5 text-xs font-bold transition ${
                 isReviewPending

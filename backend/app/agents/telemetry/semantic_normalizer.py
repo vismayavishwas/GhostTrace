@@ -138,17 +138,18 @@ class SemanticNormalizer:
 
         # 0. Filter out GhostTrace Platform UI elements EXCEPT sandbox interactive target elements
         app_title = (raw_event.app_title or getattr(raw_event, "active_tab", None) or "").lower()
-        is_sandbox_elem = any(k in selector for k in ["source", "target", "f1", "f2", "f3", "btn-next", "btn-prev"])
+        is_sandbox_elem = "sandbox" in selector or "sandbox" in app_title or meta.get("is_sandbox") is True
         if not is_sandbox_elem:
             if "ghosttrace" in app_title or "process intelligence" in app_title:
                 return None
 
             platform_ui_classes = [
-                "backdrop-blur", "bg-background", "absolute", "command-center",
+                "backdrop-blur", "bg-background", "command-center",
                 "shadow-2xl", "border-cyan", "border-slate", "bg-slate", "window.selection"
             ]
             if any(c in selector for c in platform_ui_classes):
                 return None
+
 
         # 1. Direct Business Operations (COPY, PASTE, TYPE, SUBMIT, etc.)
         for op in cls.BUSINESS_OPERATIONS:
