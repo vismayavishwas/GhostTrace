@@ -44,6 +44,9 @@ export const CommandCenterDashboard: React.FC = () => {
           if (state.outliers) setOutliers(state.outliers);
           if (state.workflow_dna) setWorkflowDNA(state.workflow_dna);
 
+          console.log(`[FRONTEND POLL AUDIT] Commit=${state.build_commit} | Confidence=${state.confidence_score} | Repetition=${state.repetition_count} | Outliers=${state.outliers?.length || 0}`);
+
+
           // Milestone 3: Unlock ANALYZE stage when pattern is detected (repetition >= 2 or confidence >= 0.70)
           if ((state.repetition_count && state.repetition_count >= 2) || (state.confidence_score && state.confidence_score >= 0.70)) {
             setUnlockedStages((prev) => (prev.includes("ANALYZE") ? prev : [...prev, "ANALYZE"]));

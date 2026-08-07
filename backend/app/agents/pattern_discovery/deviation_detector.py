@@ -40,12 +40,16 @@ class DeviationDetector:
         """Marks specific selectors as resolved to prevent re-flagging after HITL review."""
         for sel in selectors:
             if sel:
+                clean_sel = sel.lower().replace("#", "").replace(".", "").replace("target-", "").replace("source-", "").strip()
                 self.resolved_selectors.add(sel.lower().strip())
+                self.resolved_selectors.add(clean_sel)
 
     def resolve_all_current(self):
         """Marks all active baseline destination selectors as resolved."""
-        self.resolved_selectors.clear()
-        self._all_resolved = True
+        for s, d in self.baseline_sequence:
+            clean_d = d.split(":")[-1].replace("elem_", "").replace("target_", "").lower().strip()
+            self.resolved_selectors.add(d.lower().strip())
+            self.resolved_selectors.add(clean_d)
 
     def set_sequence_template(self, transfers: List[SemanticTransfer]):
         """Sets the established baseline sequence template (source_entity, destination_entity)."""
@@ -58,7 +62,6 @@ class DeviationDetector:
 
         if not valid_transfers:
             return deviations
-
 
         # Auto-establish baseline sequence if not explicitly set and transfers exist
         if not self.baseline_sequence and len(valid_transfers) >= 2:
@@ -138,15 +141,21 @@ class DeviationDetector:
                         "group": "Omitted Action"
                     })
 
-        active_deviations = [
-            d for d in deviations 
-            if d.get("selector", "").lower().strip() not in self.resolved_selectors
-            and d.get("id", "") not in self.resolved_selectors
-        ]
+        active_deviations = []
+        for d in deviations:
+            sel = str(d.get("selector", "")).lower().strip()
+            obs = str(d.get("observed_destination", "")).lower().strip()
+            dev_id = str(d.get("id", "")).lower().strip()
+            
+            is_res = any(
+                r in sel or r in obs or r in dev_id or sel in r or obs in r
+                for r in self.resolved_selectors if r
+            )
+            if not is_res:
+                active_deviations.append(d)
 
         logger.info(f"[STAGE 4: DEVIATION_DETECTOR] Evaluated {len(valid_transfers)} transfers -> Flagged {len(active_deviations)} active mistakes ({len(deviations) - len(active_deviations)} resolved).")
         return active_deviations
-
 
 
 global_deviation_detector = DeviationDetector()

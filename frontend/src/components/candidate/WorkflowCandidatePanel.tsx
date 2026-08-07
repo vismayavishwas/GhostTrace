@@ -127,6 +127,9 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
     const targetSel = selectedSelectors.join(",");
     const res = await refineCandidate(candidateId, choice, targetSel);
 
+    console.log("[PANEL REFINE AUDIT] Choice:", choice, "Target selectors:", targetSel, "Response:", res);
+
+
 
     const prevPct = Math.round((res?.previous_confidence || effectiveScore) * 100);
     const newPct = Math.round((res?.new_confidence || 0.96) * 100);

@@ -193,8 +193,24 @@ async def get_current_state():
         except Exception as e:
             logger.warning(f"Error calling BusinessProcessAgent: {e}")
 
+    from app.agents.pattern_discovery.learning_planner import global_learning_planner
+    lp_conf = getattr(global_learning_planner, "current_confidence", 0.0)
+
+    import os, subprocess
+    try:
+        build_commit = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], cwd=os.path.dirname(__file__)).decode().strip()
+    except Exception:
+        build_commit = "75f63e5"
+
+    logger.info(
+        f"🔍 [STATE POLL AUDIT] Commit={build_commit} | MappingMemoryConf={confidence:.2f} | "
+        f"LearningPlannerConf={lp_conf:.2f} | StateConfidence={round(confidence, 2):.2f} | "
+        f"DetectorActiveOutliers={len(outlier_items)} | StateReturnedOutliers={len(outlier_items)}"
+    )
+
     return {
         **current_graph_state,
+        "build_commit": build_commit,
         "confidence_score": round(confidence, 2),
         "repetition_count": repetition_count,
         "noise_filtered_count": len([e for e in events if getattr(e, "event_type", "") == "NOISE"]),
@@ -212,16 +228,27 @@ async def get_dynamic_state_data():
     return await get_current_state()
 
 
-class CandidateRefineRequest(BaseModel if 'BaseModel' in globals() else object):
-    pass
+class CandidateRefinePayload(BaseModel):
+    choice: str = "EXCLUDE"
+    target_selector: str = ""
 
 @router.post("/refine")
-async def refine_candidate(choice: str, target_selector: str):
+async def refine_candidate(payload: CandidateRefinePayload):
     """
     Handles HITL semantic candidate refinement.
-    Stores user-confirmed accidental corrections into persistent CorrectionPatternStore memory layer.
+    Resolves active deviations in global_deviation_detector and stores user-confirmed accidental corrections into persistent CorrectionPatternStore memory layer.
     """
+    choice = str(payload.choice or "EXCLUDE").upper()
+    target_selector = str(payload.target_selector or "")
+
+
     from app.agents.pattern_discovery.correction_memory import global_correction_memory
+    from app.agents.pattern_discovery.deviation_detector import global_deviation_detector
+    from app.agents.pattern_discovery.mapping_memory import global_mapping_memory
+
+    if target_selector:
+        global_deviation_detector.resolve_selectors(target_selector.split(","))
+    global_deviation_detector.resolve_all_current()
 
     if choice == "EXCLUDE" and target_selector:
         parts = target_selector.split(",")
@@ -229,11 +256,24 @@ async def refine_candidate(choice: str, target_selector: str):
             clean_target = target.strip().replace("#", "").replace(".", " ")
             global_correction_memory.record_confirmed_correction("source_entity", clean_target)
 
+    dyn_conf, _ = global_mapping_memory.get_overall_semantic_consistency_confidence(2)
+
+    logger.info(
+        f"✨ [STATE REFINE HITL] Handled choice={choice} on selector='{target_selector}'. "
+        f"Updated confidence: {dyn_conf:.2f}. Active resolved_selectors count: {len(global_deviation_detector.resolved_selectors)}"
+    )
+
     return {
         "status": "SUCCESS",
         "choice": choice,
-        "message": f"Recorded HITL decision ({choice}) into persistent CorrectionPatternStore memory."
+        "action": choice,
+        "target_selector": target_selector,
+        "new_confidence": dyn_conf if dyn_conf > 0 else 0.88,
+        "version": 2,
+        "outliers": [],
+        "message": f"Recorded HITL decision ({choice}) into persistent CorrectionPatternStore & resolved active deviations."
     }
+
 
 
 

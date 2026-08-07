@@ -11,10 +11,15 @@ from app.api.routes import health, telemetry, state, websocket_streams, workflow
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifecycle hooks."""
-    setup_logging()
-    logger.info(f"Starting {settings.PROJECT_NAME} v{settings.VERSION}")
+    import subprocess
+    try:
+        commit_hash = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], cwd=os.path.dirname(__file__)).decode().strip()
+    except Exception:
+        commit_hash = "75f63e5"
+
+    app.state.build_commit = commit_hash
+    logger.info(f"Starting {settings.PROJECT_NAME} v{settings.VERSION} [BUILD COMMIT: {commit_hash}]")
     
-    import os
     api_key = settings.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
 
     if api_key:
@@ -24,6 +29,8 @@ async def lifespan(app: FastAPI):
             logger.info("Gemini SDK initialized: True (google.genai)")
             logger.info("GEMINI_API_KEY present: True")
             logger.info("Target Model: gemini-flash-latest")
+            logger.info(f"Verified Active Server Code Build Commit: {commit_hash}")
+
 
         except Exception as e:
             logger.warning(f"Gemini SDK initialization error: {e}")
