@@ -135,17 +135,11 @@ class WorkflowDiscoveryEngine:
             if cycle_ents == template_ents or (len(cycle_ents) >= 2 and cycle_ents[:len(template_ents)] == template_ents):
                 matching_cycle_count += 1
 
-        # Require at least 2 completed matching cycles (Repetition) to discover a candidate pattern
-        if matching_cycle_count < 2:
-            self.last_completed_cycle_count = 0
-            return []
-
-        self.last_completed_cycle_count = matching_cycle_count
-
+        self.last_completed_cycle_count = len(cycles)
 
         # Build candidate representing the full sequence cycle
         sample_obs_window = [obs for obs, _ in cycles[0]]
-        candidate = self._build_candidate_from_cycle(sample_obs_window, matching_cycle_count)
+        candidate = self._build_candidate_from_cycle(sample_obs_window, len(cycles))
         
         new_candidates = []
         if candidate.name not in self._discovered_candidates:
@@ -153,11 +147,12 @@ class WorkflowDiscoveryEngine:
             new_candidates.append(candidate)
         else:
             existing = self._discovered_candidates[candidate.name]
-            existing.occurrence_count = matching_cycle_count
+            existing.occurrence_count = len(cycles)
             existing.confidence_score = candidate.confidence_score
 
-        logger.info(f"WorkflowDiscoveryEngine identified {matching_cycle_count} completed sequence cycles across {len(observations)} events.")
+        logger.info(f"WorkflowDiscoveryEngine identified {len(cycles)} completed sequence cycles across {len(observations)} events.")
         return new_candidates
+
 
     def _build_candidate_from_cycle(
         self,
