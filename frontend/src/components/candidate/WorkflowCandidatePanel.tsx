@@ -63,10 +63,12 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
     setSelectedOutlierIds(new Set(outliers.map(o => o.id)));
     if (outliers && outliers.length > 0) {
       setIsReviewPending(true);
+      setIsCollapsed(false);
     } else {
       setIsReviewPending(false);
     }
   }, [outliers]);
+
 
   useEffect(() => {
     if (confidenceScore !== undefined) {

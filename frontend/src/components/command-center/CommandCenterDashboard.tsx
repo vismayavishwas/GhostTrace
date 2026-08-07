@@ -177,7 +177,8 @@ export const CommandCenterDashboard: React.FC = () => {
 
       {/* Bottom Bar: Candidate Discovery Panel (Unlocked on pattern repetition >= 1 or active HITL outliers) */}
       <div className="flex flex-col gap-4">
-        {(repetitionCount >= 1 || (outliers && outliers.length > 0)) && (
+        {(repetitionCount >= 1 || confidenceScore > 0 || (outliers && outliers.length > 0)) && (
+
           <WorkflowCandidatePanel
             confidenceScore={confidenceScore}
             candidateName={candidateName !== "Waiting for interaction events..." ? candidateName : "Discovered Cross-App Workflow"}
