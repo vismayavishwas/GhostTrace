@@ -131,17 +131,22 @@ export const InteractiveSandboxApp: React.FC = () => {
     setStatusMsg(`[Environment Switched] Active Sandbox: ${newDomain}`);
   };
 
-  const dispatchTelemetry = async (eventType: string, selector: string, value: string) => {
+  const dispatchTelemetry = async (eventType: string, selector: string, value: string, explicitLabel?: string) => {
     const isSource = selector.includes("source");
     const appTitle = isSource ? titles.sourceTitle : titles.targetTitle;
 
-    let labelText = "Field";
-    if (selector.includes("f1")) {
-      labelText = currentSample.field1Label;
-    } else if (selector.includes("f2")) {
-      labelText = currentSample.field2Label;
-    } else if (selector.includes("f3")) {
-      labelText = currentSample.field3Label;
+    let labelText = explicitLabel || "";
+    if (!labelText) {
+      const selLower = String(selector || "").toLowerCase();
+      if (selLower.includes("f1") || selLower.includes(currentSample.field1Key.toLowerCase())) {
+        labelText = currentSample.field1Label;
+      } else if (selLower.includes("f2") || selLower.includes(currentSample.field2Key.toLowerCase())) {
+        labelText = currentSample.field2Label;
+      } else if (selLower.includes("f3") || selLower.includes(currentSample.field3Key.toLowerCase())) {
+        labelText = currentSample.field3Label;
+      } else {
+        labelText = "Field";
+      }
     }
 
     const payload = {
@@ -151,6 +156,8 @@ export const InteractiveSandboxApp: React.FC = () => {
       target_selector: selector,
       element_tag: isSource ? "BUTTON" : "INPUT",
       field_label: labelText,
+      aria_label: labelText,
+      placeholder: `Enter ${labelText}`,
       input_value: value,
       input_masked: value ? `${value[0]}***` : "",
       xpath: `//*[@id="${selector.replace("#", "")}"]`,
@@ -160,7 +167,7 @@ export const InteractiveSandboxApp: React.FC = () => {
       coordinates_y: 300.0,
       timestamp: new Date().toISOString(),
       app_title: appTitle,
-      metadata: { is_sandbox: true, field_label: labelText }
+      metadata: { is_sandbox: true, field_label: labelText, aria_label: labelText, app_title: appTitle }
     };
 
     setStatusMsg(`[Telemetry Transmitted] ${eventType} on ${selector}`);
@@ -169,18 +176,18 @@ export const InteractiveSandboxApp: React.FC = () => {
   };
 
 
-  const handleCopy = async (fieldKey: string, value: string) => {
+  const handleCopy = async (fieldKey: string, value: string, label?: string) => {
     try {
       if (typeof navigator !== "undefined" && navigator.clipboard) {
         await navigator.clipboard.writeText(value);
       }
     } catch {}
     setCopiedField(fieldKey);
-    dispatchTelemetry("COPY", `#source-${fieldKey}`, value);
+    dispatchTelemetry("COPY", `#source-${fieldKey}`, value, label);
     setTimeout(() => setCopiedField(null), 1500);
   };
 
-  const handlePaste = async (fieldKey: string, sampleFallback: string) => {
+  const handlePaste = async (fieldKey: string, sampleFallback: string, label?: string) => {
     let textToPaste = sampleFallback;
     try {
       if (typeof navigator !== "undefined" && navigator.clipboard) {
@@ -192,7 +199,7 @@ export const InteractiveSandboxApp: React.FC = () => {
     } catch {}
 
     setFormData((prev) => ({ ...prev, [fieldKey]: textToPaste }));
-    dispatchTelemetry("PASTE", `#target-${fieldKey}`, textToPaste);
+    dispatchTelemetry("PASTE", `#target-${fieldKey}`, textToPaste, label);
   };
 
   const handleNextRecord = () => {
@@ -334,7 +341,7 @@ export const InteractiveSandboxApp: React.FC = () => {
               </div>
               <button
                 suppressHydrationWarning
-                onClick={() => handleCopy("f1", currentSample.field1Value)}
+                onClick={() => handleCopy("f1", currentSample.field1Value, currentSample.field1Label)}
                 className="flex items-center gap-1 rounded-md bg-cyan-500/10 px-2.5 py-1 text-[11px] font-semibold text-cyan-400 border border-cyan-500/20 hover:bg-cyan-500/20 transition"
               >
                 {copiedField === "f1" ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
@@ -350,7 +357,7 @@ export const InteractiveSandboxApp: React.FC = () => {
               </div>
               <button
                 suppressHydrationWarning
-                onClick={() => handleCopy("f2", currentSample.field2Value)}
+                onClick={() => handleCopy("f2", currentSample.field2Value, currentSample.field2Label)}
                 className="flex items-center gap-1 rounded-md bg-cyan-500/10 px-2.5 py-1 text-[11px] font-semibold text-cyan-400 border border-cyan-500/20 hover:bg-cyan-500/20 transition"
               >
                 {copiedField === "f2" ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
@@ -366,7 +373,7 @@ export const InteractiveSandboxApp: React.FC = () => {
               </div>
               <button
                 suppressHydrationWarning
-                onClick={() => handleCopy("f3", currentSample.field3Value)}
+                onClick={() => handleCopy("f3", currentSample.field3Value, currentSample.field3Label)}
                 className="flex items-center gap-1 rounded-md bg-cyan-500/10 px-2.5 py-1 text-[11px] font-semibold text-cyan-400 border border-cyan-500/20 hover:bg-cyan-500/20 transition"
               >
                 {copiedField === "f3" ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
@@ -401,7 +408,7 @@ export const InteractiveSandboxApp: React.FC = () => {
                 />
                 <button
                   suppressHydrationWarning
-                  onClick={() => handlePaste("f1", currentSample.field1Value)}
+                  onClick={() => handlePaste("f1", currentSample.field1Value, currentSample.field1Label)}
                   className="rounded-lg bg-emerald-500/20 px-3 py-1.5 text-xs font-bold text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 transition"
                 >
                   Paste
@@ -422,7 +429,7 @@ export const InteractiveSandboxApp: React.FC = () => {
                 />
                 <button
                   suppressHydrationWarning
-                  onClick={() => handlePaste("f2", currentSample.field2Value)}
+                  onClick={() => handlePaste("f2", currentSample.field2Value, currentSample.field2Label)}
                   className="rounded-lg bg-emerald-500/20 px-3 py-1.5 text-xs font-bold text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 transition"
                 >
                   Paste
@@ -443,7 +450,7 @@ export const InteractiveSandboxApp: React.FC = () => {
                 />
                 <button
                   suppressHydrationWarning
-                  onClick={() => handlePaste("f3", currentSample.field3Value)}
+                  onClick={() => handlePaste("f3", currentSample.field3Value, currentSample.field3Label)}
                   className="rounded-lg bg-emerald-500/20 px-3 py-1.5 text-xs font-bold text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 transition"
                 >
                   Paste

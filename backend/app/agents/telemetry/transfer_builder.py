@@ -20,6 +20,8 @@ class SemanticTransfer:
     source_app: str
     destination_app: str
     pasted_value: str
+    source_display_label: str = ""
+    destination_display_label: str = ""
     is_immediate_correction: bool = False
     superseded_destination: Optional[str] = None
     raw_events: List[TelemetryEvent] = field(default_factory=list)
@@ -64,8 +66,10 @@ class TransferBuilder:
             if sem_e.operation in ["PASTE", "TYPE"]:
                 source_entity = self._active_source_event.semantic_entity if self._active_source_event else "entity:source:unknown"
                 source_app = self._active_source_event.app_title if self._active_source_event else "Source App"
+                source_display_label = self._active_source_event.display_label if self._active_source_event else "Unknown Field"
                 dest_entity = sem_e.semantic_entity
                 dest_app = sem_e.app_title
+                dest_display_label = sem_e.display_label
 
 
                 # Check for Immediate Correction within the same Intent Window
@@ -76,6 +80,7 @@ class TransferBuilder:
                         pending_transfers[-1]["is_immediate_correction"] = True
                         pending_transfers[-1]["superseded_destination"] = prev_dest
                         pending_transfers[-1]["destination_entity"] = dest_entity
+                        pending_transfers[-1]["destination_display_label"] = dest_display_label
 
                 pending_transfers.append({
                     "transfer_id": f"xfer-{len(pending_transfers)+1}",
@@ -84,8 +89,8 @@ class TransferBuilder:
                     "source_app": source_app,
                     "destination_app": dest_app,
                     "pasted_value": sem_e.pasted_value,
-
-
+                    "source_display_label": source_display_label,
+                    "destination_display_label": dest_display_label,
                     "is_immediate_correction": False,
                     "superseded_destination": None,
                     "raw_events": [raw_e]
@@ -95,10 +100,12 @@ class TransferBuilder:
                 t_obj = SemanticTransfer(**p)
                 logger.info(
                     f"[STAGE 1: TRANSFER_BUILDER] SemanticTransfer Created | ID={p['transfer_id']} | "
-                    f"SourceEntity='{p['source_entity']}' | DestEntity='{p['destination_entity']}' | "
+                    f"SourceEntity='{p['source_entity']}' ('{p['source_display_label']}') | "
+                    f"DestEntity='{p['destination_entity']}' ('{p['destination_display_label']}') | "
                     f"Apps={p['source_app']} -> {p['destination_app']} | PastedValue='{p['pasted_value']}' | "
                     f"ImmediateCorrection={p['is_immediate_correction']}"
                 )
+                transfers.append(t_obj)
                 transfers.append(t_obj)
 
 

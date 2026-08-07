@@ -96,26 +96,28 @@ class SemanticNormalizer:
 
         app_key = re.sub(r'[^a-zA-Z0-9]', '_', app_title.lower()).strip('_') or "app"
 
-        # 1. Highest Priority: Explicit Field Label or ARIA Label
-        if raw_label and not any(j in raw_label.lower() for j in ["element", "span"]):
-            clean_label = re.sub(r'[^a-zA-Z0-9]', '_', raw_label.lower()).strip('_')
+        # 1. Highest Priority: Explicit Field Label or ARIA Label or Placeholder
+        placeholder = getattr(raw_event, "placeholder", None) or meta.get("placeholder") or ""
+        effective_label = raw_label or placeholder
+        if effective_label and not any(j in effective_label.lower() for j in ["element", "span"]):
+            clean_label = re.sub(r'[^a-zA-Z0-9]', '_', effective_label.lower()).strip('_')
             fingerprint_token = f"lbl_{clean_label}"
-            display_title = raw_label
+            display_title = effective_label
         # 2. Second Priority: Surrounding Section Heading
         elif heading:
             clean_heading = re.sub(r'[^a-zA-Z0-9]', '_', heading.lower()).strip('_')
             fingerprint_token = f"hdg_{clean_heading}"
             display_title = f"{heading} Field"
-        # 3. Third Priority: DOM Element ID / Name / Selector
+        # 3. Third Priority: DOM Element ID / Name / Selector Fingerprint (DO NOT INVENT DOM SELECTOR TITLES)
         else:
             sel_clean = re.sub(r'[^a-zA-Z0-9]', '_', selector.lower()).strip('_')
             if not sel_clean:
                 sel_clean = "elem_" + re.sub(r'[^a-zA-Z0-9]', '_', (raw_event.element_tag or "input").lower())
             fingerprint_token = f"elem_{sel_clean[:32]}"
-            display_title = f"{sel_clean[:20].replace('_', ' ').title()}"
+            display_title = "Unknown Field"
 
         semantic_entity = f"entity:{app_key}:{fingerprint_token}"
-        display_label = f"{display_title} ({app_title})"
+        display_label = display_title if display_title == "Unknown Field" else display_title
 
         return semantic_entity, display_label
 
@@ -168,8 +170,7 @@ class SemanticNormalizer:
         for op in cls.BUSINESS_OPERATIONS:
             if op in raw_type_str or op == explicit_op:
                 semantic_entity, display_label = cls.extract_semantic_metadata(raw_event)
-                human_op_label = f"{op.capitalize()} {display_label}"
-                return SemanticEvent(raw_event, op, semantic_entity, human_op_label)
+                return SemanticEvent(raw_event, op, semantic_entity, display_label)
 
         # 2. Filter out non-interactive layout container wrapper clicks (body, html, h4, p, empty main)
         if tag in ["BODY", "HTML", "H4", "P"] or selector in ["body", "html", "window.selection"]:

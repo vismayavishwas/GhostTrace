@@ -22,7 +22,6 @@ class DNATransformer:
 
         from app.agents.telemetry.transfer_builder import global_transfer_builder
         from app.agents.telemetry.semantic_normalizer import SemanticNormalizer
-        from app.agents.pattern_discovery.deviation_detector import format_clean_entity_label
 
         transfers = global_transfer_builder.process_telemetry_events(events) if events else []
         field_mappings: List[Dict[str, Any]] = []
@@ -33,8 +32,8 @@ class DNATransformer:
 
             src_app = xfer.source_app or "Unknown Application"
             dest_app = xfer.destination_app or "Unknown Application"
-            src_lbl = format_clean_entity_label("", xfer.source_entity) or "Unknown Field"
-            dest_lbl = format_clean_entity_label("", xfer.destination_entity) or "Unknown Field"
+            src_lbl = getattr(xfer, "source_display_label", None) or xfer.source_entity or "Unknown Field"
+            dest_lbl = getattr(xfer, "destination_display_label", None) or xfer.destination_entity or "Unknown Field"
 
             if src_app != "Unknown Application": apps_involved.add(src_app)
             if dest_app != "Unknown Application": apps_involved.add(dest_app)

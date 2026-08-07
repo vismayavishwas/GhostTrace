@@ -56,10 +56,18 @@ class StableMappingMemory:
             self._table[key]["confidence"] = confidence
             self._table[key]["last_seen"] = now_str
             self._table[key]["status"] = status
+            if getattr(transfer, "source_display_label", None):
+                self._table[key]["source_display_label"] = transfer.source_display_label
+            if getattr(transfer, "destination_display_label", None):
+                self._table[key]["destination_display_label"] = transfer.destination_display_label
         else:
             self._table[key] = {
                 "source_entity": transfer.source_entity,
+                "source_display_label": getattr(transfer, "source_display_label", "") or transfer.source_entity,
+                "source_app": getattr(transfer, "source_app", ""),
                 "destination_entity": transfer.destination_entity,
+                "destination_display_label": getattr(transfer, "destination_display_label", "") or transfer.destination_entity,
+                "destination_app": getattr(transfer, "destination_app", ""),
                 "occurrences": 1,
                 "confidence": confidence,
                 "first_seen": now_str,

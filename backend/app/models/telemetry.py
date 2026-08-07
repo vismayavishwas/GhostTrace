@@ -22,6 +22,9 @@ class TelemetryEvent(BaseModel):
     
     dom_snapshot: Optional[str] = Field(default=None, description="HTML DOM snippet or outerHTML string")
     app_title: str = Field(default="Unknown Application", description="Title of active window or web application")
+    field_label: Optional[str] = Field(default=None, description="Explicit human-readable field label")
+    aria_label: Optional[str] = Field(default=None, description="Explicit ARIA label")
+    placeholder: Optional[str] = Field(default=None, description="Input placeholder text")
     
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Flexible dictionary for extra perception metadata")
 
