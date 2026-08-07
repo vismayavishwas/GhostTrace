@@ -1,20 +1,70 @@
 # GhostTrace Core System Rules
 
-## Immutable Upstream Engine Contract (Commit f111128)
+## Immutable Upstream Engine & Contract Freeze (Commit f111128)
+
+### System Boundary Architecture
+```
+Telemetry
+Semantic Normalizer
+Transfer Builder
+Mapping Memory
+Learning Planner
+Deviation Detector
+State API
+Dashboard
+Analyze Button
+──────────────────────────
+        ↑
+   LOCK HERE (f111128)
+
+Workflow DNA
+Automation Blueprint
+Playwright Compiler
+Ghost Replay
+Self Healing
+```
+
+Everything above the line is the **Learning Engine** (Upstream).
+Everything below the line is **Presentation & Automation** (Downstream).
+
+---
+
+### Strict Immutability & Reopening Protocol
 
 > [!CRITICAL]
-> **STRICT IMMUTABILITY RULE**: The upstream telemetry, pattern recognition, mistake detection, and state machine pipeline up to the "Analyze Workflow" button lock/unlock state (commit `f111128`) is 100% verified and **STRICTLY IMMUTABLE**.
+> **UPSTREAM ENGINE LOCK**: No modifications to upstream modules (above the line) are permitted unless the user **explicitly approves** reopening the upstream engine.
+>
+> If a downstream bug or feature appears to require upstream changes:
+> 1. **STOP** immediately.
+> 2. Explain to the user exactly why the upstream contract or module is insufficient (e.g. `"Workflow DNA requires additional metadata that the locked engine does not expose. Please approve reopening the upstream engine."`).
+> 3. **WAIT** for explicit user approval before editing any upstream module. Do NOT silently edit upstream files.
 
-### Protected Components (DO NOT EDIT OR TOUCH UNDER ANY CIRCUMSTANCES):
-1. **Telemetry & Window Ingestion**: `backend/app/api/routes/telemetry.py`, `backend/app/agents/telemetry/transfer_builder.py`, `backend/app/agents/telemetry/semantic_normalizer.py`.
-2. **Pattern Discovery & Memory**: `backend/app/agents/pattern_discovery/mapping_memory.py`, `backend/app/agents/pattern_discovery/learning_planner.py`, `backend/app/agents/pattern_discovery/pattern_discovery_agent.py`.
-3. **Mistake Detection & HITL Refinement**: `backend/app/agents/pattern_discovery/deviation_detector.py`, `backend/app/agents/pattern_discovery/correction_memory.py`.
-4. **State Machine & Dashboard Polling**: `backend/app/api/routes/state.py` (polling & refine handlers), `frontend/src/components/candidate/WorkflowCandidatePanel.tsx`, `frontend/src/components/command-center/CommandCenterDashboard.tsx`.
+---
 
-### Allowed Scope for Future Tasks:
-- Debugging, enhancements, and features must focus **EXCLUSIVELY** on downstream stages starting from **Workflow DNA onwards**:
-  - `Workflow DNA` (rendering, graph visualization, modal)
-  - `Automation Blueprint`
-  - `Playwright Code Compiler`
-  - `Ghost Replay Simulation`
-  - `Self-Healing Engine`
+### Contract Freeze by Interface
+
+The following data models and contracts are **FROZEN & CONTRACTUAL**:
+- `SemanticTransfer`
+- `WorkflowCandidate`
+- `WorkflowState`
+- `Deviation`
+- `FieldMapping`
+
+**Rules**:
+- Do NOT change field names, types, meaning, or lifecycle of contractual models.
+- Downstream code (below the line) must adapt to these contracts rather than modifying them.
+
+---
+
+### Pre-Modification Evaluation Protocol
+
+Before modifying ANY existing code:
+
+1. **Determine whether the requested feature or fix can be implemented downstream.**
+2. **If YES**:
+   - Implement strictly downstream. **NEVER edit upstream modules.**
+3. **If NO**:
+   - Explain exactly why an upstream contract is insufficient and request explicit approval before editing it.
+4. **Never proactively refactor working code.**
+5. **Never rename working APIs.**
+6. **Never change existing behavior unless explicitly requested.**
