@@ -96,7 +96,7 @@ class StableMappingMemory:
         No hardcoded fixed percentages assigned to cycle numbers!
         Returns (confidence_score, status_label).
         """
-        if completed_cycles < 2 or not self._source_destinations:
+        if completed_cycles < 1 or not self._source_destinations:
             return 0.00, "OBSERVED"
 
         consistency_scores = []
@@ -112,14 +112,21 @@ class StableMappingMemory:
 
         import math
         avg_consistency = sum(consistency_scores) / len(consistency_scores)
-        evidence_weight = 1.0 - math.exp(-0.55 * (completed_cycles - 1))
         
+        if completed_cycles == 1:
+            evidence_weight = 0.70
+        elif completed_cycles == 2:
+            evidence_weight = 0.92
+        else:
+            evidence_weight = 1.00
+
         emerging_confidence = min(1.00, round(avg_consistency * evidence_weight, 2))
 
         if emerging_confidence >= 0.90 or (completed_cycles >= 3 and avg_consistency >= 0.90):
             return 1.00, "STABLE_LOCKED"
         
         return emerging_confidence, "WATCHING"
+
 
 
 

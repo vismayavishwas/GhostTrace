@@ -44,12 +44,17 @@ class DeviationDetector:
                 self.resolved_selectors.add(sel.lower().strip())
                 self.resolved_selectors.add(clean_sel)
 
-    def resolve_all_current(self):
-        """Marks all active baseline destination selectors as resolved."""
-        for s, d in self.baseline_sequence:
-            clean_d = d.split(":")[-1].replace("elem_", "").replace("target_", "").lower().strip()
-            self.resolved_selectors.add(d.lower().strip())
-            self.resolved_selectors.add(clean_d)
+    def resolve_all_current(self, current_deviations: Optional[List[Dict[str, Any]]] = None):
+        """Marks currently active deviations as resolved."""
+        if current_deviations:
+            for d in current_deviations:
+                sel = d.get("selector", "")
+                obs = d.get("observed_destination", "")
+                dev_id = d.get("id", "")
+                if sel: self.resolved_selectors.add(str(sel).lower().strip())
+                if obs: self.resolved_selectors.add(str(obs).lower().strip())
+                if dev_id: self.resolved_selectors.add(str(dev_id).lower().strip())
+
 
     def set_sequence_template(self, transfers: List[SemanticTransfer]):
         """Sets the established baseline sequence template (source_entity, destination_entity)."""
