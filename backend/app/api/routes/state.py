@@ -254,6 +254,19 @@ async def refine_candidate(payload: CandidateRefinePayload):
         global_deviation_detector.resolve_selectors(target_selector.split(","))
     global_deviation_detector.resolve_all_current()
 
+    # Resolve all currently detected active deviations
+    from app.agents.telemetry.observer import get_global_observer
+    from app.agents.telemetry.transfer_builder import global_transfer_builder
+    events = get_global_observer().buffer.get_recent()
+    if events:
+        transfers = global_transfer_builder.process_telemetry_events(list(reversed(events)))
+        active_devs = global_deviation_detector.detect_deviations(transfers)
+        for dev in active_devs:
+            for k in ["id", "transfer_id", "source_entity", "observed_destination", "selector"]:
+                val = dev.get(k)
+                if val:
+                    global_deviation_detector.resolved_selectors.add(str(val).lower().strip())
+
     if choice == "EXCLUDE" and target_selector:
         parts = target_selector.split(",")
         for target in parts:
