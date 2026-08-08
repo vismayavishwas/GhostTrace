@@ -52,8 +52,19 @@ class DeviationDetector:
             self.resolved_selectors.add(clean_d)
 
     def set_sequence_template(self, transfers: List[SemanticTransfer]):
-        """Sets the established baseline sequence template (source_entity, destination_entity)."""
-        self.baseline_sequence = [(x.source_entity, x.destination_entity) for x in transfers if not x.is_immediate_correction]
+        """Sets the established baseline sequence template from the FIRST complete cycle only.
+        Stops capturing when a source entity repeats, indicating the start of a new cycle."""
+        seen_sources: set = set()
+        one_cycle: List[Tuple[str, str]] = []
+        for x in transfers:
+            if x.is_immediate_correction:
+                continue
+            src_key = x.source_entity.lower()
+            if src_key in seen_sources:
+                break  # Source repeated — new cycle started, stop
+            seen_sources.add(src_key)
+            one_cycle.append((x.source_entity, x.destination_entity))
+        self.baseline_sequence = one_cycle
 
     def detect_deviations(self, transfers: List[SemanticTransfer]) -> List[Dict[str, Any]]:
         """Detects deviations by comparing expected stable mappings & baseline sequences against observed transfers."""
@@ -73,8 +84,9 @@ class DeviationDetector:
             expected_dest = global_mapping_memory.get_expected_destination(src)
             
             positional_dest = None
-            if self.baseline_sequence and idx < len(self.baseline_sequence):
-                positional_dest = self.baseline_sequence[idx][1]
+            if self.baseline_sequence:
+                cycle_pos = idx % len(self.baseline_sequence)
+                positional_dest = self.baseline_sequence[cycle_pos][1]
 
             target_expected = expected_dest or positional_dest
             observed_dest = xfer.destination_entity.lower()

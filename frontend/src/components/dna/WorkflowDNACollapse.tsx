@@ -77,9 +77,24 @@ export const WorkflowDNACollapse: React.FC<WorkflowDNACollapseProps> = ({
   });
 
   // Approved workflow from synthesis or fallback to canonical cycle mappings
-  const approvedWorkflow: any[] = observationSynthesis?.approved_workflow?.length
+  // Deduplicate by canonical mapping tuple to always show ONE canonical cycle
+  const rawApproved: any[] = observationSynthesis?.approved_workflow?.length
     ? observationSynthesis.approved_workflow
     : canonicalCycleMappings;
+
+  const approvedSeenKeys = new Set<string>();
+  const approvedWorkflow: any[] = [];
+  rawApproved.forEach((m: any) => {
+    const srcApp = m.source_app || "Source Application";
+    const destApp = m.destination_app || "Target System";
+    const srcLbl = m.source_label || m.source_entity || "Source Field";
+    const destLbl = m.destination_label || m.destination_entity || "Target Field";
+    const tupleKey = `${srcApp}::${srcLbl}::${destApp}::${destLbl}`;
+    if (!approvedSeenKeys.has(tupleKey)) {
+      approvedSeenKeys.add(tupleKey);
+      approvedWorkflow.push({ ...m, srcApp, destApp, srcLbl, destLbl });
+    }
+  });
 
   const excludedOutliers: any[] = observationSynthesis?.excluded_outliers || [];
 
@@ -194,38 +209,71 @@ export const WorkflowDNACollapse: React.FC<WorkflowDNACollapseProps> = ({
         )}
       </div>
 
-      {/* Chronological Step Storyline Timeline */}
-      <div className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono">
-            ⏱️ Observed Chronological Execution Flow
-          </h3>
-          <span className="text-[10px] font-mono text-slate-500">
-            {activeSteps.length} Sequential Steps Captured
-          </span>
-        </div>
+      {/* Chronological Execution Summary */}
+      {(observationSynthesis?.historical_transfers?.length > 0 || activeSteps.length > 0) && (
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono">
+              ⏱️ Chronological Execution Flow
+            </h3>
+            <span className="text-[10px] font-mono text-slate-500">
+              {observationSynthesis?.historical_transfers?.length || activeTransfers.length} Transfer(s) Across {repetitionCount} Cycle(s)
+            </span>
+          </div>
 
-        <div className="flex flex-col gap-2.5">
-          {activeSteps.map((step: any, idx: number) => (
-            <div
-              key={idx}
-              className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/60 p-3.5 shadow-md transition-all duration-300 hover:border-purple-500/40"
-            >
-              <div className="flex items-center gap-3">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-500/10 text-purple-400 font-bold font-mono text-xs border border-purple-500/20 shrink-0">
-                  {idx + 1}
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-slate-100">{step.action_name}</h4>
-                  <p className="text-[10px] text-slate-400">Application: {step.target_app || "Unknown Application"}</p>
-                </div>
-              </div>
+          <div className="flex flex-col gap-1.5">
+            {(observationSynthesis?.historical_transfers || activeTransfers).map((t: any, idx: number) => {
+              const srcLbl = t.source_label || t.source_entity || "Field";
+              const destLbl = t.destination_label || t.destination_entity || "Field";
+              const baselineLen = approvedWorkflow.length || 3;
+              const cycleNum = Math.floor(idx / baselineLen) + 1;
+              const stepInCycle = (idx % baselineLen) + 1;
+              const isOutlier = excludedOutliers.some((o: any) => o.transfer_id && o.transfer_id === t.transfer_id);
 
-              <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-            </div>
-          ))}
+              return (
+                <div
+                  key={idx}
+                  className={`flex items-center justify-between rounded-lg border px-3 py-2 text-xs font-mono transition-all duration-200 ${
+                    isOutlier
+                      ? "border-amber-500/30 bg-amber-950/20 text-amber-300"
+                      : "border-slate-800/60 bg-slate-950/50 text-slate-300 hover:border-slate-700"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className={`flex h-5 w-5 items-center justify-center rounded text-[10px] font-bold border shrink-0 ${
+                      isOutlier
+                        ? "bg-amber-500/20 text-amber-400 border-amber-500/30"
+                        : "bg-purple-500/15 text-purple-400 border-purple-500/25"
+                    }`}>
+                      {idx + 1}
+                    </span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded border ${
+                      isOutlier
+                        ? "bg-amber-950/40 text-amber-400 border-amber-500/20"
+                        : "bg-cyan-950/40 text-cyan-400 border-cyan-500/20"
+                    }`}>
+                      C{cycleNum}.{stepInCycle}
+                    </span>
+                    <span className={isOutlier ? "text-amber-200" : "text-slate-200"}>
+                      {srcLbl} → {destLbl}
+                    </span>
+                    {isOutlier && (
+                      <span className="text-[9px] text-rose-400 font-bold bg-rose-950/50 px-1.5 py-0.5 rounded border border-rose-500/30">
+                        OUTLIER
+                      </span>
+                    )}
+                  </div>
+                  {t.pasted_value && (
+                    <span className="text-[10px] text-slate-500 truncate max-w-[120px]" title={t.pasted_value}>
+                      "{t.pasted_value}"
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Optional Developer Inspection Drawer */}
       {showDeveloperDetails && (
