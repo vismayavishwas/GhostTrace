@@ -106,7 +106,6 @@ class TransferBuilder:
                     f"ImmediateCorrection={p['is_immediate_correction']}"
                 )
                 transfers.append(t_obj)
-                transfers.append(t_obj)
 
 
         logger.info(f"[STAGE 1: TRANSFER_BUILDER] Processed {len(events)} telemetry events into {len(transfers)} completed SemanticTransfers.")
