@@ -124,20 +124,25 @@ async def get_current_state():
 
     transfers = global_transfer_builder.process_telemetry_events(events) if events else []
     field_mappings = []
+    chronological_transfers = []
     for xfer in transfers:
         if xfer.is_immediate_correction:
             continue
-        src_lbl = format_clean_entity_label("", xfer.source_entity)
-        dest_lbl = format_clean_entity_label("", xfer.destination_entity)
-        field_mappings.append({
+        src_lbl = getattr(xfer, "source_display_label", None) or format_clean_entity_label("", xfer.source_entity)
+        dest_lbl = getattr(xfer, "destination_display_label", None) or format_clean_entity_label("", xfer.destination_entity)
+        xfer_dict = {
             "transfer_id": xfer.transfer_id,
+            "source_entity": xfer.source_entity,
             "source_label": src_lbl,
-            "destination_label": dest_lbl,
             "source_app": xfer.source_app,
+            "destination_entity": xfer.destination_entity,
+            "destination_label": dest_lbl,
             "destination_app": xfer.destination_app,
-            "pasted_value": xfer.pasted_value,
+            "pasted_value": xfer.pasted_value or "",
             "display_mapping": f"{src_lbl} → {dest_lbl}"
-        })
+        }
+        field_mappings.append(xfer_dict)
+        chronological_transfers.append(xfer_dict)
 
     # Detect mistake deviations on ANY cycle when transfers exist
     outlier_items = []
@@ -167,13 +172,16 @@ async def get_current_state():
     if not dna_dict or not dna_dict.get("metadata", {}).get("field_mappings"):
         if dna_dict:
             dna_dict.setdefault("metadata", {})["field_mappings"] = field_mappings
+            dna_dict.setdefault("metadata", {})["chronological_transfers"] = chronological_transfers
             dna_dict["field_mappings"] = field_mappings
+            dna_dict["chronological_transfers"] = chronological_transfers
         else:
             dna_dict = {
                 "name": candidate_name,
                 "description": "Dynamic semantic workflow mapping human-understood field flows.",
                 "field_mappings": field_mappings,
-                "metadata": {"field_mappings": field_mappings}
+                "chronological_transfers": chronological_transfers,
+                "metadata": {"field_mappings": field_mappings, "chronological_transfers": chronological_transfers}
             }
 
     business_process_dict = None
@@ -197,20 +205,23 @@ async def get_current_state():
     from app.agents.pattern_discovery.learning_planner import global_learning_planner
     lp_conf = getattr(global_learning_planner, "current_confidence", 0.0)
 
-    import os, subprocess
+    import os, subprocess, hashlib
     try:
         build_commit = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], cwd=os.path.dirname(__file__)).decode().strip()
     except Exception:
         build_commit = "75f63e5"
 
+    obs_session_id = f"obs-session-{hashlib.md5(f'{len(events)}-{repetition_count}'.encode()).hexdigest()[:8]}"
+
     logger.info(
-        f"🔍 [STATE POLL AUDIT] Commit={build_commit} | MappingMemoryConf={confidence:.2f} | "
+        f"🔍 [STATE POLL AUDIT] Commit={build_commit} | SessionID={obs_session_id} | MappingMemoryConf={confidence:.2f} | "
         f"LearningPlannerConf={lp_conf:.2f} | StateConfidence={round(confidence, 2):.2f} | "
         f"DetectorActiveOutliers={len(outlier_items)} | StateReturnedOutliers={len(outlier_items)}"
     )
 
     return {
         **current_graph_state,
+        "observation_session_id": obs_session_id,
         "build_commit": build_commit,
         "confidence_score": round(confidence, 2),
         "repetition_count": repetition_count,
@@ -219,6 +230,7 @@ async def get_current_state():
         "event_count": event_count,
         "workflow_dna": dna_dict,
         "field_mappings": field_mappings,
+        "chronological_transfers": chronological_transfers,
         "business_process": business_process_dict,
         "outliers": outlier_items,
     }

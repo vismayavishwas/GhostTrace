@@ -139,6 +139,7 @@ class DNATransformer:
                 "repetition_count": candidate.repetition_count,
                 "sequence_event_ids": candidate.sequence_event_ids,
                 "field_mappings": field_mappings,
+                "chronological_transfers": field_mappings,
             }
         )
 

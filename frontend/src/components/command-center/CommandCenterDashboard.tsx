@@ -29,6 +29,9 @@ export const CommandCenterDashboard: React.FC = () => {
   const [outliers, setOutliers] = useState<any[]>([]);
   const [candidateDismissed, setCandidateDismissed] = useState<boolean>(false);
   const [workflowDNA, setWorkflowDNA] = useState<any>(null);
+  const [fieldMappings, setFieldMappings] = useState<any[]>([]);
+  const [chronologicalTransfers, setChronologicalTransfers] = useState<any[]>([]);
+  const [observationSessionId, setObservationSessionId] = useState<string>("");
 
   useEffect(() => {
     // Poll graph state from backend
@@ -43,8 +46,11 @@ export const CommandCenterDashboard: React.FC = () => {
           if (state.business_process) setBusinessProcess(state.business_process);
           if (state.outliers) setOutliers(state.outliers);
           if (state.workflow_dna) setWorkflowDNA(state.workflow_dna);
+          if (state.field_mappings) setFieldMappings(state.field_mappings);
+          if (state.chronological_transfers) setChronologicalTransfers(state.chronological_transfers);
+          if (state.observation_session_id) setObservationSessionId(state.observation_session_id);
 
-          console.log(`[FRONTEND POLL AUDIT] Commit=${state.build_commit} | Confidence=${state.confidence_score} | Repetition=${state.repetition_count} | Outliers=${state.outliers?.length || 0}`);
+          console.log(`[FRONTEND POLL AUDIT] Commit=${state.build_commit} | Session=${state.observation_session_id} | Confidence=${state.confidence_score} | Repetition=${state.repetition_count} | Outliers=${state.outliers?.length || 0}`);
 
 
           // Milestone 3: Unlock ANALYZE stage when pattern is detected (repetition >= 2 or confidence >= 0.70)
@@ -67,11 +73,16 @@ export const CommandCenterDashboard: React.FC = () => {
   const handleAnalyzeTrigger = async () => {
     setCandidateDismissed(true);
     setUnlockedStages(["OBSERVE", "ANALYZE", "DNA"]);
-    setCurrentStage("DNA");
+    setCurrentStage("ANALYZE");
     const res = await triggerGraphExecution({ action: "ANALYZE" });
     if (res?.state?.workflow_dna) {
       setWorkflowDNA(res.state.workflow_dna);
     }
+  };
+
+  const handleProceedToDNAFromAnalyze = () => {
+    setUnlockedStages(["OBSERVE", "ANALYZE", "DNA"]);
+    setCurrentStage("DNA");
   };
 
   const handleProceedFromDNA = () => {
@@ -153,8 +164,13 @@ export const CommandCenterDashboard: React.FC = () => {
             noiseFilteredCount={noiseFilteredCount}
             candidateName={candidateName}
             workflowDNA={workflowDNA}
+            fieldMappings={fieldMappings}
+            chronologicalTransfers={chronologicalTransfers}
+            outliers={outliers}
+            observationSessionId={observationSessionId}
             onSelectStage={setCurrentStage}
             onAnalyzeTrigger={handleAnalyzeTrigger}
+            onProceedToDNAFromAnalyze={handleProceedToDNAFromAnalyze}
             onProceedFromDNA={handleProceedFromDNA}
             onProceedFromBlueprint={handleProceedFromBlueprint}
             onPipelineComplete={handlePipelineComplete}

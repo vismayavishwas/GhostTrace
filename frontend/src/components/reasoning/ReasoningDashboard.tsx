@@ -9,6 +9,10 @@ export interface ReasoningDashboardProps {
   noiseFilteredCount?: number;
   candidateName?: string;
   workflowDNA?: any;
+  fieldMappings?: any[];
+  chronologicalTransfers?: any[];
+  outliers?: any[];
+  observationSessionId?: string;
   onProceedToDNA: () => void;
   onObserveFurther?: () => void;
 }
@@ -19,13 +23,20 @@ export const ReasoningDashboard: React.FC<ReasoningDashboardProps> = ({
   noiseFilteredCount = 0,
   candidateName = "Cross-Application Workflow",
   workflowDNA,
+  fieldMappings = [],
+  chronologicalTransfers = [],
+  outliers = [],
+  observationSessionId = "",
   onProceedToDNA,
   onObserveFurther,
 }) => {
   const confidencePct = Math.round((confidenceScore || 0.0) * 100);
 
-  // Deduplicate and extract field mappings from Workflow DNA metadata
-  const rawMaps = workflowDNA?.metadata?.field_mappings || workflowDNA?.field_mappings || [];
+  // Extract field mappings from props or Workflow DNA metadata
+  const rawMaps = fieldMappings.length > 0
+    ? fieldMappings
+    : (workflowDNA?.metadata?.field_mappings || workflowDNA?.field_mappings || []);
+
   const confirmedMappings: any[] = [];
   const seenKeys = new Set<string>();
 
@@ -48,6 +59,8 @@ export const ReasoningDashboard: React.FC<ReasoningDashboardProps> = ({
     }
   });
 
+  const activeOutlierCount = outliers.length;
+
   const sampleMappingSummary = confirmedMappings.length > 0
     ? confirmedMappings.map(m => `'${m.cleanSourceLabel} → ${m.cleanDestLabel}'`).join(", ")
     : "field transfers";
@@ -55,13 +68,13 @@ export const ReasoningDashboard: React.FC<ReasoningDashboardProps> = ({
   // Build confidence explanation in plain language
   let confidenceReasoning = "";
   if (confidenceScore >= 0.75) {
-    confidenceReasoning = `Confidence is high (${confidencePct}%) because the semantic mapping(s) ${sampleMappingSummary} have been observed consistently across ${repetitionCount || 1} workflow cycle(s) with 0 sequence deviations.`;
+    confidenceReasoning = `Confidence is high (${confidencePct}%) because the semantic mapping(s) ${sampleMappingSummary} have been observed consistently across ${repetitionCount || 1} workflow cycle(s) with ${activeOutlierCount} sequence deviation(s).`;
   } else if (confidenceScore >= 0.35) {
     confidenceReasoning = `Confidence is at ${confidencePct}% based on ${repetitionCount || 1} consistent workflow cycle(s) and ${confirmedMappings.length} confirmed semantic field mapping(s). Additional repetitions will further solidify learning.`;
   } else if (repetitionCount > 0) {
     confidenceReasoning = `Confidence is at ${confidencePct}%. Observed ${repetitionCount} cycle(s), but additional repeated executions are required to reach full confidence.`;
   } else {
-    confidenceReasoning = `Confidence is currently at ${confidencePct}% because only initial telemetry events have been recorded. Perform repeated copy/paste operations across fields to accumulate evidence.`;
+    confidenceReasoning = `Confidence is currently at ${confidencePct}% based on ${confirmedMappings.length} observed transfer(s). Perform repeated copy/paste operations across fields to accumulate evidence.`;
   }
 
   return (

@@ -19,8 +19,13 @@ export interface WorkspaceControllerProps {
   noiseFilteredCount?: number;
   candidateName?: string;
   workflowDNA?: any;
+  fieldMappings?: any[];
+  chronologicalTransfers?: any[];
+  outliers?: any[];
+  observationSessionId?: string;
   onSelectStage: (stage: WorkspaceStage) => void;
   onAnalyzeTrigger: () => void;
+  onProceedToDNAFromAnalyze?: () => void;
   onProceedFromDNA: () => void;
   onProceedFromBlueprint: () => void;
   onPipelineComplete: () => void;
@@ -35,8 +40,13 @@ export const WorkspaceController: React.FC<WorkspaceControllerProps> = ({
   noiseFilteredCount = 0,
   candidateName = "Cross-Application Workflow",
   workflowDNA,
+  fieldMappings = [],
+  chronologicalTransfers = [],
+  outliers = [],
+  observationSessionId = "",
   onSelectStage,
   onAnalyzeTrigger,
+  onProceedToDNAFromAnalyze,
   onProceedFromDNA,
   onProceedFromBlueprint,
   onPipelineComplete,
@@ -78,13 +88,24 @@ export const WorkspaceController: React.FC<WorkspaceControllerProps> = ({
             noiseFilteredCount={noiseFilteredCount}
             candidateName={candidateName}
             workflowDNA={workflowDNA}
-            onProceedToDNA={onAnalyzeTrigger}
+            fieldMappings={fieldMappings}
+            chronologicalTransfers={chronologicalTransfers}
+            outliers={outliers}
+            observationSessionId={observationSessionId}
+            onProceedToDNA={onProceedToDNAFromAnalyze || onAnalyzeTrigger}
             onObserveFurther={() => onSelectStage("OBSERVE")}
           />
         )}
 
         {currentStage === "DNA" && (
-          <WorkflowDNACollapse workflowDNA={workflowDNA} onProceed={onProceedFromDNA} />
+          <WorkflowDNACollapse
+            workflowDNA={workflowDNA}
+            fieldMappings={fieldMappings}
+            chronologicalTransfers={chronologicalTransfers}
+            observationSessionId={observationSessionId}
+            repetitionCount={repetitionCount}
+            onProceed={onProceedFromDNA}
+          />
         )}
 
         {currentStage === "BLUEPRINT" && (

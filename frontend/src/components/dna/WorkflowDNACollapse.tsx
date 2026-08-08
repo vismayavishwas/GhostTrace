@@ -21,10 +21,21 @@ import {
 
 export interface WorkflowDNACollapseProps {
   workflowDNA?: any;
+  fieldMappings?: any[];
+  chronologicalTransfers?: any[];
+  observationSessionId?: string;
+  repetitionCount?: number;
   onProceed?: () => void;
 }
 
-export const WorkflowDNACollapse: React.FC<WorkflowDNACollapseProps> = ({ workflowDNA, onProceed }) => {
+export const WorkflowDNACollapse: React.FC<WorkflowDNACollapseProps> = ({
+  workflowDNA,
+  fieldMappings = [],
+  chronologicalTransfers = [],
+  observationSessionId = "",
+  repetitionCount = 0,
+  onProceed,
+}) => {
   const [showDeveloperDetails, setShowDeveloperDetails] = useState<boolean>(false);
   const [expandedMappingIdx, setExpandedMappingIdx] = useState<number | null>(null);
 
@@ -33,43 +44,15 @@ export const WorkflowDNACollapse: React.FC<WorkflowDNACollapseProps> = ({ workfl
     workflowDNA?.description ||
     "Observed cross-application business process graph reconstructed dynamically from live browser telemetry.";
 
-  const rawMappings = workflowDNA?.metadata?.field_mappings || workflowDNA?.field_mappings || [];
-  
-  // Deduplicate mappings per sequence cycle by (source_app, source_label, dest_app, dest_label)
-  const activeMappings: any[] = [];
-  const seenMapKeys = new Set<string>();
-
-  rawMappings.forEach((m: any) => {
-    const srcLbl = m.source_label || m.source_entity || "Unknown Field";
-    const destLbl = m.destination_label || m.destination_entity || "Unknown Field";
-    const srcApp = m.source_app || "Unknown Application";
-    const destApp = m.destination_app || "Unknown Application";
-
-    const key = `${srcApp}::${srcLbl}::${destApp}::${destLbl}`;
-    if (!seenMapKeys.has(key)) {
-      seenMapKeys.add(key);
-      activeMappings.push(m);
-    }
-  });
+  // Read chronological sequence transfers directly from props or Workflow DNA metadata
+  const activeTransfers = chronologicalTransfers.length > 0
+    ? chronologicalTransfers
+    : (fieldMappings.length > 0
+      ? fieldMappings
+      : (workflowDNA?.metadata?.chronological_transfers || workflowDNA?.metadata?.field_mappings || workflowDNA?.field_mappings || []));
 
   const rawSteps = workflowDNA?.steps || [];
   const activeSteps = rawSteps;
-
-  // Group deduplicated single-cycle mappings dynamically by Source Application -> Destination Application
-  const groupedApps: { [appKey: string]: { sourceApp: string; destApp: string; mappings: any[] } } = {};
-
-  activeMappings.forEach((m: any) => {
-    const srcApp = m.source_app || "Unknown Source Application";
-    const destApp = m.destination_app || "Unknown Target Application";
-    const key = `${srcApp}::${destApp}`;
-
-    if (!groupedApps[key]) {
-      groupedApps[key] = { sourceApp: srcApp, destApp: destApp, mappings: [] };
-    }
-    groupedApps[key].mappings.push(m);
-  });
-
-  const appGroupKeys = Object.keys(groupedApps);
 
   const toggleMappingExpand = (idx: number) => {
     setExpandedMappingIdx(expandedMappingIdx === idx ? null : idx);
@@ -88,6 +71,11 @@ export const WorkflowDNACollapse: React.FC<WorkflowDNACollapseProps> = ({ workfl
               <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2.5 py-1 text-xs font-mono font-bold text-emerald-400 border border-emerald-500/20">
                 <Sparkles className="h-3 w-3" />
                 <span>{Math.round(workflowDNA.confidence_score * 100)}% Semantic Consistency</span>
+              </span>
+            )}
+            {observationSessionId && (
+              <span className="inline-flex items-center gap-1 rounded-md bg-cyan-500/10 px-2.5 py-1 text-xs font-mono text-cyan-400 border border-cyan-500/20">
+                <span>Session: {observationSessionId}</span>
               </span>
             )}
           </div>
@@ -110,114 +98,52 @@ export const WorkflowDNACollapse: React.FC<WorkflowDNACollapseProps> = ({ workfl
           <div className="flex items-center gap-2">
             <Activity className="h-4.5 w-4.5 text-cyan-400" />
             <span className="font-bold text-xs text-cyan-300 font-mono tracking-wide uppercase">
-              🌐 Learned Application & Field Transfer Graph
+              🌐 Learned Sequence Transfers & Field Flow Graph
             </span>
           </div>
           <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950 px-2.5 py-1 rounded-full border border-cyan-800">
-            {activeMappings.length} Direct Semantic Mappings Discovered
+            {activeTransfers.length} Sequence Transfer(s) Captured ({repetitionCount || 1} Cycle(s))
           </span>
         </div>
 
-        {appGroupKeys.length > 0 ? (
-          <div className="flex flex-col gap-8 py-2">
-            {appGroupKeys.map((groupKey: string, gIdx: number) => {
-              const group = groupedApps[groupKey];
+        {activeTransfers.length > 0 ? (
+          <div className="flex flex-col gap-3 py-2">
+            {activeTransfers.map((m: any, idx: number) => {
+              const srcApp = m.source_app || "Source Application";
+              const destApp = m.destination_app || "Target System";
+              const srcLbl = m.source_label || m.source_entity || "Source Field";
+              const destLbl = m.destination_label || m.destination_entity || "Target Field";
 
               return (
-                <div key={gIdx} className="flex flex-col gap-4">
-                  {/* Application Pair Architecture Grid */}
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
-                    
-                    {/* Left: Source Application Container */}
-                    <div className="lg:col-span-5 flex flex-col rounded-xl border border-cyan-500/40 bg-slate-900/80 overflow-hidden shadow-lg">
-                      <div className="flex items-center justify-between bg-cyan-950/60 px-4 py-3 border-b border-cyan-500/30">
-                        <div className="flex items-center gap-2">
-                          <Laptop className="h-4 w-4 text-cyan-400" />
-                          <span className="font-bold text-xs font-mono text-cyan-200 uppercase tracking-wide">
-                            {group.sourceApp}
-                          </span>
-                        </div>
-                        <span className="text-[10px] font-mono text-cyan-400 bg-slate-950 px-2 py-0.5 rounded border border-cyan-900">
-                          Source Application
-                        </span>
-                      </div>
-
-                      <div className="flex flex-col gap-2.5 p-4">
-                        {group.mappings.map((m: any, mIdx: number) => (
-                          <div
-                            key={mIdx}
-                            className="flex items-center justify-between rounded-lg border border-cyan-500/20 bg-slate-950/80 px-3.5 py-2.5 shadow-sm"
-                          >
-                            <div className="flex items-center gap-2">
-                              <span className="flex h-5 w-5 items-center justify-center rounded bg-cyan-500/20 text-[10px] font-bold text-cyan-300 border border-cyan-500/30 font-mono">
-                                {mIdx + 1}
-                              </span>
-                              <span className="text-xs font-bold text-slate-100 font-sans">
-                                {m.source_label || "Unknown Field"}
-                              </span>
-                            </div>
-                            <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/80 px-2 py-0.5 rounded border border-cyan-800">
-                              Source Field
-                            </span>
-                          </div>
-                        ))}
-                      </div>
+                <div key={idx} className="flex flex-col md:flex-row items-center justify-between gap-4 rounded-xl border border-slate-800/80 bg-slate-900/80 p-4 shadow-lg hover:border-cyan-500/40 transition-all duration-200">
+                  {/* Left: Source App + Source Field */}
+                  <div className="flex items-center gap-3 w-full md:w-5/12">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-cyan-500/20 text-xs font-bold text-cyan-300 font-mono border border-cyan-500/30 shrink-0">
+                      {idx + 1}
+                    </span>
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-[10px] font-mono text-cyan-400 font-semibold uppercase tracking-wider">{srcApp}</span>
+                      <span className="text-sm font-extrabold text-white truncate font-sans">{srcLbl}</span>
                     </div>
+                  </div>
 
-                    {/* Middle: Semantic Transfer Flow Bridge */}
-                    <div className="lg:col-span-2 flex flex-col items-center justify-center py-2 px-1">
-                      <div className="flex flex-col items-center gap-2 w-full">
-                        <span className="text-[10px] font-mono font-bold text-purple-400 bg-purple-950/80 px-2.5 py-1 rounded-full border border-purple-500/30 uppercase tracking-wider text-center">
-                          Learned Transfers
-                        </span>
+                  {/* Middle Arrow / Flow Indicator */}
+                  <div className="flex items-center gap-2 text-cyan-400 font-mono text-xs shrink-0 py-1 md:py-0">
+                    <span className="hidden md:inline font-bold tracking-widest text-cyan-400">─────────────────▶</span>
+                    <span className="md:hidden font-bold text-cyan-400">▼</span>
+                  </div>
 
-                        <div className="hidden lg:flex flex-col items-center gap-1 text-cyan-400">
-                          <ArrowRight className="h-6 w-6 animate-pulse" />
-                        </div>
-                        <div className="lg:hidden flex flex-col items-center gap-1 text-cyan-400">
-                          <ArrowDown className="h-6 w-6 animate-pulse" />
-                        </div>
-                      </div>
+                  {/* Right: Destination App + Target Field */}
+                  <div className="flex items-center justify-between md:justify-start gap-3 w-full md:w-5/12">
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-[10px] font-mono text-emerald-400 font-semibold uppercase tracking-wider">{destApp}</span>
+                      <span className="text-sm font-extrabold text-emerald-300 truncate font-sans">{destLbl}</span>
                     </div>
-
-                    {/* Right: Target Application Container */}
-                    <div className="lg:col-span-5 flex flex-col rounded-xl border border-emerald-500/40 bg-slate-900/80 overflow-hidden shadow-lg">
-                      <div className="flex items-center justify-between bg-emerald-950/60 px-4 py-3 border-b border-emerald-500/30">
-                        <div className="flex items-center gap-2">
-                          <Laptop className="h-4 w-4 text-emerald-400" />
-                          <span className="font-bold text-xs font-mono text-emerald-200 uppercase tracking-wide">
-                            {group.destApp}
-                          </span>
-                        </div>
-                        <span className="text-[10px] font-mono text-emerald-400 bg-slate-950 px-2 py-0.5 rounded border border-emerald-900">
-                          Target System
-                        </span>
-                      </div>
-
-                      <div className="flex flex-col gap-2.5 p-4">
-                        {group.mappings.map((m: any, mIdx: number) => (
-                          <div
-                            key={mIdx}
-                            className="flex items-center justify-between rounded-lg border border-emerald-500/20 bg-slate-950/80 px-3.5 py-2.5 shadow-sm"
-                          >
-                            <div className="flex items-center gap-2">
-                              <span className="flex h-5 w-5 items-center justify-center rounded bg-emerald-500/20 text-[10px] font-bold text-emerald-300 border border-emerald-500/30 font-mono">
-                                {mIdx + 1}
-                              </span>
-                              <span className="text-xs font-bold text-emerald-200 font-sans">
-                                {m.destination_label || "Unknown Field"}
-                              </span>
-                            </div>
-                            {m.pasted_value && (
-                              <span className="text-[10px] font-mono text-amber-300 bg-slate-900 px-2 py-0.5 rounded border border-slate-800 max-w-[120px] truncate">
-                                "{m.pasted_value}"
-                              </span>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
+                    {m.pasted_value && (
+                      <span className="ml-auto text-[10px] font-mono text-amber-300 bg-slate-950 px-2.5 py-1 rounded border border-slate-800 truncate max-w-[140px]" title={m.pasted_value}>
+                        "{m.pasted_value}"
+                      </span>
+                    )}
                   </div>
                 </div>
               );
@@ -279,7 +205,7 @@ export const WorkflowDNACollapse: React.FC<WorkflowDNACollapseProps> = ({ workfl
           </div>
 
           <div className="flex flex-col gap-2.5">
-            {activeMappings.map((m: any, idx: number) => {
+            {activeTransfers.map((m: any, idx: number) => {
               const isExpanded = expandedMappingIdx === idx;
               const srcLbl = m.source_label || "Unknown Field";
               const destLbl = m.destination_label || "Unknown Field";
@@ -342,7 +268,7 @@ export const WorkflowDNACollapse: React.FC<WorkflowDNACollapseProps> = ({ workfl
           <div className="rounded-xl border border-slate-800 bg-slate-950/90 p-4 text-[11px] font-mono text-slate-400">
             <span className="text-cyan-400 font-bold">Raw Discovered Graph JSON:</span>
             <pre className="mt-2 overflow-x-auto text-[10px] text-slate-500 leading-relaxed">
-              {JSON.stringify({ workflow_id: workflowDNA?.workflow_id, mappings: activeMappings, steps: activeSteps }, null, 2)}
+              {JSON.stringify({ workflow_id: workflowDNA?.workflow_id, mappings: activeTransfers, steps: activeSteps }, null, 2)}
             </pre>
           </div>
         </div>
