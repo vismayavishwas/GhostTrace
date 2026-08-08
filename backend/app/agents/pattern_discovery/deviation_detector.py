@@ -74,9 +74,21 @@ class DeviationDetector:
         if not valid_transfers:
             return deviations
 
-        # Auto-establish baseline sequence if not explicitly set and transfers exist
-        if not self.baseline_sequence and len(valid_transfers) >= 2:
-            self.set_sequence_template(valid_transfers)
+        # Auto-establish baseline sequence only when a complete cycle is evident
+        # (i.e., a source entity repeats, confirming the first cycle is finished)
+        if not self.baseline_sequence:
+            seen_srcs = set()
+            has_repeat = False
+            for x in valid_transfers:
+                if x.is_immediate_correction:
+                    continue
+                sk = x.source_entity.lower()
+                if sk in seen_srcs:
+                    has_repeat = True
+                    break
+                seen_srcs.add(sk)
+            if has_repeat:
+                self.set_sequence_template(valid_transfers)
 
         # 1. Detect Wrong Destination Fields (Mapping Memory or Positional Baseline)
         for idx, xfer in enumerate(valid_transfers):

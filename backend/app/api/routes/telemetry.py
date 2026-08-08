@@ -35,17 +35,26 @@ async def post_telemetry_event(payload: Dict[str, Any]):
         try:
             from app.agents.telemetry.transfer_builder import global_transfer_builder
             from app.agents.pattern_discovery.mapping_memory import global_mapping_memory
-            from app.agents.pattern_discovery.deviation_detector import global_deviation_detector
             from app.agents.pattern_discovery.learning_planner import global_learning_planner
 
             transfers = global_transfer_builder.process_telemetry_events([raw_event])
-            deviations = global_deviation_detector.detect_deviations(transfers)
-            dev_ids = {d.get("transfer_id") for d in deviations if d.get("transfer_id")}
 
             for xfer in transfers:
-                if xfer.transfer_id not in dev_ids:
-                    global_mapping_memory.record_transfer(xfer)
-                    global_learning_planner.evaluate_learning_state(xfer)
+                if xfer.is_immediate_correction:
+                    continue
+                # Use mapping memory for single-event gating:
+                # If we have a known expected destination for this source and
+                # the current destination doesn't match, skip recording it.
+                # During Cycle 1 (no memory), all transfers are recorded.
+                expected = global_mapping_memory.get_expected_destination(xfer.source_entity)
+                if expected and expected.lower() != xfer.destination_entity.lower():
+                    logger.info(
+                        f"[TELEMETRY] Skipping deviated transfer: {xfer.source_entity} -> {xfer.destination_entity} "
+                        f"(expected {expected})"
+                    )
+                    continue
+                global_mapping_memory.record_transfer(xfer)
+                global_learning_planner.evaluate_learning_state(xfer)
         except Exception as e:
             logger.warning(f"Error processing transfer memory for event: {e}")
 
