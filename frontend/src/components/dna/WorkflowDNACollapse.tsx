@@ -25,6 +25,7 @@ export interface WorkflowDNACollapseProps {
   chronologicalTransfers?: any[];
   observationSessionId?: string;
   repetitionCount?: number;
+  observationSynthesis?: any;
   onProceed?: () => void;
 }
 
@@ -34,6 +35,7 @@ export const WorkflowDNACollapse: React.FC<WorkflowDNACollapseProps> = ({
   chronologicalTransfers = [],
   observationSessionId = "",
   repetitionCount = 0,
+  observationSynthesis,
   onProceed,
 }) => {
   const [showDeveloperDetails, setShowDeveloperDetails] = useState<boolean>(false);
@@ -73,6 +75,13 @@ export const WorkflowDNACollapse: React.FC<WorkflowDNACollapseProps> = ({
       });
     }
   });
+
+  // Approved workflow from synthesis or fallback to canonical cycle mappings
+  const approvedWorkflow: any[] = observationSynthesis?.approved_workflow?.length
+    ? observationSynthesis.approved_workflow
+    : canonicalCycleMappings;
+
+  const excludedOutliers: any[] = observationSynthesis?.excluded_outliers || [];
 
   const rawSteps = workflowDNA?.steps || [];
   const activeSteps = rawSteps;
@@ -129,19 +138,19 @@ export const WorkflowDNACollapse: React.FC<WorkflowDNACollapseProps> = ({
           </span>
         </div>
 
-        {canonicalCycleMappings.length > 0 ? (
+        {approvedWorkflow.length > 0 ? (
           <div className="flex flex-col gap-3 py-2">
             <div className="flex items-center justify-between border-b border-slate-800/60 pb-1.5 mb-1">
               <span className="text-[11px] font-mono font-bold text-purple-400 tracking-wider uppercase flex items-center gap-1.5">
-                <span>LEARNED PATTERN ({canonicalCycleMappings.length}-Step Canonical Cycle)</span>
+                <span>LEARNED PATTERN ({approvedWorkflow.length}-Step Approved Sequence)</span>
               </span>
             </div>
 
-            {canonicalCycleMappings.map((m: any, idx: number) => {
-              const srcApp = m.srcApp;
-              const destApp = m.destApp;
-              const srcLbl = m.srcLbl;
-              const destLbl = m.destLbl;
+            {approvedWorkflow.map((m: any, idx: number) => {
+              const srcApp = m.source_app || m.srcApp || "Source Application";
+              const destApp = m.destination_app || m.destApp || "Target System";
+              const srcLbl = m.source_label || m.srcLbl || m.source_entity || "Source Field";
+              const destLbl = m.destination_label || m.destLbl || m.destination_entity || "Target Field";
 
               return (
                 <div key={idx} className="flex flex-col md:flex-row items-center justify-between gap-4 rounded-xl border border-slate-800/80 bg-slate-900/80 p-4 shadow-lg hover:border-cyan-500/40 transition-all duration-200">
@@ -294,10 +303,32 @@ export const WorkflowDNACollapse: React.FC<WorkflowDNACollapseProps> = ({
             })}
           </div>
 
+          {excludedOutliers.length > 0 && (
+            <div className="flex flex-col gap-2 rounded-xl border border-amber-500/30 bg-amber-950/20 p-4 font-mono text-xs">
+              <span className="text-amber-400 font-bold text-[11px] uppercase tracking-wider">
+                🚨 Excluded Outliers & Structural Deviations ({excludedOutliers.length})
+              </span>
+              <div className="flex flex-col gap-2 mt-1">
+                {excludedOutliers.map((o: any, idx: number) => (
+                  <div key={idx} className="flex items-center justify-between bg-slate-950/80 p-2.5 rounded border border-amber-500/20 text-[11px]">
+                    <div className="flex items-center gap-2">
+                      <span className="text-amber-400 font-bold">Outlier #{idx + 1}:</span>
+                      <span className="text-slate-200">{o.source_entity} → {o.observed_destination}</span>
+                      <span className="text-slate-500">(Expected: {o.expected_destination})</span>
+                    </div>
+                    <span className="text-[10px] text-rose-400 font-bold bg-rose-950/60 px-2 py-0.5 rounded border border-rose-500/30">
+                      EXCLUDED_FROM_APPROVED_WORKFLOW
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="rounded-xl border border-slate-800 bg-slate-950/90 p-4 text-[11px] font-mono text-slate-400">
             <span className="text-cyan-400 font-bold">Raw Discovered Graph JSON:</span>
             <pre className="mt-2 overflow-x-auto text-[10px] text-slate-500 leading-relaxed">
-              {JSON.stringify({ workflow_id: workflowDNA?.workflow_id, mappings: activeTransfers, steps: activeSteps }, null, 2)}
+              {JSON.stringify({ workflow_id: workflowDNA?.workflow_id, mappings: activeTransfers, steps: activeSteps, excluded_outliers: excludedOutliers }, null, 2)}
             </pre>
           </div>
         </div>

@@ -68,6 +68,7 @@ export const WorkspaceController: React.FC<WorkspaceControllerProps> = ({
   const effectiveTransfers = lockedSnapshot?.chronologicalTransfers?.length ? lockedSnapshot.chronologicalTransfers : chronologicalTransfers;
   const effectiveOutliers = lockedSnapshot?.outliers ? lockedSnapshot.outliers : outliers;
   const effectiveSessionId = lockedSnapshot?.sessionId || observationSessionId;
+  const effectiveSynthesis = lockedSnapshot?.observationSynthesis || null;
 
   const handleReplayClick = () => {
     setReconstructionLoading(true);
@@ -106,6 +107,7 @@ export const WorkspaceController: React.FC<WorkspaceControllerProps> = ({
             chronologicalTransfers={effectiveTransfers}
             outliers={effectiveOutliers}
             observationSessionId={effectiveSessionId}
+            observationSynthesis={effectiveSynthesis}
             onProceedToDNA={onProceedToDNAFromAnalyze || onAnalyzeTrigger}
             onObserveFurther={() => onSelectStage("OBSERVE")}
           />
@@ -118,6 +120,7 @@ export const WorkspaceController: React.FC<WorkspaceControllerProps> = ({
             chronologicalTransfers={effectiveTransfers}
             observationSessionId={effectiveSessionId}
             repetitionCount={effectiveRepetition}
+            observationSynthesis={effectiveSynthesis}
             onProceed={onProceedFromDNA}
           />
         )}

@@ -16,6 +16,16 @@ import { fetchGraphState, triggerGraphExecution, resetTelemetryState } from "@/l
 
 import { InteractiveSandboxApp } from "../sandbox/InteractiveSandboxApp";
 
+export interface ObservationSynthesis {
+  observation_session_id: string;
+  historical_transfers: any[];
+  approved_workflow: any[];
+  excluded_outliers: any[];
+  outlier_count: number;
+  completed_cycles: number;
+  confidence_score: number;
+}
+
 export interface ObservationSnapshot {
   sessionId: string;
   confidenceScore: number;
@@ -27,6 +37,7 @@ export interface ObservationSnapshot {
   fieldMappings: any[];
   chronologicalTransfers: any[];
   workflowDNA: any;
+  observationSynthesis: ObservationSynthesis | null;
   timestamp: string;
 }
 
@@ -86,17 +97,21 @@ export const CommandCenterDashboard: React.FC = () => {
   };
 
   const handleAnalyzeTrigger = async () => {
+    const latestState = await fetchGraphState();
+    const synth = latestState?.observation_synthesis || null;
+
     const snapshot: ObservationSnapshot = {
-      sessionId: observationSessionId || `obs-session-${Date.now()}`,
-      confidenceScore,
-      repetitionCount,
-      noiseFilteredCount,
-      candidateName,
-      businessProcess,
-      outliers: [...outliers],
-      fieldMappings: [...fieldMappings],
-      chronologicalTransfers: [...chronologicalTransfers],
-      workflowDNA,
+      sessionId: latestState?.observation_session_id || observationSessionId || `obs-session-${Date.now()}`,
+      confidenceScore: latestState?.confidence_score ?? confidenceScore,
+      repetitionCount: latestState?.repetition_count ?? repetitionCount,
+      noiseFilteredCount: latestState?.noise_filtered_count ?? noiseFilteredCount,
+      candidateName: latestState?.candidate_name || candidateName,
+      businessProcess: latestState?.business_process || businessProcess,
+      outliers: latestState?.outliers ? [...latestState.outliers] : [...outliers],
+      fieldMappings: latestState?.field_mappings ? [...latestState.field_mappings] : [...fieldMappings],
+      chronologicalTransfers: latestState?.chronological_transfers ? [...latestState.chronological_transfers] : [...chronologicalTransfers],
+      workflowDNA: latestState?.workflow_dna || workflowDNA,
+      observationSynthesis: synth,
       timestamp: new Date().toISOString(),
     };
     setLockedSnapshot(snapshot);

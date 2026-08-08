@@ -13,6 +13,7 @@ export interface ReasoningDashboardProps {
   chronologicalTransfers?: any[];
   outliers?: any[];
   observationSessionId?: string;
+  observationSynthesis?: any;
   onProceedToDNA: () => void;
   onObserveFurther?: () => void;
 }
@@ -27,6 +28,7 @@ export const ReasoningDashboard: React.FC<ReasoningDashboardProps> = ({
   chronologicalTransfers = [],
   outliers = [],
   observationSessionId = "",
+  observationSynthesis,
   onProceedToDNA,
   onObserveFurther,
 }) => {
@@ -59,7 +61,9 @@ export const ReasoningDashboard: React.FC<ReasoningDashboardProps> = ({
     }
   });
 
-  const activeOutlierCount = outliers.length;
+  const activeOutlierCount = observationSynthesis?.outlier_count !== undefined
+    ? observationSynthesis.outlier_count
+    : outliers.length;
 
   const sampleMappingSummary = confirmedMappings.length > 0
     ? confirmedMappings.map(m => `'${m.cleanSourceLabel} → ${m.cleanDestLabel}'`).join(", ")

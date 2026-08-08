@@ -196,10 +196,31 @@ async def get_current_state():
 
     obs_session_id = f"obs-session-{hashlib.md5(f'{len(events)}-{repetition_count}'.encode()).hexdigest()[:8]}"
 
+    outlier_tids = {item.get("transfer_id") for item in outlier_items if item.get("transfer_id")}
+    approved_workflow = [
+        m for m in field_mappings
+        if m.get("transfer_id") not in outlier_tids
+    ]
+
+    excluded_outliers = [
+        {**item, "status": "EXCLUDED_FROM_APPROVED_WORKFLOW"}
+        for item in outlier_items
+    ]
+
+    observation_synthesis = {
+        "observation_session_id": obs_session_id,
+        "historical_transfers": chronological_transfers,
+        "approved_workflow": approved_workflow,
+        "excluded_outliers": excluded_outliers,
+        "outlier_count": len(excluded_outliers),
+        "completed_cycles": repetition_count,
+        "confidence_score": round(confidence, 2)
+    }
+
     logger.info(
         f"🔍 [STATE POLL AUDIT] Commit={build_commit} | SessionID={obs_session_id} | MappingMemoryConf={confidence:.2f} | "
         f"LearningPlannerConf={lp_conf:.2f} | StateConfidence={round(confidence, 2):.2f} | "
-        f"DetectorActiveOutliers={len(outlier_items)} | StateReturnedOutliers={len(outlier_items)}"
+        f"DetectorActiveOutliers={len(outlier_items)} | ApprovedWorkflowSteps={len(approved_workflow)}"
     )
 
     return {
@@ -216,6 +237,7 @@ async def get_current_state():
         "chronological_transfers": chronological_transfers,
         "business_process": business_process_dict,
         "outliers": outlier_items,
+        "observation_synthesis": observation_synthesis,
     }
 
 
