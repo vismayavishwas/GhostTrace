@@ -10,6 +10,7 @@ import { HumanApprovalModal } from "../governance/HumanApprovalModal";
 import { ObserverDashboard } from "../observer/ObserverDashboard";
 import { ShadowModePanel } from "../command-center/ShadowModePanel";
 import { ReasoningDashboard } from "../reasoning/ReasoningDashboard";
+import { ObservationSnapshot } from "../command-center/CommandCenterDashboard";
 
 export interface WorkspaceControllerProps {
   currentStage: WorkspaceStage;
@@ -23,6 +24,7 @@ export interface WorkspaceControllerProps {
   chronologicalTransfers?: any[];
   outliers?: any[];
   observationSessionId?: string;
+  lockedSnapshot?: ObservationSnapshot | null;
   onSelectStage: (stage: WorkspaceStage) => void;
   onAnalyzeTrigger: () => void;
   onProceedToDNAFromAnalyze?: () => void;
@@ -44,6 +46,7 @@ export const WorkspaceController: React.FC<WorkspaceControllerProps> = ({
   chronologicalTransfers = [],
   outliers = [],
   observationSessionId = "",
+  lockedSnapshot = null,
   onSelectStage,
   onAnalyzeTrigger,
   onProceedToDNAFromAnalyze,
@@ -54,6 +57,17 @@ export const WorkspaceController: React.FC<WorkspaceControllerProps> = ({
 }) => {
   const [reconstructionLoading, setReconstructionLoading] = useState<boolean>(false);
   const [showApprovalModal, setShowApprovalModal] = useState<boolean>(false);
+
+  // Read effective downstream snapshot fields
+  const effectiveConfidence = lockedSnapshot?.confidenceScore !== undefined ? lockedSnapshot.confidenceScore : confidenceScore;
+  const effectiveRepetition = lockedSnapshot?.repetitionCount !== undefined ? lockedSnapshot.repetitionCount : repetitionCount;
+  const effectiveNoise = lockedSnapshot?.noiseFilteredCount !== undefined ? lockedSnapshot.noiseFilteredCount : noiseFilteredCount;
+  const effectiveName = lockedSnapshot?.candidateName || candidateName;
+  const effectiveDNA = lockedSnapshot?.workflowDNA || workflowDNA;
+  const effectiveMappings = lockedSnapshot?.fieldMappings?.length ? lockedSnapshot.fieldMappings : fieldMappings;
+  const effectiveTransfers = lockedSnapshot?.chronologicalTransfers?.length ? lockedSnapshot.chronologicalTransfers : chronologicalTransfers;
+  const effectiveOutliers = lockedSnapshot?.outliers ? lockedSnapshot.outliers : outliers;
+  const effectiveSessionId = lockedSnapshot?.sessionId || observationSessionId;
 
   const handleReplayClick = () => {
     setReconstructionLoading(true);
@@ -83,15 +97,15 @@ export const WorkspaceController: React.FC<WorkspaceControllerProps> = ({
 
         {currentStage === "ANALYZE" && (
           <ReasoningDashboard
-            confidenceScore={confidenceScore}
-            repetitionCount={repetitionCount}
-            noiseFilteredCount={noiseFilteredCount}
-            candidateName={candidateName}
-            workflowDNA={workflowDNA}
-            fieldMappings={fieldMappings}
-            chronologicalTransfers={chronologicalTransfers}
-            outliers={outliers}
-            observationSessionId={observationSessionId}
+            confidenceScore={effectiveConfidence}
+            repetitionCount={effectiveRepetition}
+            noiseFilteredCount={effectiveNoise}
+            candidateName={effectiveName}
+            workflowDNA={effectiveDNA}
+            fieldMappings={effectiveMappings}
+            chronologicalTransfers={effectiveTransfers}
+            outliers={effectiveOutliers}
+            observationSessionId={effectiveSessionId}
             onProceedToDNA={onProceedToDNAFromAnalyze || onAnalyzeTrigger}
             onObserveFurther={() => onSelectStage("OBSERVE")}
           />
@@ -99,11 +113,11 @@ export const WorkspaceController: React.FC<WorkspaceControllerProps> = ({
 
         {currentStage === "DNA" && (
           <WorkflowDNACollapse
-            workflowDNA={workflowDNA}
-            fieldMappings={fieldMappings}
-            chronologicalTransfers={chronologicalTransfers}
-            observationSessionId={observationSessionId}
-            repetitionCount={repetitionCount}
+            workflowDNA={effectiveDNA}
+            fieldMappings={effectiveMappings}
+            chronologicalTransfers={effectiveTransfers}
+            observationSessionId={effectiveSessionId}
+            repetitionCount={effectiveRepetition}
             onProceed={onProceedFromDNA}
           />
         )}

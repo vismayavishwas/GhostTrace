@@ -69,23 +69,6 @@ async def get_current_state():
     """
     global latest_graph_state, _STORED_BUSINESS_PROCESS
 
-    if latest_graph_state:
-        state_dict = latest_graph_state.model_dump()
-        return {
-            "current_stage": state_dict.get("current_stage", "OBSERVE"),
-            "confidence_score": state_dict.get("confidence_score", 0.0),
-            "repetition_count": state_dict.get("repetition_count", 0),
-            "noise_filtered_count": state_dict.get("noise_filtered_count", 0),
-            "candidate_name": state_dict.get("candidate_name", "Waiting for interaction events..."),
-            "active_agents": state_dict.get("active_agents", ["ObserverAgent"]),
-            "unlocked_stages": state_dict.get("unlocked_stages", ["OBSERVE"]),
-            "workflow_dna": state_dict.get("workflow_dna"),
-            "code_artifact": state_dict.get("code_artifact"),
-            "sandbox_result": state_dict.get("sandbox_result"),
-            "self_healing_summary": state_dict.get("self_healing_summary"),
-            "business_process": state_dict.get("business_process") or _STORED_BUSINESS_PROCESS,
-        }
-
     events = get_global_observer().buffer.get_recent() or in_memory_events
     event_count = len(events)
 

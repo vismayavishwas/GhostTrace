@@ -16,6 +16,20 @@ import { fetchGraphState, triggerGraphExecution, resetTelemetryState } from "@/l
 
 import { InteractiveSandboxApp } from "../sandbox/InteractiveSandboxApp";
 
+export interface ObservationSnapshot {
+  sessionId: string;
+  confidenceScore: number;
+  repetitionCount: number;
+  noiseFilteredCount: number;
+  candidateName: string;
+  businessProcess: any;
+  outliers: any[];
+  fieldMappings: any[];
+  chronologicalTransfers: any[];
+  workflowDNA: any;
+  timestamp: string;
+}
+
 export const CommandCenterDashboard: React.FC = () => {
   const [showPermissionModal, setShowPermissionModal] = useState<boolean>(false);
   const [monitoredApps, setMonitoredApps] = useState<string[]>(["Chrome", "SAP ERP", "Excel"]);
@@ -32,6 +46,7 @@ export const CommandCenterDashboard: React.FC = () => {
   const [fieldMappings, setFieldMappings] = useState<any[]>([]);
   const [chronologicalTransfers, setChronologicalTransfers] = useState<any[]>([]);
   const [observationSessionId, setObservationSessionId] = useState<string>("");
+  const [lockedSnapshot, setLockedSnapshot] = useState<ObservationSnapshot | null>(null);
 
   useEffect(() => {
     // Poll graph state from backend
@@ -71,6 +86,20 @@ export const CommandCenterDashboard: React.FC = () => {
   };
 
   const handleAnalyzeTrigger = async () => {
+    const snapshot: ObservationSnapshot = {
+      sessionId: observationSessionId || `obs-session-${Date.now()}`,
+      confidenceScore,
+      repetitionCount,
+      noiseFilteredCount,
+      candidateName,
+      businessProcess,
+      outliers: [...outliers],
+      fieldMappings: [...fieldMappings],
+      chronologicalTransfers: [...chronologicalTransfers],
+      workflowDNA,
+      timestamp: new Date().toISOString(),
+    };
+    setLockedSnapshot(snapshot);
     setCandidateDismissed(true);
     setUnlockedStages(["OBSERVE", "ANALYZE", "DNA"]);
     setCurrentStage("ANALYZE");
@@ -168,6 +197,7 @@ export const CommandCenterDashboard: React.FC = () => {
             chronologicalTransfers={chronologicalTransfers}
             outliers={outliers}
             observationSessionId={observationSessionId}
+            lockedSnapshot={lockedSnapshot}
             onSelectStage={setCurrentStage}
             onAnalyzeTrigger={handleAnalyzeTrigger}
             onProceedToDNAFromAnalyze={handleProceedToDNAFromAnalyze}
