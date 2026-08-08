@@ -234,12 +234,11 @@ async def refine_workflow_candidate(candidate_id: str, payload: Dict[str, Any]):
             matched_candidate.confidence_score = new_conf
 
 
-        # Suppress resolved deviation selectors permanently so state polling stays clean
+        # Suppress specific resolved deviation selectors if target_selector provided
         try:
             from app.agents.pattern_discovery.deviation_detector import global_deviation_detector
             if target_selector:
                 global_deviation_detector.resolve_selectors(target_selector.split(","))
-            global_deviation_detector.resolve_all_current()
         except Exception as e:
             logger.warning(f"Error marking deviation selectors resolved: {e}")
 

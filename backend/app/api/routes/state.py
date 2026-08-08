@@ -133,7 +133,18 @@ async def get_current_state():
     # Detect mistake deviations on ANY cycle when transfers exist
     outlier_items = []
     if transfers:
+        valid_xfers = [x for x in transfers if not x.is_immediate_correction]
+        # Diagnostic: print actual entity keys to console
+        if len(valid_xfers) >= 4:
+            print(f"[DIAG] {len(valid_xfers)} valid transfers. Baseline={len(global_deviation_detector.baseline_sequence)}")
+            for i, x in enumerate(valid_xfers):
+                print(f"  [{i}] src='{x.source_entity}' dst='{x.destination_entity}'")
         detected_devs = global_deviation_detector.detect_deviations(transfers)
+        if len(valid_xfers) >= 4:
+            print(f"[DIAG] Deviations detected: {len(detected_devs)}")
+            print(f"[DIAG] Baseline after detect: {global_deviation_detector.baseline_sequence}")
+            for d in detected_devs:
+                print(f"  DEV: {d.get('source_entity')} expected={d.get('expected_destination')} observed={d.get('observed_destination')}")
         outlier_items = detected_devs
 
 
@@ -269,7 +280,6 @@ async def refine_candidate(payload: CandidateRefinePayload):
 
     if target_selector:
         global_deviation_detector.resolve_selectors(target_selector.split(","))
-    global_deviation_detector.resolve_all_current()
 
     if choice == "EXCLUDE" and target_selector:
         parts = target_selector.split(",")
