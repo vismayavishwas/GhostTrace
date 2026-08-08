@@ -34,10 +34,14 @@ export const ReasoningDashboard: React.FC<ReasoningDashboardProps> = ({
 }) => {
   const confidencePct = Math.round((confidenceScore || 0.0) * 100);
 
-  // Extract field mappings from props or Workflow DNA metadata
-  const rawMaps = fieldMappings.length > 0
-    ? fieldMappings
-    : (workflowDNA?.metadata?.field_mappings || workflowDNA?.field_mappings || []);
+  // Use approved_workflow from observation_synthesis (outliers excluded) as the
+  // authoritative source for confirmed mappings. Fall back to raw fieldMappings
+  // only when synthesis is not yet available.
+  const rawMaps = observationSynthesis?.approved_workflow?.length
+    ? observationSynthesis.approved_workflow
+    : (fieldMappings.length > 0
+      ? fieldMappings
+      : (workflowDNA?.metadata?.field_mappings || workflowDNA?.field_mappings || []));
 
   const confirmedMappings: any[] = [];
   const seenKeys = new Set<string>();

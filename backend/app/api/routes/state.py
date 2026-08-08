@@ -102,10 +102,13 @@ async def get_current_state():
 
 
     # Build dynamic field mappings from telemetry transfers
-    from app.agents.telemetry.transfer_builder import global_transfer_builder
+    # Use a FRESH TransferBuilder to avoid stale _active_source_event state
+    # from previous telemetry.py event processing on the global singleton.
+    from app.agents.telemetry.transfer_builder import TransferBuilder
     from app.agents.pattern_discovery.deviation_detector import global_deviation_detector, format_clean_entity_label
 
-    transfers = global_transfer_builder.process_telemetry_events(events) if events else []
+    state_transfer_builder = TransferBuilder()
+    transfers = state_transfer_builder.process_telemetry_events(events) if events else []
     field_mappings = []
     chronological_transfers = []
     for xfer in transfers:
