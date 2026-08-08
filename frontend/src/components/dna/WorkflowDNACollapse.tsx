@@ -51,6 +51,29 @@ export const WorkflowDNACollapse: React.FC<WorkflowDNACollapseProps> = ({
       ? fieldMappings
       : (workflowDNA?.metadata?.chronological_transfers || workflowDNA?.metadata?.field_mappings || workflowDNA?.field_mappings || []));
 
+  // Extract unique canonical field sequence template mappings by mapping identity tuple (source_app, source_label, dest_app, dest_label)
+  const canonicalCycleMappings: any[] = [];
+  const seenCanonicalKeys = new Set<string>();
+
+  activeTransfers.forEach((m: any) => {
+    const srcApp = m.source_app || "Source Application";
+    const destApp = m.destination_app || "Target System";
+    const srcLbl = m.source_label || m.source_entity || "Source Field";
+    const destLbl = m.destination_label || m.destination_entity || "Target Field";
+
+    const tupleKey = `${srcApp}::${srcLbl}::${destApp}::${destLbl}`;
+    if (!seenCanonicalKeys.has(tupleKey)) {
+      seenCanonicalKeys.add(tupleKey);
+      canonicalCycleMappings.push({
+        ...m,
+        srcApp,
+        destApp,
+        srcLbl,
+        destLbl,
+      });
+    }
+  });
+
   const rawSteps = workflowDNA?.steps || [];
   const activeSteps = rawSteps;
 
@@ -102,17 +125,23 @@ export const WorkflowDNACollapse: React.FC<WorkflowDNACollapseProps> = ({
             </span>
           </div>
           <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950 px-2.5 py-1 rounded-full border border-cyan-800">
-            {activeTransfers.length} Sequence Transfer(s) Captured ({repetitionCount || 1} Cycle(s))
+            {activeTransfers.length} Sequence Transfer(s) Captured ({repetitionCount} Cycle(s))
           </span>
         </div>
 
-        {activeTransfers.length > 0 ? (
+        {canonicalCycleMappings.length > 0 ? (
           <div className="flex flex-col gap-3 py-2">
-            {activeTransfers.map((m: any, idx: number) => {
-              const srcApp = m.source_app || "Source Application";
-              const destApp = m.destination_app || "Target System";
-              const srcLbl = m.source_label || m.source_entity || "Source Field";
-              const destLbl = m.destination_label || m.destination_entity || "Target Field";
+            <div className="flex items-center justify-between border-b border-slate-800/60 pb-1.5 mb-1">
+              <span className="text-[11px] font-mono font-bold text-purple-400 tracking-wider uppercase flex items-center gap-1.5">
+                <span>LEARNED PATTERN ({canonicalCycleMappings.length}-Step Canonical Cycle)</span>
+              </span>
+            </div>
+
+            {canonicalCycleMappings.map((m: any, idx: number) => {
+              const srcApp = m.srcApp;
+              const destApp = m.destApp;
+              const srcLbl = m.srcLbl;
+              const destLbl = m.destLbl;
 
               return (
                 <div key={idx} className="flex flex-col md:flex-row items-center justify-between gap-4 rounded-xl border border-slate-800/80 bg-slate-900/80 p-4 shadow-lg hover:border-cyan-500/40 transition-all duration-200">

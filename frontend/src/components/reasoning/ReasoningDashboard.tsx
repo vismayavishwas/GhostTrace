@@ -68,9 +68,9 @@ export const ReasoningDashboard: React.FC<ReasoningDashboardProps> = ({
   // Build confidence explanation in plain language
   let confidenceReasoning = "";
   if (confidenceScore >= 0.75) {
-    confidenceReasoning = `Confidence is high (${confidencePct}%) because the semantic mapping(s) ${sampleMappingSummary} have been observed consistently across ${repetitionCount || 1} workflow cycle(s) with ${activeOutlierCount} sequence deviation(s).`;
+    confidenceReasoning = `Confidence is high (${confidencePct}%) because the semantic mapping(s) ${sampleMappingSummary} have been observed consistently across ${repetitionCount} workflow cycle(s) with ${activeOutlierCount} sequence outlier(s).`;
   } else if (confidenceScore >= 0.35) {
-    confidenceReasoning = `Confidence is at ${confidencePct}% based on ${repetitionCount || 1} consistent workflow cycle(s) and ${confirmedMappings.length} confirmed semantic field mapping(s). Additional repetitions will further solidify learning.`;
+    confidenceReasoning = `Confidence is at ${confidencePct}% based on ${repetitionCount} consistent workflow cycle(s) and ${confirmedMappings.length} confirmed semantic field mapping(s). Additional repetitions will further solidify learning.`;
   } else if (repetitionCount > 0) {
     confidenceReasoning = `Confidence is at ${confidencePct}%. Observed ${repetitionCount} cycle(s), but additional repeated executions are required to reach full confidence.`;
   } else {
@@ -186,9 +186,9 @@ export const ReasoningDashboard: React.FC<ReasoningDashboardProps> = ({
               </p>
             </div>
             <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
-              <span className="text-slate-400 font-medium text-[11px]">Noise Events Filtered</span>
+              <span className="text-slate-400 font-medium text-[11px]">Outliers Detected</span>
               <p className="mt-1 font-bold text-cyan-400 font-mono">
-                {noiseFilteredCount > 0 ? `${noiseFilteredCount} non-pattern events` : "0 noise events"}
+                Outliers Detected: {activeOutlierCount}
               </p>
             </div>
           </div>
@@ -211,8 +211,12 @@ export const ReasoningDashboard: React.FC<ReasoningDashboardProps> = ({
           </p>
 
           <div className="flex items-center gap-2 text-xs font-mono text-slate-400 pt-1">
-            <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-            <span>0 structural deviations detected in locked mapping memory.</span>
+            {activeOutlierCount > 0 ? (
+              <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0" />
+            ) : (
+              <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+            )}
+            <span>Outliers Detected: {activeOutlierCount}</span>
           </div>
         </div>
 
