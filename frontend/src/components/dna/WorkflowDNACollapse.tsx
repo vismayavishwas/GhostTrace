@@ -305,20 +305,31 @@ export const WorkflowDNACollapse: React.FC<WorkflowDNACollapseProps> = ({
 
           {excludedOutliers.length > 0 && (
             <div className="flex flex-col gap-2 rounded-xl border border-amber-500/30 bg-amber-950/20 p-4 font-mono text-xs">
-              <span className="text-amber-400 font-bold text-[11px] uppercase tracking-wider">
-                🚨 Excluded Outliers & Structural Deviations ({excludedOutliers.length})
+              <span className="text-amber-400 font-bold text-[11px] uppercase tracking-wider flex items-center justify-between">
+                <span>🚨 Excluded Outliers & Structural Deviations ({excludedOutliers.length})</span>
+                <span className="text-[10px] text-rose-400 font-bold bg-rose-950/60 px-2 py-0.5 rounded border border-rose-500/30">
+                  EXCLUDED_FROM_APPROVED_WORKFLOW
+                </span>
               </span>
               <div className="flex flex-col gap-2 mt-1">
                 {excludedOutliers.map((o: any, idx: number) => (
-                  <div key={idx} className="flex items-center justify-between bg-slate-950/80 p-2.5 rounded border border-amber-500/20 text-[11px]">
-                    <div className="flex items-center gap-2">
-                      <span className="text-amber-400 font-bold">Outlier #{idx + 1}:</span>
-                      <span className="text-slate-200">{o.source_entity} → {o.observed_destination}</span>
-                      <span className="text-slate-500">(Expected: {o.expected_destination})</span>
+                  <div key={idx} className="flex flex-col gap-1.5 bg-slate-950/80 p-3 rounded-lg border border-amber-500/20 text-[11px]">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-amber-400 font-bold">Outlier #{idx + 1}:</span>
+                        <span className="text-slate-100 font-bold">{o.source_entity} → {o.observed_destination}</span>
+                        <span className="text-slate-400">(Expected: <strong className="text-emerald-400">{o.expected_destination || "N/A"}</strong>)</span>
+                      </div>
+                      <span className="text-[10px] text-amber-300 font-bold bg-amber-950/60 px-2 py-0.5 rounded border border-amber-500/30">
+                        {o.status || "EXCLUDED_FROM_APPROVED_WORKFLOW"}
+                      </span>
                     </div>
-                    <span className="text-[10px] text-rose-400 font-bold bg-rose-950/60 px-2 py-0.5 rounded border border-rose-500/30">
-                      EXCLUDED_FROM_APPROVED_WORKFLOW
-                    </span>
+                    <div className="flex items-center gap-4 text-[10px] text-slate-400 pt-1 border-t border-slate-900 flex-wrap">
+                      <span>ID: <strong className="text-slate-300">{o.transfer_id || `xfer-${idx+1}`}</strong></span>
+                      {o.pasted_value && <span>Pasted Value: <strong className="text-amber-300">"{o.pasted_value}"</strong></span>}
+                      {o.cycle && <span>Cycle: <strong className="text-cyan-400">{o.cycle}</strong></span>}
+                      {o.reason && <span>Reason: <strong className="text-rose-300">{o.reason}</strong></span>}
+                    </div>
                   </div>
                 ))}
               </div>
