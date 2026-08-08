@@ -126,7 +126,11 @@ export const WorkspaceController: React.FC<WorkspaceControllerProps> = ({
         )}
 
         {currentStage === "BLUEPRINT" && (
-          <AutomationBlueprint onProceedToDeploy={onProceedFromBlueprint} />
+          <AutomationBlueprint
+            workflowDNA={effectiveDNA}
+            observationSynthesis={effectiveSynthesis}
+            onProceedToDeploy={onProceedFromBlueprint}
+          />
         )}
 
         {currentStage === "REPLAY" && (
@@ -138,7 +142,11 @@ export const WorkspaceController: React.FC<WorkspaceControllerProps> = ({
                 <p className="text-xs text-slate-400">Synthesizing 60fps ghost cursor path from telemetry</p>
               </div>
             ) : (
-              <GhostReplay onProceedToDeploy={() => setShowApprovalModal(true)} />
+              <GhostReplay
+                workflowDNA={effectiveDNA}
+                observationSynthesis={effectiveSynthesis}
+                onProceedToDeploy={() => setShowApprovalModal(true)}
+              />
             )}
           </div>
         )}

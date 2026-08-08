@@ -18,20 +18,25 @@ export interface ReplayStep {
 
 export interface GhostReplayProps {
   onProceedToDeploy?: () => void;
+  workflowDNA?: any;
+  observationSynthesis?: any;
 }
 
-const APPROVED_WORKFLOW_DNA_STEPS: ReplayStep[] = [
-  { stepIndex: 1, title: "Navigate to Invoice PDF Portal", actionType: "NAVIGATE", target: "Document Portal", selector: "#source-invoiceId", appContext: "Chrome PDF Viewer", sampleValue: "https://enterprise.portal/invoices", done: false },
-  { stepIndex: 2, title: "Select & Copy Invoice ID 'INV-2026-9841'", actionType: "COPY", target: "Invoice ID Field", selector: "#source-invoiceId", appContext: "Chrome PDF Viewer", sampleValue: "INV-2026-9841", done: false },
-  { stepIndex: 3, title: "Hover over Target SAP ERP Entry Form", actionType: "HOVER", target: "ERP Form Container", selector: "#target-erp-invoiceId", appContext: "SAP ERP Financials", sampleValue: "SAP ERP v8.4", done: false },
-  { stepIndex: 4, title: "Paste Invoice ID into SAP ERP", actionType: "PASTE", target: "ERP Invoice ID Input", selector: "#target-erp-invoiceId", appContext: "SAP ERP Financials", sampleValue: "INV-2026-9841", done: false },
-  { stepIndex: 5, title: "Copy Amount '$14,250.00' from PDF", actionType: "COPY", target: "Amount Field", selector: "#source-amount", appContext: "Chrome PDF Viewer", sampleValue: "$14,250.00", done: false },
-  { stepIndex: 6, title: "Paste Amount into SAP ERP", actionType: "PASTE", target: "ERP Amount Input", selector: "#target-erp-amount", appContext: "SAP ERP Financials", sampleValue: "$14,250.00", done: false },
-  { stepIndex: 7, title: "Type Vendor Code 'APEX-8841'", actionType: "TYPE", target: "Vendor Field", selector: "#source-vendor", appContext: "SAP ERP Financials", sampleValue: "APEX-8841", done: false },
-  { stepIndex: 8, title: "Submit SAP ERP Entry & Post Receipt", actionType: "SUBMIT", target: "Submit ERP Form Button", selector: "#submit-erp-btn", appContext: "SAP ERP Financials", sampleValue: "Post Entry", done: false },
+const DEFAULT_CANONICAL_STEPS: ReplayStep[] = [
+  { stepIndex: 1, title: "Copy Invoice ID from PDF Source", actionType: "COPY", target: "Invoice ID", selector: "#source-invoiceId", appContext: "PDF INVOICE SOURCE", sampleValue: "INV-2026-9841", done: false },
+  { stepIndex: 2, title: "Paste Invoice ID into SAP ERP", actionType: "PASTE", target: "Invoice ID", selector: "#target-invoiceId", appContext: "SAP ERP FINANCIALS", sampleValue: "INV-2026-9841", done: false },
+  { stepIndex: 3, title: "Copy Amount from PDF Source", actionType: "COPY", target: "Amount", selector: "#source-amount", appContext: "PDF INVOICE SOURCE", sampleValue: "$14,850.00", done: false },
+  { stepIndex: 4, title: "Paste Amount into SAP ERP", actionType: "PASTE", target: "Amount", selector: "#target-amount", appContext: "SAP ERP FINANCIALS", sampleValue: "$14,850.00", done: false },
+  { stepIndex: 5, title: "Copy Vendor from PDF Source", actionType: "COPY", target: "Vendor", selector: "#source-vendor", appContext: "PDF INVOICE SOURCE", sampleValue: "Acme Cloud Logistics", done: false },
+  { stepIndex: 6, title: "Paste Vendor into SAP ERP", actionType: "PASTE", target: "Vendor", selector: "#target-vendor", appContext: "SAP ERP FINANCIALS", sampleValue: "Acme Cloud Logistics", done: false },
+  { stepIndex: 7, title: "Submit SAP ERP Entry & Post Receipt", actionType: "SUBMIT", target: "Submit Entry", selector: "#submit-erp", appContext: "SAP ERP FINANCIALS", sampleValue: "Post Entry", done: false },
 ];
 
-export const GhostReplay: React.FC<GhostReplayProps> = ({ onProceedToDeploy }) => {
+export const GhostReplay: React.FC<GhostReplayProps> = ({
+  onProceedToDeploy,
+  workflowDNA,
+  observationSynthesis,
+}) => {
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
   const [progress, setProgress] = useState<number>(0);
   const [speed, setSpeed] = useState<number>(1.0);
@@ -41,45 +46,72 @@ export const GhostReplay: React.FC<GhostReplayProps> = ({ onProceedToDeploy }) =
   const [isClicking, setIsClicking] = useState<boolean>(false);
   const [typedBuffer, setTypedBuffer] = useState<string>("");
   const [clipboardFlash, setClipboardFlash] = useState<string | null>(null);
-  const [steps, setSteps] = useState<ReplayStep[]>(APPROVED_WORKFLOW_DNA_STEPS);
+  const [steps, setSteps] = useState<ReplayStep[]>(DEFAULT_CANONICAL_STEPS);
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [isCompleted, setIsCompleted] = useState<boolean>(false);
   const [transitionPhase, setTransitionPhase] = useState<"REPLAYING" | "VALIDATED" | "READY">("REPLAYING");
 
   useEffect(() => {
-    fetchTelemetryEvents().then((data) => {
-      if (Array.isArray(data) && data.length > 0) {
-        const filtered = data
-          .filter((evt: any) => {
-            const sel = (evt.target_selector || "").toLowerCase();
-            const tag = (evt.element_tag || "").toLowerCase();
-            // Filter out generic un-actionable layout noise wrappers
-            return !["span", "div.flex-1", "body", "h2", "div.flex", "p.text"].some(k => sel.includes(k) || tag.includes(k));
-          })
-          .slice(0, 8);
+    // Derive 1-cycle canonical steps from observationSynthesis.approved_workflow
+    const rawApproved: any[] = observationSynthesis?.approved_workflow?.length
+      ? observationSynthesis.approved_workflow
+      : (workflowDNA?.field_mappings || []);
 
-        if (filtered.length > 0) {
-          const constructed: ReplayStep[] = filtered.map((evt: any, idx: number) => {
-            const op = (evt.event_type || 'ACTION').toUpperCase();
-            const sel = evt.target_selector || 'element';
-            const cleanTitle = op === "COPY" ? `Copy Field from ${evt.app_title || 'Source App'}` :
-                             (op === "PASTE" ? `Paste Field into ${evt.app_title || 'Target App'}` : `${op} on ${sel}`);
-            return {
-              stepIndex: idx + 1,
-              title: cleanTitle,
-              actionType: op,
-              target: sel,
-              selector: sel,
-              appContext: evt.app_title || 'Enterprise Portal',
-              sampleValue: evt.input_masked || "Sample Data",
-              done: false,
-            };
+    if (rawApproved.length > 0) {
+      const approvedSeenKeys = new Set<string>();
+      const canonicalSteps: ReplayStep[] = [];
+      let sIdx = 1;
+
+      rawApproved.forEach((m: any) => {
+        const srcApp = m.source_app || "PDF INVOICE SOURCE";
+        const destApp = m.destination_app || "SAP ERP FINANCIALS";
+        const srcLbl = m.source_label || m.source_entity || "Source Field";
+        const destLbl = m.destination_label || m.destination_entity || "Target Field";
+        const tupleKey = `${srcApp}::${srcLbl}::${destApp}::${destLbl}`;
+
+        if (!approvedSeenKeys.has(tupleKey)) {
+          approvedSeenKeys.add(tupleKey);
+
+          // Copy Step
+          canonicalSteps.push({
+            stepIndex: sIdx++,
+            title: `Copy ${srcLbl} from ${srcApp}`,
+            actionType: "COPY",
+            target: srcLbl,
+            selector: `#source-${srcLbl.toLowerCase()}`,
+            appContext: srcApp,
+            sampleValue: m.pasted_value || `${srcLbl}-Sample`,
+            done: false,
           });
-          setSteps(constructed);
-        }
-      }
-    });
 
+          // Paste Step
+          canonicalSteps.push({
+            stepIndex: sIdx++,
+            title: `Paste ${srcLbl} into ${destLbl} (${destApp})`,
+            actionType: "PASTE",
+            target: destLbl,
+            selector: `#target-${destLbl.toLowerCase()}`,
+            appContext: destApp,
+            sampleValue: m.pasted_value || `${srcLbl}-Sample`,
+            done: false,
+          });
+        }
+      });
+
+      if (canonicalSteps.length > 0) {
+        canonicalSteps.push({
+          stepIndex: sIdx++,
+          title: "Submit & Post Entry to Target App",
+          actionType: "SUBMIT",
+          target: "Submit Form",
+          selector: "#submit-btn",
+          appContext: "SAP ERP FINANCIALS",
+          sampleValue: "Post Entry",
+          done: false,
+        });
+        setSteps(canonicalSteps);
+      }
+    }
 
     const wsManager = new WebSocketStreamManager(
       "replay",
@@ -262,25 +294,36 @@ export const GhostReplay: React.FC<GhostReplayProps> = ({ onProceedToDeploy }) =
         <div className="relative h-72 w-full rounded-xl border border-slate-800 bg-slate-950/90 overflow-hidden flex flex-col justify-between p-4">
           <div className="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px] opacity-40" />
 
-          {/* Active Target Component Highlight with Selector Ring */}
-          <div className="grid grid-cols-2 gap-3 relative z-0 opacity-90">
-            <div className={`rounded-lg border p-2.5 transition duration-200 ${
-              activeStepIdx % 2 === 0
-                ? "border-cyan-500/70 bg-cyan-950/30 ring-2 ring-cyan-400/50 shadow-lg shadow-cyan-500/20"
+          {/* Active Step Field Buttons & Directional Arrow */}
+          <div className="grid grid-cols-5 gap-2 items-center relative z-0 opacity-95">
+            <div className={`col-span-2 rounded-lg border p-2.5 transition duration-200 ${
+              steps[activeStepIdx]?.actionType === "COPY"
+                ? "border-cyan-500/80 bg-cyan-950/40 ring-2 ring-cyan-400/50 shadow-lg shadow-cyan-500/20"
                 : "border-slate-800 bg-slate-900/60"
             }`}>
-              <span className="text-[10px] text-slate-500 block font-mono">SOURCE PDF (#source-invoiceId)</span>
-              <span className="text-xs font-bold text-cyan-300 font-mono">INV-2026-9841</span>
+              <span className="text-[9px] text-slate-400 block font-mono uppercase truncate">
+                {steps[activeStepIdx]?.appContext || "PDF INVOICE SOURCE"}
+              </span>
+              <span className="text-xs font-bold text-cyan-300 font-mono block truncate mt-0.5">
+                {steps[activeStepIdx]?.target || "Invoice ID"}
+              </span>
             </div>
 
-            <div className={`rounded-lg border p-2.5 transition duration-200 ${
-              activeStepIdx % 2 === 1
-                ? "border-emerald-500/70 bg-emerald-950/30 ring-2 ring-emerald-400/50 shadow-lg shadow-emerald-500/20"
+            <div className="flex flex-col items-center justify-center col-span-1">
+              <span className="text-xs font-mono font-bold text-cyan-400 animate-pulse">➔</span>
+              <span className="text-[8px] font-mono text-purple-400 uppercase font-bold">COPY/PASTE</span>
+            </div>
+
+            <div className={`col-span-2 rounded-lg border p-2.5 transition duration-200 ${
+              steps[activeStepIdx]?.actionType === "PASTE"
+                ? "border-emerald-500/80 bg-emerald-950/40 ring-2 ring-emerald-400/50 shadow-lg shadow-emerald-500/20"
                 : "border-slate-800 bg-slate-900/60"
             }`}>
-              <span className="text-[10px] text-slate-500 block font-mono">TARGET SAP ERP (#target-erp-invoiceId)</span>
-              <span className="text-xs font-bold text-emerald-300 font-mono">
-                {typedBuffer ? typedBuffer : "$14,250.00"}
+              <span className="text-[9px] text-slate-400 block font-mono uppercase truncate">
+                TARGET: {steps[activeStepIdx]?.target || "SAP ERP"}
+              </span>
+              <span className="text-xs font-bold text-emerald-300 font-mono block truncate mt-0.5">
+                {typedBuffer ? typedBuffer : (steps[activeStepIdx]?.sampleValue || "INV-2026-9841")}
               </span>
             </div>
           </div>

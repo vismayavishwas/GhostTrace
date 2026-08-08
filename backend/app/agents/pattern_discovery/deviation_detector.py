@@ -170,9 +170,10 @@ class DeviationDetector:
             sel = str(d.get("selector", "")).lower().strip()
             obs = str(d.get("observed_destination", "")).lower().strip()
             dev_id = str(d.get("id", "")).lower().strip()
-            
+            tid = str(d.get("transfer_id", "")).lower().strip()
+
             is_res = any(
-                r in sel or r in obs or r in dev_id or sel in r or obs in r
+                r == dev_id or r == tid or (r and r == sel and len(r) > 5)
                 for r in self.resolved_selectors if r
             )
             if not is_res:

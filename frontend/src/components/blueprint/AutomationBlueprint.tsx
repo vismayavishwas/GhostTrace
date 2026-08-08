@@ -22,11 +22,37 @@ const BLUEPRINT_STEPS: BlueprintStep[] = [
 
 export interface AutomationBlueprintProps {
   onProceedToDeploy: () => void;
+  workflowDNA?: any;
+  observationSynthesis?: any;
 }
 
-export const AutomationBlueprint: React.FC<AutomationBlueprintProps> = ({ onProceedToDeploy }) => {
+export const AutomationBlueprint: React.FC<AutomationBlueprintProps> = ({
+  onProceedToDeploy,
+  workflowDNA,
+  observationSynthesis,
+}) => {
   const [activeStepIdx, setActiveStepIdx] = useState<number>(-1);
   const [dynamicSteps, setDynamicSteps] = useState<BlueprintStep[]>(BLUEPRINT_STEPS);
+
+  // Extract canonical approved 1-cycle mappings
+  const rawApproved: any[] = observationSynthesis?.approved_workflow?.length
+    ? observationSynthesis.approved_workflow
+    : (workflowDNA?.field_mappings || []);
+
+  const approvedSeenKeys = new Set<string>();
+  const canonicalMappings: any[] = [];
+
+  rawApproved.forEach((m: any) => {
+    const srcApp = m.source_app || "PDF INVOICE SOURCE";
+    const destApp = m.destination_app || "SAP ERP FINANCIALS";
+    const srcLbl = m.source_label || m.source_entity || "Source Field";
+    const destLbl = m.destination_label || m.destination_entity || "Target Field";
+    const tupleKey = `${srcApp}::${srcLbl}::${destApp}::${destLbl}`;
+    if (!approvedSeenKeys.has(tupleKey)) {
+      approvedSeenKeys.add(tupleKey);
+      canonicalMappings.push({ srcApp, destApp, srcLbl, destLbl });
+    }
+  });
 
   useEffect(() => {
     import("@/lib/api").then(({ fetchGraphState }) => {
@@ -84,6 +110,39 @@ export const AutomationBlueprint: React.FC<AutomationBlueprintProps> = ({ onProc
           <ArrowRight className="h-4 w-4" />
         </button>
       </div>
+
+      {/* Canonical Approved Mappings derived from Approved Workflow DNA */}
+      {canonicalMappings.length > 0 && (
+        <div className="flex flex-col gap-3 rounded-xl border border-purple-500/30 bg-purple-950/20 p-4">
+          <div className="flex items-center justify-between border-b border-purple-500/20 pb-2">
+            <span className="text-xs font-mono font-bold text-purple-300 uppercase tracking-wider">
+              Approved Canonical Automation Actions (1-Cycle Blueprint Sequence)
+            </span>
+            <span className="text-[10px] font-mono text-purple-400">
+              {canonicalMappings.length} Approved Action(s) • Outliers Excluded
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {canonicalMappings.map((m, idx) => (
+              <div key={idx} className="flex flex-col gap-1 rounded-lg border border-slate-800 bg-slate-950/80 p-3 text-xs">
+                <div className="flex items-center justify-between text-[10px] font-mono text-slate-500">
+                  <span>ACTION #{idx + 1}</span>
+                  <span className="text-emerald-400 font-bold">COPY ➔ PASTE</span>
+                </div>
+                <div className="flex items-center justify-between font-bold text-slate-200 mt-1">
+                  <span className="text-cyan-300">{m.srcLbl}</span>
+                  <span className="text-slate-500">➔</span>
+                  <span className="text-emerald-300">{m.destLbl}</span>
+                </div>
+                <div className="text-[9px] font-mono text-slate-400 mt-1">
+                  {m.srcApp} ➔ {m.destApp}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Blueprint Steps Flow (Glowing sync during Ghost Replay) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

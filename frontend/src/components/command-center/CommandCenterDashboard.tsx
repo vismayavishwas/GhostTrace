@@ -58,6 +58,7 @@ export const CommandCenterDashboard: React.FC = () => {
   const [chronologicalTransfers, setChronologicalTransfers] = useState<any[]>([]);
   const [observationSessionId, setObservationSessionId] = useState<string>("");
   const [lockedSnapshot, setLockedSnapshot] = useState<ObservationSnapshot | null>(null);
+  const [isDeploymentMode, setIsDeploymentMode] = useState<boolean>(false);
 
   useEffect(() => {
     // Poll graph state from backend
@@ -146,9 +147,9 @@ export const CommandCenterDashboard: React.FC = () => {
 
   const handlePipelineComplete = () => {
     setUnlockedStages(["OBSERVE", "ANALYZE", "DNA", "BLUEPRINT", "REPLAY", "DEPLOY", "OPERATIONS"]);
-    setCurrentStage("OPERATIONS");
+    setIsDeploymentMode(true);
+    setCurrentStage("OBSERVE");
   };
-
 
   const handleResetShadowMode = () => {
     resetTelemetryState();
@@ -160,6 +161,7 @@ export const CommandCenterDashboard: React.FC = () => {
     setOutliers([]);
     setWorkflowDNA(null);
     setCandidateDismissed(false);
+    setIsDeploymentMode(false);
     setUnlockedStages(["OBSERVE"]);
     setCurrentStage("OBSERVE");
 
@@ -167,7 +169,6 @@ export const CommandCenterDashboard: React.FC = () => {
       window.dispatchEvent(new CustomEvent("ghosttrace:reset-sandbox"));
     }
   };
-
 
   const handleObserveFurther = () => {
     setCurrentStage("OBSERVE");
@@ -186,7 +187,9 @@ export const CommandCenterDashboard: React.FC = () => {
       />
 
       {/* Live Interactive Sandboxed Enterprise Demo Web App */}
-      {(currentStage === "OBSERVE" || currentStage === "OPERATIONS") && <InteractiveSandboxApp />}
+      {(currentStage === "OBSERVE" || currentStage === "OPERATIONS") && (
+        <InteractiveSandboxApp isDeploymentMode={isDeploymentMode} />
+      )}
 
 
       {/* Main 3-Column Enterprise Operating System Layout */}

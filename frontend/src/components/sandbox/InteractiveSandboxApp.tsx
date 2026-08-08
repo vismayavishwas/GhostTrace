@@ -51,7 +51,11 @@ const SALES_SAMPLES: SandboxSample[] = [
   { field1Key: "customer", field1Label: "Customer Name", field1Value: "Zenith Software", field2Key: "email", field2Label: "Email Address", field2Value: "biz@zenithsoft.com", field3Key: "dealSize", field3Label: "Deal Size", field3Value: "$175,000 ARR" },
 ];
 
-export const InteractiveSandboxApp: React.FC = () => {
+export interface InteractiveSandboxAppProps {
+  isDeploymentMode?: boolean;
+}
+
+export const InteractiveSandboxApp: React.FC<InteractiveSandboxAppProps> = ({ isDeploymentMode = false }) => {
   const [mounted, setMounted] = useState<boolean>(false);
   const [domain, setDomain] = useState<SandboxDomain>("FINANCE");
   const [sampleIndex, setSampleIndex] = useState<number>(0);
@@ -59,6 +63,7 @@ export const InteractiveSandboxApp: React.FC = () => {
   const [formData, setFormData] = useState({ f1: "", f2: "", f3: "" });
   const [statusMsg, setStatusMsg] = useState<string>("");
   const [isAutoFilling, setIsAutoFilling] = useState<boolean>(false);
+  const [remainingCount, setRemainingCount] = useState<number>(8);
 
   useEffect(() => {
     setMounted(true);
@@ -246,16 +251,58 @@ export const InteractiveSandboxApp: React.FC = () => {
       setFormData((prev) => ({ ...prev, f3: item.field3Value }));
       await dispatchTelemetry("PASTE", `#target-${item.field3Key}`, item.field3Value);
       await new Promise((r) => setTimeout(r, 600));
+
+      setRemainingCount(samples.length - 1 - idx);
     }
 
     setIsAutoFilling(false);
-    setStatusMsg(`✅ Ghost completed auto-filling all 8 ${domain} records!`);
+    setStatusMsg(`✅ Ghost completed auto-filling all 8 ${domain} records! Remaining: 0`);
   };
 
   if (!mounted) return null;
 
   return (
     <div id="sandbox-app" suppressHydrationWarning className="flex flex-col gap-4 rounded-2xl border border-cyan-500/30 bg-slate-900/90 p-5 shadow-2xl backdrop-blur-xl">
+      {/* Deployment Mode Banner */}
+      {isDeploymentMode && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/80 via-slate-900 to-purple-950/80 p-4 shadow-xl">
+          <div className="flex items-center gap-3">
+            <Bot className="h-6 w-6 text-emerald-400 shrink-0 animate-pulse" />
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-extrabold text-emerald-200">🚀 Digital Employee Deployment Engine Active</h4>
+                <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-[10px] font-mono text-emerald-300 font-bold border border-emerald-500/30">
+                  Autonomous Replay Mode
+                </span>
+              </div>
+              <p className="text-xs text-emerald-400/80">Executing canonical 1-cycle Workflow DNA sequence across remaining records.</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4 text-xs font-mono">
+            <div className="flex flex-col items-end">
+              <span className="text-[10px] text-slate-400 uppercase">Total Records</span>
+              <span className="font-bold text-slate-200">8</span>
+            </div>
+            <div className="h-6 w-[1px] bg-slate-800" />
+            <div className="flex flex-col items-end">
+              <span className="text-[10px] text-slate-400 uppercase">Remaining</span>
+              <span className={`font-bold ${remainingCount === 0 ? "text-emerald-400" : "text-amber-400"}`}>{remainingCount}</span>
+            </div>
+
+            <button
+              suppressHydrationWarning
+              onClick={handleAutoFillRemaining}
+              disabled={isAutoFilling || remainingCount === 0}
+              className="flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-black text-slate-950 shadow-lg shadow-emerald-500/20 hover:bg-emerald-400 transition disabled:opacity-50"
+            >
+              <Bot className={`h-4 w-4 ${isAutoFilling ? "animate-spin" : ""}`} />
+              <span>{isAutoFilling ? "Executing Replay..." : remainingCount === 0 ? "✓ Completed 8 Records" : `Auto-Process Remaining (${remainingCount})`}</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Top Header & Domain Switcher */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
         <div className="flex items-center gap-2">

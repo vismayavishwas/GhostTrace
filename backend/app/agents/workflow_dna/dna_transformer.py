@@ -20,14 +20,19 @@ class DNATransformer:
         apps_involved: Set[str] = set()
         inputs_schema: Dict[str, Any] = {}
 
-        from app.agents.telemetry.transfer_builder import global_transfer_builder
+        from app.agents.telemetry.transfer_builder import TransferBuilder
         from app.agents.telemetry.semantic_normalizer import SemanticNormalizer
+        from app.agents.pattern_discovery.deviation_detector import global_deviation_detector
 
-        transfers = global_transfer_builder.process_telemetry_events(events) if events else []
+        tb = TransferBuilder()
+        transfers = tb.process_telemetry_events(events) if events else []
+        devs = global_deviation_detector.detect_deviations(transfers) if transfers else []
+        dev_tids = {d.get("transfer_id") for d in devs if d.get("transfer_id")}
+
         field_mappings: List[Dict[str, Any]] = []
 
         for xfer in transfers:
-            if xfer.is_immediate_correction:
+            if xfer.is_immediate_correction or xfer.transfer_id in dev_tids:
                 continue
 
             src_app = xfer.source_app or "Unknown Application"
