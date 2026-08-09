@@ -11,6 +11,8 @@
   ],
   "host_permissions": [
     "<all_urls>",
+    "https://ghosttrace-bcp2.onrender.com/*",
+    "https://*.onrender.com/*",
     "http://127.0.0.1:8000/*",
     "http://localhost:8000/*"
   ],

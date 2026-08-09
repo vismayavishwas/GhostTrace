@@ -3,15 +3,28 @@
 <head>
   <meta charset="utf-8">
   <style>
-    body { width: 260px; font-family: system-ui, sans-serif; background: #0f172a; color: #f8fafc; padding: 16px; margin: 0; }
-    .header { font-size: 14px; font-weight: 800; color: #06b6d4; display: flex; items-center; gap: 8px; }
+    body { width: 280px; font-family: system-ui, sans-serif; background: #0f172a; color: #f8fafc; padding: 16px; margin: 0; }
+    .header { font-size: 14px; font-weight: 800; color: #06b6d4; display: flex; align-items: center; gap: 8px; }
     .status { font-size: 11px; margin-top: 4px; color: #94a3b8; }
-    .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; background: rgba(16,185,129,0.1); color: #10b981; font-weight: bold; font-size: 10px; border: 1px solid rgba(16,185,129,0.2); margin-top: 12px; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; background: rgba(16,185,129,0.1); color: #10b981; font-weight: bold; font-size: 10px; border: 1px solid rgba(16,185,129,0.2); margin-top: 10px; }
+    .server-select { margin-top: 12px; font-size: 11px; }
+    label { font-weight: 600; color: #cbd5e1; display: block; margin-bottom: 4px; }
+    select { width: 100%; background: #1e293b; color: #06b6d4; border: 1px solid #334155; padding: 6px 8px; border-radius: 6px; font-size: 11px; outline: none; }
   </style>
 </head>
 <body>
   <div class="header">👻 GhostTrace AI Observer</div>
-  <div class="status">Manifest v3 Shadow Mode Telemetry Sidecar</div>
+  <div class="status">Manifest v3 Telemetry Sidecar</div>
   <div class="badge">● Active Observer Stream</div>
+
+  <div class="server-select">
+    <label for="targetEndpoint">Target Backend Service:</label>
+    <select id="targetEndpoint">
+      <option value="https://ghosttrace-bcp2.onrender.com/api/v1/telemetry/events">Render Production (Live)</option>
+      <option value="http://127.0.0.1:8000/api/v1/telemetry/events">Local Development (127.0.0.1:8000)</option>
+    </select>
+  </div>
+
+  <script src="popup.js"></script>
 </body>
 </html>
