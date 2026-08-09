@@ -67,103 +67,139 @@ class DeviationDetector:
         self.baseline_sequence = one_cycle
 
     def detect_deviations(self, transfers: List[SemanticTransfer]) -> List[Dict[str, Any]]:
-        """Detects deviations by comparing expected stable mappings & baseline sequences against observed transfers."""
+        """Detects deviations by comparing expected stable mappings & baseline sequences against observed transfers per cycle."""
         deviations: List[Dict[str, Any]] = []
         valid_transfers = [x for x in transfers if not x.is_immediate_correction]
 
         if not valid_transfers:
             return deviations
 
-        # Auto-establish baseline sequence only when a complete cycle is evident
-        # (i.e., a source entity repeats, confirming the first cycle is finished)
-        if not self.baseline_sequence:
-            seen_srcs = set()
-            has_repeat = False
-            for x in valid_transfers:
-                if x.is_immediate_correction:
-                    continue
-                sk = x.source_entity.lower()
-                if sk in seen_srcs:
-                    has_repeat = True
-                    break
-                seen_srcs.add(sk)
-            if has_repeat:
-                self.set_sequence_template(valid_transfers)
+        # Group transfers by cycle_id, splitting on source entity repeat if cycle_id is generic
+        from collections import defaultdict
+        cycles_map: Dict[str, List[SemanticTransfer]] = defaultdict(list)
+        current_cyc_idx = 1
+        seen_src_in_cyc = set()
 
-        # 1. Detect Wrong Destination Fields (Mapping Memory or Positional Baseline)
-        for idx, xfer in enumerate(valid_transfers):
-            src = xfer.source_entity
-            expected_dest = global_mapping_memory.get_expected_destination(src)
-            
-            positional_dest = None
-            if self.baseline_sequence:
-                cycle_pos = idx % len(self.baseline_sequence)
-                positional_dest = self.baseline_sequence[cycle_pos][1]
+        for xfer in valid_transfers:
+            raw_cyc = getattr(xfer, "cycle_id", None)
+            sk = xfer.source_entity.lower()
 
-            target_expected = expected_dest or positional_dest
-            observed_dest = xfer.destination_entity.lower()
+            if sk in seen_src_in_cyc:
+                current_cyc_idx += 1
+                seen_src_in_cyc.clear()
 
-            src_clean = format_clean_entity_label("", src)
-            exp_clean = format_clean_entity_label("", target_expected or "")
-            obs_clean = format_clean_entity_label("", observed_dest)
+            seen_src_in_cyc.add(sk)
 
-            if target_expected and target_expected.lower() != observed_dest:
-                logger.info(
-                    f"🚨 [DEVIATION DETECTED] Wrong Destination Field | Step={idx+1} | Source='{src}' | "
-                    f"Expected='{target_expected}' != Observed='{observed_dest}'"
-                )
-                deviations.append({
-                    "id": f"dev-wrong-dest-{len(deviations)+1}",
-                    "source_entity": src,
-                    "expected_destination": target_expected,
-                    "observed_destination": observed_dest,
-                    "label": f"Field ({src_clean}) pasted into Field ({obs_clean})",
-                    "reason": f"Expected destination '{exp_clean}' but observed '{obs_clean}'",
-                    "selector": obs_clean,
-                    "transfer_id": xfer.transfer_id,
-                    "group": "Wrong Field Target"
-                })
+            if raw_cyc and raw_cyc != "cycle-1":
+                cyc = raw_cyc
+            else:
+                cyc = f"cycle-{current_cyc_idx}"
 
-        # 2. Detect Reordered Steps against baseline sequence
-        if self.baseline_sequence and len(valid_transfers) >= 2:
-            observed_srcs = [x.source_entity for x in valid_transfers]
-            expected_src_order = [s for s, _ in self.baseline_sequence if s in observed_srcs]
-            if observed_srcs != expected_src_order and len(observed_srcs) == len(expected_src_order):
-                for idx, (obs_s, exp_s) in enumerate(zip(observed_srcs, expected_src_order)):
-                    if obs_s != exp_s:
-                        obs_clean = format_clean_entity_label("", obs_s)
-                        exp_clean = format_clean_entity_label("", exp_s)
-                        deviations.append({
-                            "id": f"dev-reordered-{len(deviations)+1}",
-                            "source_entity": obs_s,
-                            "expected_destination": "reordered",
-                            "observed_destination": obs_s,
-                            "label": f"Reordered Step: Field ({obs_clean}) pasted out of baseline sequence",
-                            "reason": f"Expected Field ({exp_clean}) before Field ({obs_clean})",
-                            "selector": obs_clean,
-                            "transfer_id": valid_transfers[idx].transfer_id,
-                            "group": "Sequence Reordering"
-                        })
+            cycles_map[cyc].append(xfer)
+
+        # Establish baseline sequence from first complete cycle only when cycle 1 is complete
+        # (confirmed by source entity repetition or multiple cycles)
+        if not self.baseline_sequence and cycles_map:
+            has_repeat = len(cycles_map.keys()) >= 2
+            if not has_repeat:
+                seen_srcs = set()
+                for x in valid_transfers:
+                    sk = x.source_entity.lower()
+                    if sk in seen_srcs:
+                        has_repeat = True
                         break
+                    seen_srcs.add(sk)
 
-        # 3. Detect Missing Steps against baseline sequence
-        if self.baseline_sequence and len(valid_transfers) < len(self.baseline_sequence):
-            observed_src_set = {x.source_entity for x in valid_transfers}
-            for exp_src, exp_dest in self.baseline_sequence:
-                if exp_src not in observed_src_set:
-                    src_clean = format_clean_entity_label("", exp_src)
-                    dest_clean = format_clean_entity_label("", exp_dest)
+            if has_repeat:
+                first_cyc_id = list(cycles_map.keys())[0]
+                self.set_sequence_template(cycles_map[first_cyc_id])
+
+        if not self.baseline_sequence:
+            return deviations
+
+        baseline_len = len(self.baseline_sequence)
+
+        # Evaluate each cycle against baseline sequence template
+        for cyc_id, cyc_transfers in cycles_map.items():
+            # 1. Check for Wrong Destination or Unexpected Source per step position in cycle
+            for pos, xfer in enumerate(cyc_transfers):
+                src = xfer.source_entity
+                obs_dest = xfer.destination_entity.lower()
+                expected_dest = global_mapping_memory.get_expected_destination(src)
+
+                positional_dest = None
+                positional_src = None
+                if pos < baseline_len:
+                    positional_src = self.baseline_sequence[pos][0]
+                    positional_dest = self.baseline_sequence[pos][1]
+
+                target_expected = expected_dest or positional_dest
+
+                src_clean = format_clean_entity_label("", src)
+                exp_clean = format_clean_entity_label("", target_expected or "")
+                obs_clean = format_clean_entity_label("", obs_dest)
+
+                # Wrong Destination check
+                if target_expected and target_expected.lower() != obs_dest:
+                    logger.info(
+                        f"🚨 [DEVIATION DETECTED] Wrong Destination Field | Cycle={cyc_id} Step={pos+1} | Source='{src}' | "
+                        f"Expected='{target_expected}' != Observed='{obs_dest}'"
+                    )
                     deviations.append({
-                        "id": f"dev-missing-{len(deviations)+1}",
-                        "source_entity": exp_src,
-                        "expected_destination": exp_dest,
-                        "observed_destination": "missing",
-                        "label": f"Missing Step: Skipped Field ({src_clean}) → Field ({dest_clean})",
-                        "reason": f"Workflow baseline expected step '{src_clean} → {dest_clean}'",
-                        "selector": dest_clean,
-                        "transfer_id": "missing-step",
-                        "group": "Omitted Action"
+                        "id": f"dev-wrong-dest-{cyc_id}-{pos+1}",
+                        "cycle_id": cyc_id,
+                        "source_entity": src,
+                        "expected_destination": target_expected,
+                        "observed_destination": obs_dest,
+                        "label": f"Field ({src_clean}) pasted into Field ({obs_clean}) in {cyc_id}",
+                        "reason": f"Expected destination '{exp_clean}' but observed '{obs_clean}'",
+                        "selector": obs_clean,
+                        "transfer_id": xfer.transfer_id,
+                        "group": "Wrong Field Target"
                     })
+                # Positional Source Mismatch check (e.g. Field C pasted where Field B expected)
+                elif positional_src and positional_src.lower() != src.lower():
+                    exp_src_clean = format_clean_entity_label("", positional_src)
+                    logger.info(
+                        f"🚨 [DEVIATION DETECTED] Positional Step Mismatch | Cycle={cyc_id} Step={pos+1} | "
+                        f"Expected Source='{positional_src}' != Observed='{src}'"
+                    )
+                    deviations.append({
+                        "id": f"dev-mismatched-step-{cyc_id}-{pos+1}",
+                        "cycle_id": cyc_id,
+                        "source_entity": src,
+                        "expected_destination": positional_dest or "",
+                        "observed_destination": obs_dest,
+                        "label": f"Unexpected Step Order in {cyc_id}: Field ({src_clean}) where Field ({exp_src_clean}) expected",
+                        "reason": f"Expected step {pos+1} to be '{exp_src_clean}', observed '{src_clean}'",
+                        "selector": obs_clean,
+                        "transfer_id": xfer.transfer_id,
+                        "group": "Sequence Mismatch"
+                    })
+
+            # 2. Check for Missing Steps in shorter cycle relative to baseline ONLY if no deviation was already flagged for this cycle
+            has_cycle_deviation = any(d.get("cycle_id") == cyc_id for d in deviations)
+            if len(cyc_transfers) < baseline_len and not has_cycle_deviation:
+                cyc_src_set = {x.source_entity.lower() for x in cyc_transfers}
+                for exp_src, exp_dest in self.baseline_sequence:
+                    if exp_src.lower() not in cyc_src_set:
+                        src_clean = format_clean_entity_label("", exp_src)
+                        dest_clean = format_clean_entity_label("", exp_dest)
+                        logger.info(
+                            f"🚨 [DEVIATION DETECTED] Missing Step in {cyc_id} | Expected='{exp_src} -> {exp_dest}'"
+                        )
+                        deviations.append({
+                            "id": f"dev-missing-{cyc_id}-{len(deviations)+1}",
+                            "cycle_id": cyc_id,
+                            "source_entity": exp_src,
+                            "expected_destination": exp_dest,
+                            "observed_destination": "missing",
+                            "label": f"Missing Step in {cyc_id}: Skipped Field ({src_clean}) → Field ({dest_clean})",
+                            "reason": f"Workflow baseline expected step '{src_clean} → {dest_clean}'",
+                            "selector": dest_clean,
+                            "transfer_id": f"xfer-missing-{cyc_id}",
+                            "group": "Omitted Action"
+                        })
 
         active_deviations = []
         for d in deviations:

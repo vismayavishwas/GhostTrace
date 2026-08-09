@@ -211,9 +211,11 @@ async def get_current_state():
     obs_session_id = f"obs-session-{hashlib.md5(f'{len(events)}-{repetition_count}'.encode()).hexdigest()[:8]}"
 
     outlier_tids = {item.get("transfer_id") for item in outlier_items if item.get("transfer_id")}
+    outlier_cycle_ids = sorted(list({item.get("cycle_id") for item in outlier_items if item.get("cycle_id")}))
+
     approved_workflow = [
         m for m in field_mappings
-        if m.get("transfer_id") not in outlier_tids
+        if m.get("transfer_id") not in outlier_tids and m.get("cycle_id") not in outlier_cycle_ids
     ]
 
     excluded_outliers = [
@@ -221,13 +223,20 @@ async def get_current_state():
         for item in outlier_items
     ]
 
+    total_cycle_count = max(repetition_count, len(set(m.get("cycle_id", "cycle-1") for m in field_mappings)))
+    outlier_count = len(outlier_cycle_ids) if outlier_cycle_ids else len(excluded_outliers)
+    canonical_cycle_count = max(0, total_cycle_count - outlier_count)
+
     observation_synthesis = {
         "observation_session_id": obs_session_id,
         "historical_transfers": chronological_transfers,
         "approved_workflow": approved_workflow,
         "excluded_outliers": excluded_outliers,
-        "outlier_count": len(excluded_outliers),
-        "completed_cycles": repetition_count,
+        "canonical_cycle_count": canonical_cycle_count,
+        "total_cycle_count": total_cycle_count,
+        "outlier_count": outlier_count,
+        "outlier_cycle_ids": outlier_cycle_ids,
+        "completed_cycles": canonical_cycle_count,
         "confidence_score": round(confidence, 2)
     }
 

@@ -29,12 +29,13 @@ class DNATransformer:
         transfers = tb.process_telemetry_events(events) if events else []
         devs = global_deviation_detector.detect_deviations(transfers) if transfers else []
         dev_tids = {d.get("transfer_id") for d in devs if d.get("transfer_id")}
-        logger.info(f"[DNA_TRANSFORMER] transform_candidate raw_seq={len(raw_seq)} events={len(events)} transfers={len(transfers)} devs={len(devs)}")
+        dev_cycle_ids = {d.get("cycle_id") for d in devs if d.get("cycle_id")}
+        logger.info(f"[DNA_TRANSFORMER] transform_candidate raw_seq={len(raw_seq)} events={len(events)} transfers={len(transfers)} devs={len(devs)} dev_cycles={dev_cycle_ids}")
 
         field_mappings: List[Dict[str, Any]] = []
 
         for idx, xfer in enumerate(transfers, start=1):
-            if xfer.is_immediate_correction or xfer.transfer_id in dev_tids:
+            if xfer.is_immediate_correction or xfer.transfer_id in dev_tids or xfer.cycle_id in dev_cycle_ids:
                 continue
 
             src_app = xfer.source_app or "Source App"
