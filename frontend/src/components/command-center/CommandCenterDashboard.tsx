@@ -145,11 +145,11 @@ export const CommandCenterDashboard: React.FC = () => {
     setCurrentStage("DEPLOY");
   };
 
-  const handlePipelineComplete = () => {
+  const handlePipelineComplete = React.useCallback(() => {
     setUnlockedStages(["OBSERVE", "ANALYZE", "DNA", "BLUEPRINT", "REPLAY", "DEPLOY", "OPERATIONS"]);
     setIsDeploymentMode(true);
     setCurrentStage("OBSERVE");
-  };
+  }, []);
 
   const handleResetShadowMode = () => {
     resetTelemetryState();

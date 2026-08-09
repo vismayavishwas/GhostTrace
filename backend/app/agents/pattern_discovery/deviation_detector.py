@@ -69,12 +69,16 @@ class DeviationDetector:
     def detect_deviations(self, transfers: List[SemanticTransfer]) -> List[Dict[str, Any]]:
         """Detects deviations by comparing expected stable mappings & baseline sequences against observed transfers per cycle."""
         deviations: List[Dict[str, Any]] = []
-        valid_transfers = [x for x in transfers if not x.is_immediate_correction]
+        # Filter valid transfers (exclude immediate corrections and automated agent executions)
+        valid_transfers = [
+            x for x in transfers
+            if not x.is_immediate_correction and not getattr(x, "is_automated", False)
+        ]
 
         if not valid_transfers:
             return deviations
 
-        # Group transfers by cycle_id, splitting on source entity repeat if cycle_id is generic
+        # Group transfers into cycles, partitioning on source entity repetition if cycle_id is generic
         from collections import defaultdict
         cycles_map: Dict[str, List[SemanticTransfer]] = defaultdict(list)
         current_cyc_idx = 1

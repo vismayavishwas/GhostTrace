@@ -21,20 +21,25 @@ export const AutomationPipeline: React.FC<AutomationPipelineProps> = ({ onComple
     { id: "deploy", name: "Agent Deployment", detail: "Registering Digital Employee...", icon: Rocket },
   ];
 
+  const onCompleteRef = React.useRef(onCompletePipeline);
   useEffect(() => {
-    // Auto-advance pipeline simulation for demo presentation
+    onCompleteRef.current = onCompletePipeline;
+  }, [onCompletePipeline]);
+
+  useEffect(() => {
+    // Fast, deterministic 3-second pipeline execution for demo presentation
     const timer = setInterval(() => {
       setStageIndex((prev) => {
         if (prev >= 3) {
           setIsDeployingFinished(true);
-          if (onCompletePipeline) {
-            setTimeout(() => onCompletePipeline(), 1000);
+          if (onCompleteRef.current) {
+            setTimeout(() => onCompleteRef.current?.(), 800);
           }
           return 3;
         }
         return prev + 1;
       });
-    }, 1000);
+    }, 800);
 
     const wsManager = new WebSocketStreamManager(
       "pipeline",
@@ -49,7 +54,7 @@ export const AutomationPipeline: React.FC<AutomationPipelineProps> = ({ onComple
           }
           if (payload.completed) {
             setIsDeployingFinished(true);
-            if (onCompletePipeline) onCompletePipeline();
+            if (onCompleteRef.current) onCompleteRef.current();
           }
         }
       },
@@ -60,7 +65,7 @@ export const AutomationPipeline: React.FC<AutomationPipelineProps> = ({ onComple
       clearInterval(timer);
       wsManager.close();
     };
-  }, [onCompletePipeline]);
+  }, []);
 
   const handleLaunchAutonomous = () => {
     if (onCompletePipeline) onCompletePipeline();
