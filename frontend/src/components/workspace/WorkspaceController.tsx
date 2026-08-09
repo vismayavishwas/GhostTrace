@@ -155,7 +155,7 @@ export const WorkspaceController: React.FC<WorkspaceControllerProps> = ({
           <HumanApprovalModal
             onApprove={() => {
               setShowApprovalModal(false);
-              onProceedFromBlueprint();
+              onSelectStage("DEPLOY");
             }}
             onReject={() => setShowApprovalModal(false)}
           />

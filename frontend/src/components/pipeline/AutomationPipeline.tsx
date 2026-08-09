@@ -27,11 +27,14 @@ export const AutomationPipeline: React.FC<AutomationPipelineProps> = ({ onComple
       setStageIndex((prev) => {
         if (prev >= 3) {
           setIsDeployingFinished(true);
+          if (onCompletePipeline) {
+            setTimeout(() => onCompletePipeline(), 1000);
+          }
           return 3;
         }
         return prev + 1;
       });
-    }, 1200);
+    }, 1000);
 
     const wsManager = new WebSocketStreamManager(
       "pipeline",
