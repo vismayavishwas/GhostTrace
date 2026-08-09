@@ -48,7 +48,8 @@ export const GhostReplay: React.FC<GhostReplayProps> = ({
       ? observationSynthesis.approved_workflow
       : (workflowDNA?.field_mappings || []);
 
-    fetch("http://127.0.0.1:8000/api/v1/replay/frames")
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://ghosttrace-bcp2.onrender.com/api/v1";
+    fetch(`${apiUrl}/replay/frames`)
       .then((res) => res.json())
       .then((data) => {
         if (data && data.frames && data.frames.length > 0) {

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Building2, Copy, Check, ArrowRight, Play, Sparkles, Bot, RotateCcw, UserCheck, Briefcase, DollarSign, FileText } from "lucide-react";
-import { postTelemetryEvent } from "@/lib/api";
+import { postTelemetryEvent, fetchGraphState } from "@/lib/api";
 
 export type SandboxDomain = "FINANCE" | "HR" | "SALES";
 
@@ -251,8 +251,7 @@ export const InteractiveSandboxApp: React.FC<InteractiveSandboxAppProps> = ({ is
     // Read current state to retrieve learned parameterized mappings
     let mappings: any[] = [];
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/v1/state");
-      const state = await res.json();
+      const state = await fetchGraphState();
       mappings = state?.observation_synthesis?.approved_workflow || state?.field_mappings || [];
     } catch {}
 
