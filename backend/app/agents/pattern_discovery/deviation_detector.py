@@ -66,7 +66,7 @@ class DeviationDetector:
             one_cycle.append((x.source_entity, x.destination_entity))
         self.baseline_sequence = one_cycle
 
-    def detect_deviations(self, transfers: List[SemanticTransfer]) -> List[Dict[str, Any]]:
+    def detect_deviations(self, transfers: List[SemanticTransfer], return_all: bool = False) -> List[Dict[str, Any]]:
         """Detects deviations by comparing expected stable mappings & baseline sequences against observed transfers per cycle."""
         deviations: List[Dict[str, Any]] = []
         # Filter valid transfers (exclude immediate corrections and automated agent executions)
@@ -198,6 +198,7 @@ class DeviationDetector:
                             "group": "Omitted Action"
                         })
 
+        self.last_all_deviations = deviations
         active_deviations = []
         for d in deviations:
             sel = str(d.get("selector", "")).lower().strip()
@@ -213,6 +214,8 @@ class DeviationDetector:
                 active_deviations.append(d)
 
         logger.info(f"[STAGE 4: DEVIATION_DETECTOR] Evaluated {len(valid_transfers)} transfers -> Flagged {len(active_deviations)} active mistakes ({len(deviations) - len(active_deviations)} resolved).")
+        if return_all:
+            return deviations
         return active_deviations
 
 

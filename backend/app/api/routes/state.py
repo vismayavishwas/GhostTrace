@@ -130,21 +130,12 @@ async def get_current_state():
         field_mappings.append(xfer_dict)
         chronological_transfers.append(xfer_dict)
 
-    # Detect mistake deviations on ANY cycle when transfers exist
+    all_detected_devs = []
     outlier_items = []
     if transfers:
         valid_xfers = [x for x in transfers if not x.is_immediate_correction]
-        # Diagnostic: print actual entity keys to console
-        if len(valid_xfers) >= 4:
-            print(f"[DIAG] {len(valid_xfers)} valid transfers. Baseline={len(global_deviation_detector.baseline_sequence)}")
-            for i, x in enumerate(valid_xfers):
-                print(f"  [{i}] src='{x.source_entity}' dst='{x.destination_entity}'")
-        detected_devs = global_deviation_detector.detect_deviations(transfers)
-        if len(valid_xfers) >= 4:
-            print(f"[DIAG] Deviations detected: {len(detected_devs)}")
-            print(f"[DIAG] Baseline after detect: {global_deviation_detector.baseline_sequence}")
-            for d in detected_devs:
-                print(f"  DEV: {d.get('source_entity')} expected={d.get('expected_destination')} observed={d.get('observed_destination')}")
+        all_detected_devs = global_deviation_detector.detect_deviations(transfers, return_all=True)
+        detected_devs = global_deviation_detector.detect_deviations(transfers, return_all=False)
         outlier_items = detected_devs
 
 
@@ -210,8 +201,8 @@ async def get_current_state():
 
     obs_session_id = f"obs-session-{hashlib.md5(f'{len(events)}-{repetition_count}'.encode()).hexdigest()[:8]}"
 
-    outlier_tids = {item.get("transfer_id") for item in outlier_items if item.get("transfer_id")}
-    outlier_cycle_ids = sorted(list({item.get("cycle_id") for item in outlier_items if item.get("cycle_id")}))
+    all_outlier_tids = {item.get("transfer_id") for item in all_detected_devs if item.get("transfer_id")}
+    all_outlier_cycle_ids = sorted(list({item.get("cycle_id") for item in all_detected_devs if item.get("cycle_id")}))
 
     # Authoritative canonical approved workflow step mappings from 1-cycle Workflow DNA
     approved_workflow = (
@@ -219,17 +210,17 @@ async def get_current_state():
         if dna_dict and dna_dict.get("field_mappings")
         else [
             m for m in field_mappings
-            if m.get("transfer_id") not in outlier_tids and m.get("cycle_id") not in outlier_cycle_ids
+            if m.get("transfer_id") not in all_outlier_tids and m.get("cycle_id") not in all_outlier_cycle_ids
         ]
     )
 
     excluded_outliers = [
         {**item, "status": "EXCLUDED_FROM_APPROVED_WORKFLOW"}
-        for item in outlier_items
+        for item in all_detected_devs
     ]
 
     total_cycle_count = max(repetition_count, len(set(m.get("cycle_id", "cycle-1") for m in field_mappings)))
-    outlier_count = len(outlier_cycle_ids) if outlier_cycle_ids else len(excluded_outliers)
+    outlier_count = len(all_outlier_cycle_ids) if all_outlier_cycle_ids else len(excluded_outliers)
     canonical_cycle_count = max(0, total_cycle_count - outlier_count)
 
     observation_synthesis = {
