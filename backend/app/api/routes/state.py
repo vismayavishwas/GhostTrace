@@ -213,10 +213,15 @@ async def get_current_state():
     outlier_tids = {item.get("transfer_id") for item in outlier_items if item.get("transfer_id")}
     outlier_cycle_ids = sorted(list({item.get("cycle_id") for item in outlier_items if item.get("cycle_id")}))
 
-    approved_workflow = [
-        m for m in field_mappings
-        if m.get("transfer_id") not in outlier_tids and m.get("cycle_id") not in outlier_cycle_ids
-    ]
+    # Authoritative canonical approved workflow step mappings from 1-cycle Workflow DNA
+    approved_workflow = (
+        dna_dict.get("field_mappings")
+        if dna_dict and dna_dict.get("field_mappings")
+        else [
+            m for m in field_mappings
+            if m.get("transfer_id") not in outlier_tids and m.get("cycle_id") not in outlier_cycle_ids
+        ]
+    )
 
     excluded_outliers = [
         {**item, "status": "EXCLUDED_FROM_APPROVED_WORKFLOW"}

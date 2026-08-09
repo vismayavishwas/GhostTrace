@@ -32,11 +32,26 @@ class DNATransformer:
         dev_cycle_ids = {d.get("cycle_id") for d in devs if d.get("cycle_id")}
         logger.info(f"[DNA_TRANSFORMER] transform_candidate raw_seq={len(raw_seq)} events={len(events)} transfers={len(transfers)} devs={len(devs)} dev_cycles={dev_cycle_ids}")
 
+        # Extract canonical 1-cycle transfers from baseline cycle-1 (excluding immediate corrections and deviations)
+        canonical_transfers = [
+            x for x in transfers
+            if getattr(x, "cycle_id", "cycle-1") == "cycle-1"
+            and not x.is_immediate_correction
+            and x.transfer_id not in dev_tids
+            and getattr(x, "cycle_id", "") not in dev_cycle_ids
+        ]
+        if not canonical_transfers and transfers:
+            # Fallback to first non-deviated transfer cycle if cycle-1 is empty
+            canonical_transfers = [
+                x for x in transfers
+                if not x.is_immediate_correction
+                and x.transfer_id not in dev_tids
+                and getattr(x, "cycle_id", "") not in dev_cycle_ids
+            ][:3]
+
         field_mappings: List[Dict[str, Any]] = []
 
-        for idx, xfer in enumerate(transfers, start=1):
-            if xfer.is_immediate_correction or xfer.transfer_id in dev_tids or xfer.cycle_id in dev_cycle_ids:
-                continue
+        for idx, xfer in enumerate(canonical_transfers, start=1):
 
             src_app = xfer.source_app or "Source App"
             dest_app = xfer.destination_app or "Destination App"
