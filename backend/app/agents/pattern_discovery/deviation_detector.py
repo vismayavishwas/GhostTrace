@@ -172,9 +172,11 @@ class DeviationDetector:
                         "group": "Sequence Mismatch"
                     })
 
-            # 2. Check for Missing Steps in shorter cycle relative to baseline ONLY if no deviation was already flagged for this cycle
-            has_cycle_deviation = any(d.get("cycle_id") == cyc_id for d in deviations)
-            if len(cyc_transfers) < baseline_len and not has_cycle_deviation:
+            # 2. Check for Missing Steps in shorter cycle relative to baseline ONLY for COMPLETED cycles (not the active in-progress cycle) and if no deviation was already flagged
+            cyc_keys = list(cycles_map.keys())
+            is_active_in_progress_cycle = (cyc_id == cyc_keys[-1])
+
+            if not is_active_in_progress_cycle and len(cyc_transfers) < baseline_len and not has_cycle_deviation:
                 cyc_src_set = {x.source_entity.lower() for x in cyc_transfers}
                 for exp_src, exp_dest in self.baseline_sequence:
                     if exp_src.lower() not in cyc_src_set:
