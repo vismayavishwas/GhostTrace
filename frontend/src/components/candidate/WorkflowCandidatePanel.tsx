@@ -362,21 +362,25 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
               Actions selected above will be batch processed ({selectedOutlierIds.size} of {outlierList.length} selected).
             </span>
 
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
               <button
                 suppressHydrationWarning
                 onClick={() => handleBatchRefine("INCLUDE")}
-                className="rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 transition"
+                className="flex items-center gap-1.5 rounded-xl border border-slate-700/80 bg-slate-800/80 px-4 py-2.5 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:border-slate-600 hover:text-white transition-all cursor-pointer shadow-sm"
               >
-                Include in Workflow
+                <span>Include in Workflow</span>
               </button>
 
               <button
                 suppressHydrationWarning
                 onClick={() => handleBatchRefine("EXCLUDE")}
-                className="rounded-lg bg-cyan-500/20 border border-cyan-500/40 px-4 py-2 text-xs font-bold text-cyan-300 hover:bg-cyan-500/30 transition shadow-lg shadow-cyan-500/10"
+                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 via-teal-400 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 font-black text-xs px-4.5 py-2.5 shadow-xl shadow-cyan-500/25 border-none tracking-wide transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
               >
-                Exclude from Workflow (Recommended)
+                <ShieldAlert className="h-4 w-4 text-slate-950 shrink-0" />
+                <span>Exclude from Workflow</span>
+                <span className="rounded-md bg-slate-950/20 px-1.5 py-0.5 text-[9px] font-mono text-slate-950 font-extrabold uppercase tracking-tight">
+                  Recommended
+                </span>
               </button>
             </div>
 

@@ -61,6 +61,9 @@ export const CommandCenterDashboard: React.FC = () => {
   const [isDeploymentMode, setIsDeploymentMode] = useState<boolean>(false);
 
   useEffect(() => {
+    // Reset shadow mode state automatically on page refresh/mount
+    resetTelemetryState();
+
     // Poll graph state from backend
     const interval = setInterval(() => {
       fetchGraphState().then((state) => {
