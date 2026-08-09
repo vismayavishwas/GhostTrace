@@ -28,7 +28,7 @@ class GeminiRepairEngine:
 
         import time
         t0 = time.perf_counter()
-        logger.info(f"Calling Gemini gemini-1.5-flash for Code Repair (v{current_version} -> v{new_version})...")
+        logger.info(f"Calling Gemini gemini-3.6-flash for Code Repair (v{current_version} -> v{new_version})...")
 
         # Apply deterministic code patch based on diagnosis
         patched_code, model_log = self._apply_code_patch(diagnosis, artifact)

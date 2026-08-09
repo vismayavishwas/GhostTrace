@@ -16,12 +16,11 @@ from app.agents.business_process.business_agent import BusinessProcessAgent
 def test_gemini_model_cascade_order():
     """Verify primary model and cascade model ordering."""
     service = GeminiService()
-    assert service.primary_model == "gemini-2.0-flash"
+    assert service.primary_model == "gemini-3.6-flash"
     assert service.cascade_models == [
-        "gemini-2.0-flash",
-        "gemini-1.5-flash-8b",
-        "gemini-1.5-flash",
-        "gemini-1.5-pro"
+        "gemini-3.6-flash",
+        "gemini-3.5-flash-lite",
+        "gemini-3.5-flash"
     ]
 
 

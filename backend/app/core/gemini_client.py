@@ -13,10 +13,10 @@ class GeminiClient:
     """
     def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key or settings.GEMINI_API_KEY
-        self.endpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+        self.endpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent"
 
     async def generate_repair(self, prompt: str) -> Optional[str]:
-        """Sends code repair prompt to Google Gemini 1.5/2.5 API."""
+        """Sends code repair prompt to Google Gemini 3.6 Flash API."""
         if not self.api_key:
             logger.warning("GEMINI_API_KEY not configured. Skipping Gemini LLM API call.")
             return None
