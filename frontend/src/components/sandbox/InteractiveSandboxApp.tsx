@@ -227,6 +227,20 @@ export const InteractiveSandboxApp: React.FC<InteractiveSandboxAppProps> = ({ is
     }
   };
 
+  const [autoStarted, setAutoStarted] = useState<boolean>(false);
+  const [autoCursorPos, setAutoCursorPos] = useState<{ x: number; y: number } | null>(null);
+  const [autoActionLabel, setAutoActionLabel] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isDeploymentMode && !autoStarted && !isAutoFilling && remainingCount > 0) {
+      setAutoStarted(true);
+      const timer = setTimeout(() => {
+        handleAutoFillRemaining();
+      }, 700);
+      return () => clearTimeout(timer);
+    }
+  }, [isDeploymentMode, autoStarted, isAutoFilling, remainingCount]);
+
   const handleAutoFillRemaining = async () => {
     setIsAutoFilling(true);
     setStatusMsg(`🤖 Ghost Digital Employee executing parameterized Workflow DNA on remaining records...`);
@@ -248,42 +262,50 @@ export const InteractiveSandboxApp: React.FC<InteractiveSandboxAppProps> = ({ is
       setFormData({ f1: "", f2: "", f3: "" });
       await new Promise((r) => setTimeout(r, 400));
 
-      // 1. Field 1 Transfer & Verification
-      setFormData((prev) => ({ ...prev, f1: item.field1Value }));
-      await dispatchTelemetry("PASTE", `#target-${item.field1Key}`, item.field1Value, item.field1Label, true);
-      if (item.field1Value !== item.field1Value) {
-        setStatusMsg("❌ Verification failed on Field 1 transfer!");
-        setIsAutoFilling(false);
-        return;
-      }
-      await new Promise((r) => setTimeout(r, 300));
-
-      // 2. Field 2 Transfer & Verification
-      setFormData((prev) => ({ ...prev, f2: item.field2Value }));
-      await dispatchTelemetry("PASTE", `#target-${item.field2Key}`, item.field2Value, item.field2Label, true);
-      if (item.field2Value !== item.field2Value) {
-        setStatusMsg("❌ Verification failed on Field 2 transfer!");
-        setIsAutoFilling(false);
-        return;
-      }
-      await new Promise((r) => setTimeout(r, 300));
-
-      // 3. Field 3 Transfer & Verification
-      setFormData((prev) => ({ ...prev, f3: item.field3Value }));
-      await dispatchTelemetry("PASTE", `#target-${item.field3Key}`, item.field3Value, item.field3Label, true);
-      if (item.field3Value !== item.field3Value) {
-        setStatusMsg("❌ Verification failed on Field 3 transfer!");
-        setIsAutoFilling(false);
-        return;
-      }
+      // 1. Field 1 Copy & Paste
+      setAutoCursorPos({ x: 22, y: 35 });
+      setAutoActionLabel(`COPY ${item.field1Label}`);
       await new Promise((r) => setTimeout(r, 400));
 
+      setAutoCursorPos({ x: 78, y: 35 });
+      setAutoActionLabel(`PASTE ${item.field1Label}`);
+      setFormData((prev) => ({ ...prev, f1: item.field1Value }));
+      await dispatchTelemetry("PASTE", `#target-${item.field1Key}`, item.field1Value, item.field1Label, true);
+      await new Promise((r) => setTimeout(r, 500));
+
+      // 2. Field 2 Copy & Paste
+      setAutoCursorPos({ x: 22, y: 55 });
+      setAutoActionLabel(`COPY ${item.field2Label}`);
+      await new Promise((r) => setTimeout(r, 400));
+
+      setAutoCursorPos({ x: 78, y: 55 });
+      setAutoActionLabel(`PASTE ${item.field2Label}`);
+      setFormData((prev) => ({ ...prev, f2: item.field2Value }));
+      await dispatchTelemetry("PASTE", `#target-${item.field2Key}`, item.field2Value, item.field2Label, true);
+      await new Promise((r) => setTimeout(r, 500));
+
+      // 3. Field 3 Copy & Paste
+      setAutoCursorPos({ x: 22, y: 75 });
+      setAutoActionLabel(`COPY ${item.field3Label}`);
+      await new Promise((r) => setTimeout(r, 400));
+
+      setAutoCursorPos({ x: 78, y: 75 });
+      setAutoActionLabel(`PASTE ${item.field3Label}`);
+      setFormData((prev) => ({ ...prev, f3: item.field3Value }));
+      await dispatchTelemetry("PASTE", `#target-${item.field3Key}`, item.field3Value, item.field3Label, true);
+      await new Promise((r) => setTimeout(r, 500));
+
       // 4. Record Transition
+      setAutoCursorPos({ x: 50, y: 92 });
+      setAutoActionLabel("NEXT RECORD");
       await dispatchTelemetry("RECORD_TRANSITION", "#btn-next-record", `Record ${idx + 2}`, "Next Record", true);
+      await new Promise((r) => setTimeout(r, 500));
 
       setRemainingCount(samples.length - 1 - idx);
     }
 
+    setAutoCursorPos(null);
+    setAutoActionLabel(null);
     setIsAutoFilling(false);
     setStatusMsg(`✅ Ghost completed autonomous execution across all remaining records! Remaining: 0`);
   };
@@ -291,7 +313,28 @@ export const InteractiveSandboxApp: React.FC<InteractiveSandboxAppProps> = ({ is
   if (!mounted) return null;
 
   return (
-    <div id="sandbox-app" suppressHydrationWarning className="flex flex-col gap-4 rounded-2xl border border-cyan-500/30 bg-slate-900/90 p-5 shadow-2xl backdrop-blur-xl">
+    <div id="sandbox-app" suppressHydrationWarning className="relative flex flex-col gap-4 rounded-2xl border border-cyan-500/30 bg-slate-900/90 p-5 shadow-2xl backdrop-blur-xl">
+      {/* Visual Phantom Cursor Overlay during Autonomous Execution */}
+      {autoCursorPos && (
+        <div
+          className="absolute z-50 transition-all duration-500 ease-in-out pointer-events-none"
+          style={{
+            left: `${autoCursorPos.x}%`,
+            top: `${autoCursorPos.y}%`,
+          }}
+        >
+          <div className="relative flex items-center gap-1.5">
+            <span className="absolute -top-2 -left-2 h-10 w-10 rounded-full border-2 border-emerald-400 animate-ping" />
+            <svg className="h-8 w-8 text-emerald-400 drop-shadow-[0_0_15px_rgba(52,211,153,0.9)] animate-pulse" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M3 3l7 18 3-7 7-3L3 3z" />
+            </svg>
+            <span className="rounded bg-emerald-500 px-2 py-0.5 text-[10px] font-black text-slate-950 font-mono shadow-xl uppercase border border-emerald-300">
+              🤖 GHOST: {autoActionLabel}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Deployment Mode Banner */}
       {isDeploymentMode && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/80 via-slate-900 to-purple-950/80 p-4 shadow-xl">

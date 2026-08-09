@@ -242,9 +242,9 @@ export const CommandCenterDashboard: React.FC = () => {
       </div>
 
 
-      {/* Bottom Bar: Candidate Discovery Panel (Unlocked on pattern repetition >= 1 or active HITL outliers) */}
+      {/* Bottom Bar: Candidate Discovery Panel (Unlocked on pattern repetition >= 2) */}
       <div className="flex flex-col gap-4">
-        {(repetitionCount >= 1 || confidenceScore > 0 || (outliers && outliers.length > 0)) && (
+        {(repetitionCount >= 2 || confidenceScore >= 0.60) && (
 
           <WorkflowCandidatePanel
             confidenceScore={confidenceScore}

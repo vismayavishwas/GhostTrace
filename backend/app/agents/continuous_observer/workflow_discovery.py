@@ -129,8 +129,8 @@ class WorkflowDiscoveryEngine:
             if cycle_ents == template_ents or (len(cycle_ents) >= 2 and cycle_ents[:len(template_ents)] == template_ents):
                 matching_cycle_count += 1
 
-        if matching_cycle_count < 1:
-            self.last_completed_cycle_count = 0
+        if matching_cycle_count < 2 or len(cycles) < 2:
+            self.last_completed_cycle_count = len(cycles)
             return []
 
         self.last_completed_cycle_count = len(cycles)

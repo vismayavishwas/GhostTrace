@@ -136,100 +136,78 @@ export const GhostReplay: React.FC<GhostReplayProps> = ({
 
   useEffect(() => {
     if (!isPlaying || steps.length === 0) return;
+
+    const stepDuration = Math.round(1000 / speed);
+
     const interval = setInterval(() => {
       setProgress((prev) => {
         if (prev >= 100) {
           setIsCompleted(true);
           setTransitionPhase("VALIDATED");
-          setTimeout(() => setTransitionPhase("READY"), 1200);
+          setTimeout(() => setTransitionPhase("READY"), 1000);
+          return 100;
+        }
+
+        const next = Math.min(100, prev + (100 / steps.length));
+        const stepIdx = Math.min(steps.length - 1, Math.floor((prev / 100) * steps.length));
+        const currentStep = steps[stepIdx];
+
+        if (stepIdx !== activeStepIdx) {
+          setActiveStepIdx(stepIdx);
+          setCursorAction(currentStep?.actionType || "NAVIGATE");
+
+          // Calculate clean preview canvas target coordinates based on action type & field index
+          const fieldGroupIdx = Math.floor(stepIdx / 2);
+          let targetX = 25;
+          let targetY = 30;
+
+          if (currentStep?.actionType === "COPY") {
+            targetX = 22;
+            targetY = 25 + Math.min(3, fieldGroupIdx) * 18;
+            setClipboardFlash(`📋 Ctrl+C: "${currentStep.sampleValue}"`);
+            setTimeout(() => setClipboardFlash(null), 1200);
+          } else if (currentStep?.actionType === "PASTE") {
+            targetX = 78;
+            targetY = 25 + Math.min(3, fieldGroupIdx) * 18;
+            setTypedBuffer(currentStep.sampleValue || "");
+            setClipboardFlash(`📋 Ctrl+V: "${currentStep.sampleValue}"`);
+            setTimeout(() => setClipboardFlash(null), 1200);
+          } else if (currentStep?.actionType === "SUBMIT") {
+            targetX = 50;
+            targetY = 82;
+            setTypedBuffer("");
+          }
+
+          setCursorPos({ x: targetX, y: targetY });
+
+          // Click animation
+          setIsClicking(true);
+          setTimeout(() => setIsClicking(false), 300);
+
+          setSteps((prevSteps) =>
+            prevSteps.map((stg, i) => ({
+              ...stg,
+              done: i <= stepIdx,
+            }))
+          );
 
           if (typeof window !== "undefined") {
             window.dispatchEvent(
               new CustomEvent("ghosttrace:replay-step", {
-                detail: { stepIndex: steps.length, activeStep: steps[steps.length - 1], totalSteps: steps.length, isComplete: true },
+                detail: { stepIndex: stepIdx + 1, activeStep: currentStep, totalSteps: steps.length, isComplete: next >= 100 },
               })
             );
           }
-          return 100;
         }
-
-        const next = prev + 2.0 * speed;
-        const stepIdx = Math.min(steps.length - 1, Math.floor((next / 100) * steps.length));
-        const currentStep = steps[stepIdx];
-
-        setActiveStepIdx(stepIdx);
-        setCursorAction(currentStep?.actionType || "NAVIGATE");
-
-        // Real Telemetry Position or DOM Bounding Box center fallback
-        let targetX = 25;
-        let targetY = 30;
-
-        if (replayFrames && replayFrames[stepIdx]) {
-          const frame = replayFrames[stepIdx];
-          targetX = Math.min(85, Math.max(15, Math.round((frame.x % 800) / 8)));
-          targetY = Math.min(80, Math.max(20, Math.round((frame.y % 600) / 7)));
-        } else if (currentStep?.selector && typeof document !== "undefined") {
-          const elem = document.querySelector(currentStep.selector);
-          if (elem) {
-            const rect = elem.getBoundingClientRect();
-            targetX = Math.min(85, Math.max(15, Math.round((rect.left + rect.width / 2) / 10)));
-            targetY = Math.min(80, Math.max(20, Math.round((rect.top + rect.height / 2) / 8)));
-          }
-        }
-
-        setCursorPos({ x: targetX, y: targetY });
-
-        // Trigger subtle click ripple effect on step change
-        if (stepIdx !== activeStepIdx) {
-          setIsClicking(true);
-          setTimeout(() => setIsClicking(false), 250);
-
-          // Handle Typing Animation & Clipboard Flash
-          if (currentStep?.actionType === "TYPE") {
-            const fullVal = currentStep.sampleValue || "INV-2026-9841";
-            let charIdx = 0;
-            const typeTimer = setInterval(() => {
-              charIdx++;
-              setTypedBuffer(fullVal.slice(0, charIdx));
-              if (charIdx >= fullVal.length) clearInterval(typeTimer);
-            }, 60);
-          } else if (currentStep?.actionType === "COPY") {
-            setClipboardFlash(`📋 Ctrl+C: "${currentStep.sampleValue}"`);
-            setTimeout(() => setClipboardFlash(null), 1500);
-          } else if (currentStep?.actionType === "PASTE") {
-            setClipboardFlash(`📋 Ctrl+V: "${currentStep.sampleValue}"`);
-            setTimeout(() => setClipboardFlash(null), 1500);
-          }
-        }
-
-        setSteps((prevSteps) =>
-          prevSteps.map((stg, i) => ({
-            ...stg,
-            done: i <= stepIdx,
-          }))
-        );
-
-        // Broadcast sync event to ReasoningTimeline and AutomationBlueprint (deferred out of render loop)
-        if (typeof window !== "undefined") {
-          const detailObj = { stepIndex: stepIdx + 1, activeStep: currentStep, totalSteps: steps.length, isComplete: false };
-          setTimeout(() => {
-            window.dispatchEvent(
-              new CustomEvent("ghosttrace:replay-step", {
-                detail: detailObj,
-              })
-            );
-          }, 0);
-        }
-
 
         if (next >= 100) {
           setIsCompleted(true);
           setTransitionPhase("VALIDATED");
-          setTimeout(() => setTransitionPhase("READY"), 1200);
+          setTimeout(() => setTransitionPhase("READY"), 1000);
         }
         return next;
       });
-    }, 130);
+    }, stepDuration);
 
     return () => clearInterval(interval);
   }, [isPlaying, speed, steps, activeStepIdx]);
@@ -352,7 +330,7 @@ export const GhostReplay: React.FC<GhostReplayProps> = ({
 
           {/* Human-like Easing Ghost Cursor with Click Ripple Ring */}
           <div
-            className="absolute z-20 transition-all duration-300 ease-out pointer-events-none"
+            className="absolute z-20 transition-all duration-500 ease-in-out pointer-events-none"
             style={{
               left: `${cursorPos.x}%`,
               top: `${cursorPos.y}%`,

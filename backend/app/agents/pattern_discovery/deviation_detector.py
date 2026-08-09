@@ -119,8 +119,11 @@ class DeviationDetector:
 
         baseline_len = len(self.baseline_sequence)
 
-        # Evaluate each cycle against baseline sequence template
+        # Evaluate each cycle AFTER cycle-1 against baseline sequence template
         for cyc_id, cyc_transfers in cycles_map.items():
+            if cyc_id == "cycle-1":
+                continue  # Cycle 1 is the canonical learning baseline, never an outlier
+
             # 1. Check for Wrong Destination or Unexpected Source per step position in cycle
             for pos, xfer in enumerate(cyc_transfers):
                 src = xfer.source_entity
