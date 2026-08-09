@@ -285,37 +285,26 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
       )}
 
       {/* Human-in-the-Loop Multi-Outlier Batch Checklist Review Panel */}
-      {isReviewPending && outlierList.length > 0 && (
-
-        <div className="flex flex-col gap-3 rounded-xl border border-amber-500/40 bg-amber-950/30 p-4 text-xs shadow-lg">
-          <div className="flex items-center justify-between border-b border-amber-500/20 pb-2">
-            <div className="flex items-center gap-2">
+      {isReviewPending && (
+        <div className="flex flex-col gap-3 rounded-xl border border-amber-500/40 bg-amber-950/30 p-4 text-xs shadow-lg overflow-hidden w-full max-w-full">
+          <div className="flex items-center justify-between border-b border-amber-500/20 pb-2 flex-wrap gap-2">
+            <div className="flex items-center gap-2 min-w-0">
               <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0" />
-              <div>
+              <div className="min-w-0">
                 <h4 className="font-bold text-amber-200">Semantic Deviation Observed</h4>
-                <p className="text-[10px] text-amber-300/80">
+                <p className="text-[10px] text-amber-300/80 break-words">
                   An anomalous action was observed and corrected. Confirm if this action was accidental to save into persistent memory.
                 </p>
               </div>
-
             </div>
 
-            <div className="flex items-center gap-2">
-              <button
-                suppressHydrationWarning
-                onClick={toggleSelectAll}
-                className="rounded bg-slate-800/80 border border-slate-700 px-2 py-1 text-[10px] font-semibold text-slate-300 hover:text-white transition"
-              >
-                {selectedOutlierIds.size === outlierList.length ? "Deselect All" : "Select All"}
-              </button>
-              <button
-                suppressHydrationWarning
-                onClick={clearSelection}
-                className="rounded bg-slate-800/80 border border-slate-700 px-2 py-1 text-[10px] font-semibold text-slate-400 hover:text-white transition"
-              >
-                Clear Selection
-              </button>
-            </div>
+            <button
+              suppressHydrationWarning
+              onClick={toggleSelectAll}
+              className="text-[10px] font-mono font-bold text-amber-400 hover:text-amber-300 bg-amber-500/10 px-2 py-1 rounded border border-amber-500/30 transition shrink-0"
+            >
+              {selectedOutlierIds.size === outlierList.length ? "Deselect All" : "Select All"}
+            </button>
           </div>
 
           {/* Outlier Checklist Items (1...N) */}
@@ -347,7 +336,7 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
                       </span>
                     </div>
                   </div>
-                  <span className="text-[10px] font-mono bg-slate-900/90 px-2 py-1 rounded border border-slate-700/80 text-cyan-300 font-semibold shrink-0">
+                  <span className="text-[10px] font-mono bg-slate-900/90 px-2 py-1 rounded border border-slate-700/80 text-cyan-300 font-semibold shrink-0 ml-1">
                     {item.group ? `[ ${item.group} ]` : "[ Semantic Action ]"}
                   </span>
 
@@ -357,16 +346,16 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
           </div>
 
           {/* Batch Submit Action Buttons */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-amber-500/20">
-            <span className="text-[11px] text-slate-400 font-mono">
+          <div className="flex flex-col gap-2.5 pt-2 border-t border-amber-500/20 w-full overflow-hidden">
+            <span className="text-[11px] text-slate-400 font-mono break-words">
               Actions selected above will be batch processed ({selectedOutlierIds.size} of {outlierList.length} selected).
             </span>
 
-            <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+            <div className="flex flex-wrap items-center gap-2 w-full justify-start sm:justify-end">
               <button
                 suppressHydrationWarning
                 onClick={() => handleBatchRefine("INCLUDE")}
-                className="flex items-center gap-1.5 rounded-xl border border-slate-700/80 bg-slate-800/80 px-4 py-2.5 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:border-slate-600 hover:text-white transition-all cursor-pointer shadow-sm"
+                className="flex-1 sm:flex-none justify-center items-center gap-1.5 rounded-xl border border-slate-700/80 bg-slate-800/80 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:border-slate-600 hover:text-white transition-all cursor-pointer shadow-sm min-w-0"
               >
                 <span>Include in Workflow</span>
               </button>
@@ -374,16 +363,15 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
               <button
                 suppressHydrationWarning
                 onClick={() => handleBatchRefine("EXCLUDE")}
-                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 via-teal-400 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 font-black text-xs px-4.5 py-2.5 shadow-xl shadow-cyan-500/25 border-none tracking-wide transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+                className="flex-1 sm:flex-none justify-center items-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-500 via-teal-400 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 font-black text-xs px-3.5 py-2 shadow-xl shadow-cyan-500/25 border-none tracking-wide transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] cursor-pointer min-w-0"
               >
                 <ShieldAlert className="h-4 w-4 text-slate-950 shrink-0" />
-                <span>Exclude from Workflow</span>
-                <span className="rounded-md bg-slate-950/20 px-1.5 py-0.5 text-[9px] font-mono text-slate-950 font-extrabold uppercase tracking-tight">
+                <span className="whitespace-nowrap">Exclude from Workflow</span>
+                <span className="hidden sm:inline-block rounded-md bg-slate-950/20 px-1.5 py-0.5 text-[9px] font-mono text-slate-950 font-extrabold uppercase tracking-tight">
                   Recommended
                 </span>
               </button>
             </div>
-
           </div>
         </div>
       )}

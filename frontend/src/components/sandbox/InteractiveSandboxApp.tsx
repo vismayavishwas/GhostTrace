@@ -248,68 +248,73 @@ export const InteractiveSandboxApp: React.FC<InteractiveSandboxAppProps> = ({ is
     setIsAutoFilling(true);
     setStatusMsg(`🤖 Ghost Digital Employee executing parameterized Workflow DNA on remaining records...`);
 
-    // Read current state to retrieve learned parameterized mappings
-    let mappings: any[] = [];
     try {
-      const state = await fetchGraphState();
-      mappings = state?.observation_synthesis?.approved_workflow || state?.field_mappings || [];
-    } catch {}
+      // Read current state to retrieve learned parameterized mappings
+      let mappings: any[] = [];
+      try {
+        const state = await fetchGraphState();
+        mappings = state?.observation_synthesis?.approved_workflow || state?.field_mappings || [];
+      } catch {}
 
-    const remainingStart = sampleIndex < 3 ? 3 : sampleIndex;
+      const remainingStart = sampleIndex < 3 ? 3 : sampleIndex;
 
-    for (let idx = remainingStart; idx < samples.length; idx++) {
-      setSampleIndex(idx);
-      const item = samples[idx];
+      for (let idx = remainingStart; idx < samples.length; idx++) {
+        setSampleIndex(idx);
+        const item = samples[idx];
 
-      setFormData({ f1: "", f2: "", f3: "" });
-      await new Promise((r) => setTimeout(r, 400));
+        setFormData({ f1: "", f2: "", f3: "" });
+        await new Promise((r) => setTimeout(r, 250));
 
-      // 1. Field 1 Copy & Paste
-      setAutoCursorPos({ x: 22, y: 35 });
-      setAutoActionLabel(`COPY ${item.field1Label}`);
-      await new Promise((r) => setTimeout(r, 400));
+        // 1. Field 1 Copy & Paste
+        setAutoCursorPos({ x: 22, y: 35 });
+        setAutoActionLabel(`COPY ${item.field1Label}`);
+        await new Promise((r) => setTimeout(r, 250));
 
-      setAutoCursorPos({ x: 78, y: 35 });
-      setAutoActionLabel(`PASTE ${item.field1Label}`);
-      setFormData((prev) => ({ ...prev, f1: item.field1Value }));
-      await dispatchTelemetry("PASTE", `#target-${item.field1Key}`, item.field1Value, item.field1Label, true);
-      await new Promise((r) => setTimeout(r, 500));
+        setAutoCursorPos({ x: 78, y: 35 });
+        setAutoActionLabel(`PASTE ${item.field1Label}`);
+        setFormData((prev) => ({ ...prev, f1: item.field1Value }));
+        dispatchTelemetry("PASTE", `#target-${item.field1Key}`, item.field1Value, item.field1Label, true).catch(() => {});
+        await new Promise((r) => setTimeout(r, 300));
 
-      // 2. Field 2 Copy & Paste
-      setAutoCursorPos({ x: 22, y: 55 });
-      setAutoActionLabel(`COPY ${item.field2Label}`);
-      await new Promise((r) => setTimeout(r, 400));
+        // 2. Field 2 Copy & Paste
+        setAutoCursorPos({ x: 22, y: 55 });
+        setAutoActionLabel(`COPY ${item.field2Label}`);
+        await new Promise((r) => setTimeout(r, 250));
 
-      setAutoCursorPos({ x: 78, y: 55 });
-      setAutoActionLabel(`PASTE ${item.field2Label}`);
-      setFormData((prev) => ({ ...prev, f2: item.field2Value }));
-      await dispatchTelemetry("PASTE", `#target-${item.field2Key}`, item.field2Value, item.field2Label, true);
-      await new Promise((r) => setTimeout(r, 500));
+        setAutoCursorPos({ x: 78, y: 55 });
+        setAutoActionLabel(`PASTE ${item.field2Label}`);
+        setFormData((prev) => ({ ...prev, f2: item.field2Value }));
+        dispatchTelemetry("PASTE", `#target-${item.field2Key}`, item.field2Value, item.field2Label, true).catch(() => {});
+        await new Promise((r) => setTimeout(r, 300));
 
-      // 3. Field 3 Copy & Paste
-      setAutoCursorPos({ x: 22, y: 75 });
-      setAutoActionLabel(`COPY ${item.field3Label}`);
-      await new Promise((r) => setTimeout(r, 400));
+        // 3. Field 3 Copy & Paste
+        setAutoCursorPos({ x: 22, y: 75 });
+        setAutoActionLabel(`COPY ${item.field3Label}`);
+        await new Promise((r) => setTimeout(r, 250));
 
-      setAutoCursorPos({ x: 78, y: 75 });
-      setAutoActionLabel(`PASTE ${item.field3Label}`);
-      setFormData((prev) => ({ ...prev, f3: item.field3Value }));
-      await dispatchTelemetry("PASTE", `#target-${item.field3Key}`, item.field3Value, item.field3Label, true);
-      await new Promise((r) => setTimeout(r, 500));
+        setAutoCursorPos({ x: 78, y: 75 });
+        setAutoActionLabel(`PASTE ${item.field3Label}`);
+        setFormData((prev) => ({ ...prev, f3: item.field3Value }));
+        dispatchTelemetry("PASTE", `#target-${item.field3Key}`, item.field3Value, item.field3Label, true).catch(() => {});
+        await new Promise((r) => setTimeout(r, 300));
 
-      // 4. Record Transition
-      setAutoCursorPos({ x: 50, y: 92 });
-      setAutoActionLabel("NEXT RECORD");
-      await dispatchTelemetry("RECORD_TRANSITION", "#btn-next-record", `Record ${idx + 2}`, "Next Record", true);
-      await new Promise((r) => setTimeout(r, 500));
+        // 4. Record Transition
+        setAutoCursorPos({ x: 50, y: 92 });
+        setAutoActionLabel("NEXT RECORD");
+        dispatchTelemetry("RECORD_TRANSITION", "#btn-next-record", `Record ${idx + 2}`, "Next Record", true).catch(() => {});
+        await new Promise((r) => setTimeout(r, 300));
 
-      setRemainingCount(samples.length - 1 - idx);
+        setRemainingCount(samples.length - 1 - idx);
+      }
+      setStatusMsg(`✅ Ghost completed autonomous execution across all remaining records! Remaining: 0`);
+    } catch (e) {
+      console.error("AutoFill error:", e);
+      setStatusMsg(`⚠️ AutoFill finished with notice.`);
+    } finally {
+      setAutoCursorPos(null);
+      setAutoActionLabel(null);
+      setIsAutoFilling(false);
     }
-
-    setAutoCursorPos(null);
-    setAutoActionLabel(null);
-    setIsAutoFilling(false);
-    setStatusMsg(`✅ Ghost completed autonomous execution across all remaining records! Remaining: 0`);
   };
 
   if (!mounted) return null;

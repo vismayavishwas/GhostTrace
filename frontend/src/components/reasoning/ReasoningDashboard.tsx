@@ -202,21 +202,41 @@ export const ReasoningDashboard: React.FC<ReasoningDashboardProps> = ({
           </div>
         </div>
 
-        {/* Card 3: How confident is it, and why? */}
+        {/* Card 3: How confident is it, and why? (Logged Rate Audit) */}
         <div className="flex flex-col gap-3 rounded-xl border border-emerald-500/30 bg-slate-950/80 p-5 shadow-xl">
           <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
             <div className="flex items-center gap-2">
               <ShieldCheck className="h-4 w-4 text-emerald-400" />
               <h3 className="font-bold text-sm text-emerald-300">3. How Confident Is It, and Why?</h3>
             </div>
-            <span className="text-[10px] font-mono text-emerald-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
-              Score: {confidencePct}%
+            <span className="text-[10px] font-mono text-emerald-400 bg-slate-900 px-2.5 py-1 rounded border border-emerald-500/30 font-bold">
+              Logged Score: {confidencePct}%
             </span>
           </div>
 
           <p className="text-xs text-slate-200 leading-relaxed font-sans bg-emerald-950/20 border border-emerald-500/20 p-3 rounded-lg">
             {confidenceReasoning}
           </p>
+
+          {/* Logged Confidence Audit Trail */}
+          <div className="flex flex-col gap-1.5 pt-1">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold">
+              📋 Confidence Audit Log (Analyze Page)
+            </span>
+            <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-2.5 flex flex-col gap-1 text-[11px] font-mono">
+              <div className="flex items-center justify-between text-emerald-400 font-bold">
+                <span>[MILESTONE_LOGGED]</span>
+                <span>{confidencePct}% Confidence Rate</span>
+              </div>
+              <span className="text-slate-300 text-[10px]">
+                {confidenceScore >= 0.75
+                  ? "✓ High confidence threshold reached. Candidate ready for 1-click Playwright automation generation."
+                  : confidenceScore >= 0.35
+                  ? "⚡ Intermediate confidence logged. Repeat 1-2 more cycles in sandbox to reach 100%."
+                  : "ℹ️ Initial observation logged. Accumulating telemetry events for pattern confirmation."}
+              </span>
+            </div>
+          </div>
 
           <div className="flex items-center gap-2 text-xs font-mono text-slate-400 pt-1">
             {activeOutlierCount > 0 ? (
