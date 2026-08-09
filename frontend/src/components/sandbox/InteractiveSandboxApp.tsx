@@ -154,6 +154,8 @@ export const InteractiveSandboxApp: React.FC<InteractiveSandboxAppProps> = ({ is
       }
     }
 
+    const currentCycleId = `cycle-${sampleIndex + 1}`;
+
     const payload = {
       event_type: eventType,
       active_tab: appTitle,
@@ -172,7 +174,8 @@ export const InteractiveSandboxApp: React.FC<InteractiveSandboxAppProps> = ({ is
       coordinates_y: 300.0,
       timestamp: new Date().toISOString(),
       app_title: appTitle,
-      metadata: { is_sandbox: true, field_label: labelText, aria_label: labelText, app_title: appTitle, is_automated: isAutomated }
+      cycle_id: currentCycleId,
+      metadata: { is_sandbox: true, field_label: labelText, aria_label: labelText, app_title: appTitle, is_automated: isAutomated, cycle_id: currentCycleId }
     };
 
     setStatusMsg(`[Telemetry Transmitted] ${eventType} on ${selector} ${isAutomated ? "(Automated)" : ""}`);

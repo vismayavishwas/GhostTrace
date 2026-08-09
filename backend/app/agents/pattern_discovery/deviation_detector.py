@@ -84,19 +84,18 @@ class DeviationDetector:
         current_cyc_idx = 1
         seen_src_in_cyc = set()
 
+        has_distinct_cycles = any(getattr(x, "cycle_id", None) and getattr(x, "cycle_id") != "cycle-1" for x in valid_transfers)
+
         for xfer in valid_transfers:
             raw_cyc = getattr(xfer, "cycle_id", None)
-            sk = xfer.source_entity.lower()
-
-            if sk in seen_src_in_cyc:
-                current_cyc_idx += 1
-                seen_src_in_cyc.clear()
-
-            seen_src_in_cyc.add(sk)
-
-            if raw_cyc and raw_cyc != "cycle-1":
+            if has_distinct_cycles and raw_cyc:
                 cyc = raw_cyc
             else:
+                sk = xfer.source_entity.lower()
+                if sk in seen_src_in_cyc:
+                    current_cyc_idx += 1
+                    seen_src_in_cyc.clear()
+                seen_src_in_cyc.add(sk)
                 cyc = f"cycle-{current_cyc_idx}"
 
             cycles_map[cyc].append(xfer)
