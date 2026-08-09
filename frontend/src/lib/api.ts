@@ -1,10 +1,11 @@
 // GhostTrace AI REST API Client Service
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api/v1";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://ghosttrace-bcp2.onrender.com/api/v1";
 
 export async function fetchHealthCheck() {
   try {
-    const res = await fetch(`http://127.0.0.1:8000/health`);
+    const rootUrl = API_BASE_URL.replace(/\/api\/v1\/?$/, "");
+    const res = await fetch(`${rootUrl}/health`);
     if (!res.ok) return null;
     return await res.json();
   } catch {

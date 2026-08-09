@@ -1,6 +1,4 @@
-// GhostTrace AI Specialized WebSocket Stream Manager
-
-const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://127.0.0.1:8000/ws";
+const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || "wss://ghosttrace-bcp2.onrender.com/ws";
 
 export type StreamType = "telemetry" | "reasoning" | "replay" | "state" | "pipeline";
 
