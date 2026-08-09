@@ -8,3 +8,21 @@ services:
     envVars:
       - key: PYTHONPATH
         value: .
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: LOG_LEVEL
+        value: INFO
+
+  - type: web
+    name: ghosttrace-frontend
+    env: node
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
+      - key: NEXT_PUBLIC_WS_TELEMETRY_URL
+        sync: false
+      - key: NEXT_PUBLIC_WS_STATE_URL
+        sync: false
