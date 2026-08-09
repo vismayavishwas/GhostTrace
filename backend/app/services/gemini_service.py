@@ -16,22 +16,30 @@ class GeminiService:
     def __init__(self, primary_model: str = "gemini-2.0-flash"):
         self.primary_model = primary_model
         self.cascade_models = [
-            "gemini-2.0-flash",
-            "gemini-1.5-flash",
-            "gemini-1.5-pro"
+            "gemini-2.0-flash",       # Primary (Gemini 2.0 Flash)
+            "gemini-1.5-flash-8b",    # Fallback 1 (Gemini 1.5 Flash Lite)
+            "gemini-1.5-flash",       # Fallback 2 (Gemini 1.5 Flash)
+            "gemini-1.5-pro",         # Fallback 3 (Gemini 1.5 Pro)
         ]
-        self.api_key = settings.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        self.api_key = None
         self._client = None
+        self._get_client()
 
+    def _get_client(self):
+        if self._client:
+            return self._client
 
-        
-        if self.api_key:
+        api_key = settings.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        if api_key:
             try:
                 from google import genai
-                self._client = genai.Client(api_key=self.api_key)
-                logger.info(f"GeminiService initialized with cascade {self.cascade_models}")
+                self.api_key = api_key
+                self._client = genai.Client(api_key=api_key)
+                logger.info(f"GeminiService initialized google.genai Client with cascade {self.cascade_models}")
+                return self._client
             except Exception as e:
                 logger.warning(f"GeminiService client initialization failed: {e}")
+        return None
 
     def generate(
         self,
@@ -44,7 +52,8 @@ class GeminiService:
         Attempts models in the cascade order until success. If all quota endpoints fail, invokes rule-based fallback.
         Returns (text_response, elapsed_seconds, status_reason).
         """
-        if not self._client:
+        client = self._get_client()
+        if not client:
             logger.info(f"Gemini API key unconfigured for purpose '{purpose}'. Using deterministic fallback.")
             fallback_result = fallback_fn() if fallback_fn else ""
             return str(fallback_result or ""), 0.00, "FALLBACK_NO_KEY"
@@ -58,7 +67,7 @@ class GeminiService:
             try:
                 with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                     future = executor.submit(
-                        self._client.models.generate_content,
+                        client.models.generate_content,
                         model=model_name,
                         contents=prompt
                     )

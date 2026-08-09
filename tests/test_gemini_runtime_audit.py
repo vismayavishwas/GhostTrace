@@ -19,6 +19,7 @@ def test_gemini_model_cascade_order():
     assert service.primary_model == "gemini-2.0-flash"
     assert service.cascade_models == [
         "gemini-2.0-flash",
+        "gemini-1.5-flash-8b",
         "gemini-1.5-flash",
         "gemini-1.5-pro"
     ]
