@@ -117,6 +117,7 @@ class DeviationDetector:
                 continue  # Cycle 1 is the canonical learning baseline, never an outlier
 
             # 1. Check for Wrong Destination or Unexpected Source per step position in cycle
+            b_idx = 0
             for pos, xfer in enumerate(cyc_transfers):
                 src = xfer.source_entity
                 obs_dest = xfer.destination_entity.lower()
@@ -124,9 +125,9 @@ class DeviationDetector:
 
                 positional_dest = None
                 positional_src = None
-                if pos < baseline_len:
-                    positional_src = self.baseline_sequence[pos][0]
-                    positional_dest = self.baseline_sequence[pos][1]
+                if b_idx < baseline_len:
+                    positional_src = self.baseline_sequence[b_idx][0]
+                    positional_dest = self.baseline_sequence[b_idx][1]
 
                 target_expected = expected_dest or positional_dest
 
@@ -152,25 +153,37 @@ class DeviationDetector:
                         "transfer_id": xfer.transfer_id,
                         "group": "Wrong Field Target"
                     })
-                # Positional Source Mismatch check (e.g. Field C pasted where Field B expected)
-                elif positional_src and positional_src.lower() != src.lower():
-                    exp_src_clean = format_clean_entity_label("", positional_src)
-                    logger.info(
-                        f"🚨 [DEVIATION DETECTED] Positional Step Mismatch | Cycle={cyc_id} Step={pos+1} | "
-                        f"Expected Source='{positional_src}' != Observed='{src}'"
-                    )
-                    deviations.append({
-                        "id": f"dev-mismatched-step-{cyc_id}-{pos+1}",
-                        "cycle_id": cyc_id,
-                        "source_entity": src,
-                        "expected_destination": positional_dest or "",
-                        "observed_destination": obs_dest,
-                        "label": f"Unexpected Step Order in {cyc_id}: Field ({src_clean}) where Field ({exp_src_clean}) expected",
-                        "reason": f"Expected step {pos+1} to be '{exp_src_clean}', observed '{src_clean}'",
-                        "selector": obs_clean,
-                        "transfer_id": xfer.transfer_id,
-                        "group": "Sequence Mismatch"
-                    })
+                    if positional_src and positional_src.lower() == src.lower():
+                        b_idx += 1
+                else:
+                    # Valid transfer for src -> obs_dest. Advance b_idx to match baseline progression.
+                    if b_idx < baseline_len and positional_src and positional_src.lower() == src.lower():
+                        b_idx += 1
+                    else:
+                        found = False
+                        for idx_b in range(b_idx, baseline_len):
+                            if self.baseline_sequence[idx_b][0].lower() == src.lower():
+                                b_idx = idx_b + 1
+                                found = True
+                                break
+                        if not found and positional_src and positional_src.lower() != src.lower():
+                            exp_src_clean = format_clean_entity_label("", positional_src)
+                            logger.info(
+                                f"🚨 [DEVIATION DETECTED] Positional Step Mismatch | Cycle={cyc_id} Step={pos+1} | "
+                                f"Expected Source='{positional_src}' != Observed='{src}'"
+                            )
+                            deviations.append({
+                                "id": f"dev-mismatched-step-{cyc_id}-{pos+1}",
+                                "cycle_id": cyc_id,
+                                "source_entity": src,
+                                "expected_destination": positional_dest or "",
+                                "observed_destination": obs_dest,
+                                "label": f"Unexpected Step Order in {cyc_id}: Field ({src_clean}) where Field ({exp_src_clean}) expected",
+                                "reason": f"Expected step {pos+1} to be '{exp_src_clean}', observed '{src_clean}'",
+                                "selector": obs_clean,
+                                "transfer_id": xfer.transfer_id,
+                                "group": "Sequence Mismatch"
+                            })
 
             # 2. Check for Missing Steps in shorter cycle relative to baseline ONLY for COMPLETED cycles (not the active in-progress cycle) and if no deviation was already flagged
             cyc_keys = list(cycles_map.keys())
