@@ -5,16 +5,20 @@ import { ShieldCheck, CheckCircle2, ArrowRight, X, Clock, Database, Lock } from 
 
 export interface HumanApprovalModalProps {
   workflowName?: string;
-  estimatedTimeSaved?: string;
-  stepsCount?: number;
+  canonicalCycles?: number;
+  outlierCount?: number;
+  learnedSteps?: number;
+  remainingRecords?: number;
   onApprove: () => void;
   onReject?: () => void;
 }
 
 export const HumanApprovalModal: React.FC<HumanApprovalModalProps> = ({
-  workflowName = "Invoice Processing Workflow",
-  estimatedTimeSaved = "4.2 hrs/wk",
-  stepsCount = 3,
+  workflowName = "Learned Process Automation Workflow",
+  canonicalCycles = 3,
+  outlierCount = 0,
+  learnedSteps = 3,
+  remainingRecords = 5,
   onApprove,
   onReject,
 }) => {
@@ -30,11 +34,11 @@ export const HumanApprovalModal: React.FC<HumanApprovalModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <span className="rounded-md bg-purple-500/10 px-2 py-0.5 text-[10px] font-bold text-purple-400 border border-purple-500/20">
-                  Governance Phase 18
+                  Governance Authorization
                 </span>
-                <h2 className="text-lg font-bold text-white">Human Approval & Governance Layer</h2>
+                <h2 className="text-lg font-bold text-white">Human Approval & Governance Gate</h2>
               </div>
-              <p className="text-xs text-slate-400">Review synthesized automation spec before deployment authorization.</p>
+              <p className="text-xs text-slate-400">Authorize GhostTrace to execute the learned workflow against remaining records.</p>
             </div>
           </div>
 
@@ -49,7 +53,7 @@ export const HumanApprovalModal: React.FC<HumanApprovalModalProps> = ({
         <div className="mt-5 flex flex-col gap-4">
           <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
             <h3 className="text-sm font-bold text-cyan-400">{workflowName}</h3>
-            <p className="text-xs text-slate-300 mt-1">Discovered recurring cross-application workflow candidate</p>
+            <p className="text-xs text-slate-300 mt-1">Learned from {canonicalCycles} canonical manual execution cycles ({outlierCount} outliers excluded)</p>
           </div>
 
           {/* Key Audit Checklist */}
@@ -57,32 +61,32 @@ export const HumanApprovalModal: React.FC<HumanApprovalModalProps> = ({
             <div className="flex items-center gap-2.5 rounded-lg border border-slate-800/80 bg-slate-950/40 p-3">
               <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
               <div>
-                <span className="text-[10px] text-slate-400 block">Extracted Steps</span>
-                <span className="font-semibold text-slate-200">{stepsCount} Semantic Business Steps</span>
+                <span className="text-[10px] text-slate-400 block">Learned Sequence</span>
+                <span className="font-semibold text-slate-200">{learnedSteps} Parameterized Steps</span>
               </div>
             </div>
 
             <div className="flex items-center gap-2.5 rounded-lg border border-slate-800/80 bg-slate-950/40 p-3">
               <Clock className="h-4 w-4 text-cyan-400 shrink-0" />
               <div>
-                <span className="text-[10px] text-slate-400 block">Est. Time Saved</span>
-                <span className="font-semibold font-mono text-cyan-400">{estimatedTimeSaved}</span>
+                <span className="text-[10px] text-slate-400 block">Canonical Cycles</span>
+                <span className="font-semibold font-mono text-cyan-400">{canonicalCycles} Verified Cycles</span>
               </div>
             </div>
 
             <div className="flex items-center gap-2.5 rounded-lg border border-slate-800/80 bg-slate-950/40 p-3">
               <Database className="h-4 w-4 text-purple-400 shrink-0" />
               <div>
-                <span className="text-[10px] text-slate-400 block">Data Inputs & Scope</span>
-                <span className="font-semibold text-slate-200">Gmail PDF & SAP Portal</span>
+                <span className="text-[10px] text-slate-400 block">Remaining Workload</span>
+                <span className="font-semibold text-slate-200">{remainingRecords} Target Record(s)</span>
               </div>
             </div>
 
             <div className="flex items-center gap-2.5 rounded-lg border border-slate-800/80 bg-slate-950/40 p-3">
               <Lock className="h-4 w-4 text-emerald-400 shrink-0" />
               <div>
-                <span className="text-[10px] text-slate-400 block">Security Policy</span>
-                <span className="font-semibold text-emerald-400">Sandbox Isolation Verified</span>
+                <span className="text-[10px] text-slate-400 block">Outlier Filtering</span>
+                <span className="font-semibold text-emerald-400">{outlierCount} Excluded Outliers</span>
               </div>
             </div>
           </div>

@@ -28,6 +28,7 @@ class WorkflowCandidate(BaseModel):
     name: str = Field(..., description="Discovered workflow candidate name (e.g. 'Product Search Flow')")
     observed_steps: List[str] = Field(default_factory=list, description="Ordered action step descriptions")
     sequence_event_ids: List[str] = Field(default_factory=list, description="Traceability IDs of telemetry events")
+    sequence: List[Any] = Field(default_factory=list, description="Sequence of TelemetryEvents or ObservationEvents")
     
     occurrence_count: int = Field(default=1, ge=1, description="Number of times pattern was observed")
     confidence_score: float = Field(default=0.5, ge=0.0, le=1.0, description="Pattern repetition confidence score (0.0 to 1.0)")

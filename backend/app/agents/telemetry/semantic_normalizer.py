@@ -29,6 +29,14 @@ class SemanticEvent:
         self.app_title = raw_event.app_title
         self.timestamp = raw_event.timestamp
         self.input_masked = getattr(raw_event, "input_value", None) or getattr(raw_event, "input_masked", None)
+        
+        # Session, cycle, and action indexing metadata
+        meta = getattr(raw_event, "metadata", {}) or {}
+        self.session_id = getattr(raw_event, "session_id", None) or meta.get("session_id") or "sess-default-001"
+        self.cycle_id = meta.get("cycle_id") or "cycle-1"
+        self.event_index = meta.get("event_index") or 0
+        self.semantic_action_index = meta.get("semantic_action_index") or 0
+        self.is_automated = meta.get("is_automated") or False
 
     @property
     def pasted_value(self) -> str:
@@ -42,6 +50,11 @@ class SemanticEvent:
     def to_dict(self) -> Dict[str, Any]:
         return {
             "event_id": self.event_id,
+            "session_id": self.session_id,
+            "cycle_id": self.cycle_id,
+            "event_index": self.event_index,
+            "semantic_action_index": self.semantic_action_index,
+            "is_automated": self.is_automated,
             "operation": self.operation,
             "semantic_entity": self.semantic_entity,
             "display_label": self.display_label,
@@ -166,7 +179,17 @@ class SemanticNormalizer:
 
 
 
-        # 1. Direct Business Operations (COPY, PASTE, TYPE, SUBMIT, etc.)
+        # 1. Direct Business Operations (COPY, PASTE, TYPE, SUBMIT, RECORD_TRANSITION, etc.)
+        raw_label = getattr(raw_event, "field_label", "") or meta.get("field_label", "") or getattr(raw_event, "aria_label", "") or meta.get("aria_label", "") or ""
+        is_next_record = (
+            "next" in selector or "submit" in selector or "record" in selector or
+            "next" in raw_label.lower() or "submit" in raw_label.lower() or "next record" in selector
+        )
+
+        if is_next_record and tag in ["BUTTON", "INPUT", "A"]:
+            semantic_entity, display_label = cls.extract_semantic_metadata(raw_event)
+            return SemanticEvent(raw_event, "RECORD_TRANSITION", semantic_entity, "Next Record")
+
         for op in cls.BUSINESS_OPERATIONS:
             if op in raw_type_str or op == explicit_op:
                 semantic_entity, display_label = cls.extract_semantic_metadata(raw_event)
@@ -182,6 +205,6 @@ class SemanticNormalizer:
 
         # 3. Domain-Agnostic Interactive Element Interaction (CLICK / KEY / SELECT on target application UI)
         semantic_entity, display_label = cls.extract_semantic_metadata(raw_event)
-        op_label = "SUBMIT_ACTION" if tag in ["BUTTON", "SUBMIT"] or "button" in selector else "FOCUS_FIELD"
+        op_label = "SUBMIT_ACTION" if (tag in ["BUTTON", "SUBMIT"] or "button" in selector or is_next_record) else "FOCUS_FIELD"
         return SemanticEvent(raw_event, op_label, semantic_entity, f"Action on {display_label}")
 

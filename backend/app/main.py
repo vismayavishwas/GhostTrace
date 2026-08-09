@@ -60,11 +60,14 @@ app.add_middleware(
 )
 
 
+from app.api.routes import health, telemetry, state, websocket_streams, workflows, ghost_replay  # type: ignore
+
 # Register REST & WebSocket routes
 app.include_router(health.router)
 app.include_router(telemetry.router)
 app.include_router(workflows.router)
 app.include_router(state.router)
+app.include_router(ghost_replay.router)
 app.include_router(websocket_streams.router)
 
 

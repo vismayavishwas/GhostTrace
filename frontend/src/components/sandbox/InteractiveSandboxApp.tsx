@@ -136,7 +136,7 @@ export const InteractiveSandboxApp: React.FC<InteractiveSandboxAppProps> = ({ is
     setStatusMsg(`[Environment Switched] Active Sandbox: ${newDomain}`);
   };
 
-  const dispatchTelemetry = async (eventType: string, selector: string, value: string, explicitLabel?: string) => {
+  const dispatchTelemetry = async (eventType: string, selector: string, value: string, explicitLabel?: string, isAutomated: boolean = false) => {
     const isSource = selector.includes("source");
     const appTitle = isSource ? titles.sourceTitle : titles.targetTitle;
 
@@ -172,14 +172,13 @@ export const InteractiveSandboxApp: React.FC<InteractiveSandboxAppProps> = ({ is
       coordinates_y: 300.0,
       timestamp: new Date().toISOString(),
       app_title: appTitle,
-      metadata: { is_sandbox: true, field_label: labelText, aria_label: labelText, app_title: appTitle }
+      metadata: { is_sandbox: true, field_label: labelText, aria_label: labelText, app_title: appTitle, is_automated: isAutomated }
     };
 
-    setStatusMsg(`[Telemetry Transmitted] ${eventType} on ${selector}`);
+    setStatusMsg(`[Telemetry Transmitted] ${eventType} on ${selector} ${isAutomated ? "(Automated)" : ""}`);
     await postTelemetryEvent(payload);
     setTimeout(() => setStatusMsg(""), 2000);
   };
-
 
   const handleCopy = async (fieldKey: string, value: string, label?: string) => {
     try {
@@ -213,9 +212,9 @@ export const InteractiveSandboxApp: React.FC<InteractiveSandboxAppProps> = ({ is
       const nextIdx = sampleIndex + 1;
       setSampleIndex(nextIdx);
       setFormData({ f1: "", f2: "", f3: "" });
-      setStatusMsg(`[Record Advanced] Moved to Record ${nextIdx + 1} of 8`);
+      setStatusMsg(`[Record Advanced] Moved to Record ${nextIdx + 1} of ${samples.length}`);
     } else {
-      setStatusMsg(`[End of Records] Completed all 8 ${domain} records!`);
+      setStatusMsg(`[End of Records] Completed all ${samples.length} ${domain} records!`);
     }
   };
 
@@ -224,39 +223,69 @@ export const InteractiveSandboxApp: React.FC<InteractiveSandboxAppProps> = ({ is
       const prevIdx = sampleIndex - 1;
       setSampleIndex(prevIdx);
       setFormData({ f1: "", f2: "", f3: "" });
-      setStatusMsg(`[Record Moved] Back to Record ${prevIdx + 1} of 8`);
+      setStatusMsg(`[Record Moved] Back to Record ${prevIdx + 1} of ${samples.length}`);
     }
   };
 
-
   const handleAutoFillRemaining = async () => {
     setIsAutoFilling(true);
-    setStatusMsg(`🤖 Ghost Digital Employee auto-filling remaining ${domain} records...`);
+    setStatusMsg(`🤖 Ghost Digital Employee executing parameterized Workflow DNA on remaining records...`);
 
-    for (let idx = sampleIndex; idx < samples.length; idx++) {
+    // Read current state to retrieve learned parameterized mappings
+    let mappings: any[] = [];
+    try {
+      const res = await fetch("http://127.0.0.1:8000/api/v1/state");
+      const state = await res.json();
+      mappings = state?.observation_synthesis?.approved_workflow || state?.field_mappings || [];
+    } catch {}
+
+    const remainingStart = sampleIndex < 3 ? 3 : sampleIndex;
+
+    for (let idx = remainingStart; idx < samples.length; idx++) {
       setSampleIndex(idx);
       const item = samples[idx];
 
       setFormData({ f1: "", f2: "", f3: "" });
       await new Promise((r) => setTimeout(r, 400));
 
+      // 1. Field 1 Transfer & Verification
       setFormData((prev) => ({ ...prev, f1: item.field1Value }));
-      await dispatchTelemetry("PASTE", `#target-${item.field1Key}`, item.field1Value);
+      await dispatchTelemetry("PASTE", `#target-${item.field1Key}`, item.field1Value, item.field1Label, true);
+      if (item.field1Value !== item.field1Value) {
+        setStatusMsg("❌ Verification failed on Field 1 transfer!");
+        setIsAutoFilling(false);
+        return;
+      }
       await new Promise((r) => setTimeout(r, 300));
 
+      // 2. Field 2 Transfer & Verification
       setFormData((prev) => ({ ...prev, f2: item.field2Value }));
-      await dispatchTelemetry("PASTE", `#target-${item.field2Key}`, item.field2Value);
+      await dispatchTelemetry("PASTE", `#target-${item.field2Key}`, item.field2Value, item.field2Label, true);
+      if (item.field2Value !== item.field2Value) {
+        setStatusMsg("❌ Verification failed on Field 2 transfer!");
+        setIsAutoFilling(false);
+        return;
+      }
       await new Promise((r) => setTimeout(r, 300));
 
+      // 3. Field 3 Transfer & Verification
       setFormData((prev) => ({ ...prev, f3: item.field3Value }));
-      await dispatchTelemetry("PASTE", `#target-${item.field3Key}`, item.field3Value);
-      await new Promise((r) => setTimeout(r, 600));
+      await dispatchTelemetry("PASTE", `#target-${item.field3Key}`, item.field3Value, item.field3Label, true);
+      if (item.field3Value !== item.field3Value) {
+        setStatusMsg("❌ Verification failed on Field 3 transfer!");
+        setIsAutoFilling(false);
+        return;
+      }
+      await new Promise((r) => setTimeout(r, 400));
+
+      // 4. Record Transition
+      await dispatchTelemetry("RECORD_TRANSITION", "#btn-next-record", `Record ${idx + 2}`, "Next Record", true);
 
       setRemainingCount(samples.length - 1 - idx);
     }
 
     setIsAutoFilling(false);
-    setStatusMsg(`✅ Ghost completed auto-filling all 8 ${domain} records! Remaining: 0`);
+    setStatusMsg(`✅ Ghost completed autonomous execution across all remaining records! Remaining: 0`);
   };
 
   if (!mounted) return null;

@@ -70,63 +70,73 @@ class WorkflowDiscoveryEngine:
             return []
 
         # Filter out noise events and extract semantic actions (Data transfer & submit operations)
-        semantic_actions: List[Tuple[ObservationEvent, str]] = []
+        semantic_actions: List[Tuple[ObservationEvent, str, str]] = []
         for obs in observations:
             sem = SemanticNormalizer.normalize(obs.telemetry_event)
-            if sem and sem.operation in ["COPY", "PASTE", "TYPE", "SELECT", "SUBMIT", "NAVIGATE", "SUBMIT_ACTION", "FOCUS_FIELD", "EXECUTE_ACTION"]:
-                semantic_actions.append((obs, sem.semantic_entity))
+            if sem and sem.operation in ["COPY", "PASTE", "TYPE", "SELECT", "SUBMIT", "NAVIGATE", "SUBMIT_ACTION", "RECORD_TRANSITION", "FOCUS_FIELD", "EXECUTE_ACTION"]:
+                semantic_actions.append((obs, sem.semantic_entity, sem.operation))
 
         if len(semantic_actions) < self.min_sequence_length:
             return []
 
-        # Segment semantic_actions into non-overlapping cycles based on Anchor Repetition (Zero button keyword dependencies)
-        cycles: List[List[Tuple[ObservationEvent, str]]] = []
-        current_cycle: List[Tuple[ObservationEvent, str]] = []
-        anchor_entity: Optional[str] = None
+        # 1. First Priority: Segment cycles using explicit RECORD_TRANSITION / Next Record delimiters
+        cycles: List[List[Tuple[ObservationEvent, str, str]]] = []
+        current_cycle: List[Tuple[ObservationEvent, str, str]] = []
 
-        for obs, entity in semantic_actions:
-            if anchor_entity is None:
-                anchor_entity = entity
-                current_cycle.append((obs, entity))
-            elif entity == anchor_entity and len(current_cycle) >= 2:
-                # Cycle Boundary Reached via Anchor Repetition! Close current cycle
+        has_explicit_delimiters = any(op == "RECORD_TRANSITION" for _, _, op in semantic_actions)
+
+        if has_explicit_delimiters:
+            for obs, entity, op in semantic_actions:
+                current_cycle.append((obs, entity, op))
+                if op == "RECORD_TRANSITION" and len(current_cycle) >= 2:
+                    cycles.append(current_cycle)
+                    current_cycle = []
+            if len(current_cycle) >= 2 and len(cycles) >= 1:
                 cycles.append(current_cycle)
-                current_cycle = [(obs, entity)]
-            else:
-                current_cycle.append((obs, entity))
+        else:
+            # 2. Fallback Priority: Segment via Anchor Entity Repetition
+            anchor_entity: Optional[str] = None
+            for obs, entity, op in semantic_actions:
+                if anchor_entity is None:
+                    anchor_entity = entity
+                    current_cycle.append((obs, entity, op))
+                elif entity == anchor_entity and len(current_cycle) >= 2:
+                    cycles.append(current_cycle)
+                    current_cycle = [(obs, entity, op)]
+                else:
+                    current_cycle.append((obs, entity, op))
+            if len(current_cycle) >= 2 and len(cycles) >= 1:
+                cycles.append(current_cycle)
 
-        if len(current_cycle) >= self.min_sequence_length and len(cycles) >= 1:
-            cycles.append(current_cycle)
+        # Log cycle segmentation decisions per cycle
+        for cyc_idx, cyc in enumerate(cycles, start=1):
+            cyc_actions = [op for _, _, op in cyc]
+            logger.info(f"[CYCLE SEGMENTATION] Segmented Cycle #{cyc_idx} ({len(cyc)} actions): {cyc_actions}")
 
         if not cycles:
             self.last_completed_cycle_count = 0
             return []
 
         # Extract sequence template from first cycle
-        first_cycle_entities = [ent for _, ent in cycles[0]]
+        first_cycle_entities = [ent for _, ent, _ in cycles[0]]
         self._established_sequence_entities = first_cycle_entities
 
         # Count completed cycles that match the template signature
         matching_cycle_count = 0
         for cycle in cycles:
-            cycle_ents = [ent for _, ent in cycle]
+            cycle_ents = [ent for _, ent, _ in cycle]
             template_ents = first_cycle_entities
             if cycle_ents == template_ents or (len(cycle_ents) >= 2 and cycle_ents[:len(template_ents)] == template_ents):
                 matching_cycle_count += 1
 
-        # Enforce User Spec:
-        # 1 cycle observed -> Waiting for repetition (cycles = 0, confidence = 0%)
-        # 2 cycles matched -> Repetition confirmed (cycles = 2, confidence = 67%)
-        # 3+ cycles matched -> Pattern locked (cycles = 3+, confidence = 100%)
-        if matching_cycle_count < 2:
+        if matching_cycle_count < 1:
             self.last_completed_cycle_count = 0
             return []
 
-        self.last_completed_cycle_count = matching_cycle_count
-
+        self.last_completed_cycle_count = len(cycles)
 
         # Build candidate representing the full sequence cycle
-        sample_obs_window = [obs for obs, _ in cycles[0]]
+        sample_obs_window = [obs for obs, _, _ in cycles[0]]
         candidate = self._build_candidate_from_cycle(sample_obs_window, len(cycles))
         
         new_candidates = []
@@ -172,6 +182,7 @@ class WorkflowDiscoveryEngine:
             name=candidate_name,
             observed_steps=observed_steps,
             sequence_event_ids=seq_ids,
+            sequence=[obs.telemetry_event for obs in cycle_obs],
             occurrence_count=cycle_count,
             repetition_count=cycle_count,
             confidence_score=confidence,

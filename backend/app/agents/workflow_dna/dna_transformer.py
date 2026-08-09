@@ -15,7 +15,8 @@ class DNATransformer:
     """
 
     def transform_candidate(self, candidate: Any) -> WorkflowDNA:
-        events = getattr(candidate, "sequence", None) or getattr(candidate, "events", None) or []
+        raw_seq = getattr(candidate, "sequence", None) or getattr(candidate, "events", None) or []
+        events = [e.telemetry_event if hasattr(e, "telemetry_event") else e for e in raw_seq]
         steps: List[WorkflowDNAStep] = []
         apps_involved: Set[str] = set()
         inputs_schema: Dict[str, Any] = {}
@@ -28,32 +29,40 @@ class DNATransformer:
         transfers = tb.process_telemetry_events(events) if events else []
         devs = global_deviation_detector.detect_deviations(transfers) if transfers else []
         dev_tids = {d.get("transfer_id") for d in devs if d.get("transfer_id")}
+        logger.info(f"[DNA_TRANSFORMER] transform_candidate raw_seq={len(raw_seq)} events={len(events)} transfers={len(transfers)} devs={len(devs)}")
 
         field_mappings: List[Dict[str, Any]] = []
 
-        for xfer in transfers:
+        for idx, xfer in enumerate(transfers, start=1):
             if xfer.is_immediate_correction or xfer.transfer_id in dev_tids:
                 continue
 
-            src_app = xfer.source_app or "Unknown Application"
-            dest_app = xfer.destination_app or "Unknown Application"
-            src_lbl = getattr(xfer, "source_display_label", None) or xfer.source_entity or "Unknown Field"
-            dest_lbl = getattr(xfer, "destination_display_label", None) or xfer.destination_entity or "Unknown Field"
+            src_app = xfer.source_app or "Source App"
+            dest_app = xfer.destination_app or "Destination App"
+            src_lbl = getattr(xfer, "source_display_label", None) or xfer.source_entity or "Source Field"
+            dest_lbl = getattr(xfer, "destination_display_label", None) or xfer.destination_entity or "Target Field"
+            src_sel = getattr(xfer, "source_selector", "") or ""
+            dest_sel = getattr(xfer, "destination_selector", "") or ""
+            var_name = f"current_record.field_{idx}"
 
-            if src_app != "Unknown Application": apps_involved.add(src_app)
-            if dest_app != "Unknown Application": apps_involved.add(dest_app)
+            if src_app != "Source App": apps_involved.add(src_app)
+            if dest_app != "Destination App": apps_involved.add(dest_app)
 
             field_mappings.append({
                 "transfer_id": xfer.transfer_id,
+                "step_index": idx,
+                "variable_name": var_name,
                 "source_entity": xfer.source_entity,
                 "source_label": src_lbl,
                 "source_app": src_app,
+                "source_selector": src_sel,
                 "destination_entity": xfer.destination_entity,
                 "destination_label": dest_lbl,
                 "destination_app": dest_app,
+                "destination_selector": dest_sel,
                 "pasted_value": xfer.pasted_value or "",
-                "display_mapping": f"{src_lbl} → {dest_lbl}",
-                "full_mapping_title": f"{src_app} ({src_lbl}) ➔ {dest_app} ({dest_lbl})"
+                "display_mapping": f"{src_lbl} → {dest_lbl} ({var_name})",
+                "full_mapping_title": f"[{var_name}] {src_app} ({src_lbl}) ➔ {dest_app} ({dest_lbl})"
             })
 
         for idx, event in enumerate(events, start=1):
@@ -140,9 +149,9 @@ class DNATransformer:
             applications_involved=app_list,
             confidence_score=candidate.confidence_score,
             metadata={
-                "candidate_id": candidate.candidate_id,
-                "repetition_count": candidate.repetition_count,
-                "sequence_event_ids": candidate.sequence_event_ids,
+                "candidate_id": getattr(candidate, "candidate_id", "cand-001"),
+                "repetition_count": getattr(candidate, "repetition_count", None) or getattr(candidate, "occurrence_count", 1),
+                "sequence_event_ids": getattr(candidate, "sequence_event_ids", []),
                 "field_mappings": field_mappings,
                 "chronological_transfers": field_mappings,
             }

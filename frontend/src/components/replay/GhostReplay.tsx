@@ -22,16 +22,6 @@ export interface GhostReplayProps {
   observationSynthesis?: any;
 }
 
-const DEFAULT_CANONICAL_STEPS: ReplayStep[] = [
-  { stepIndex: 1, title: "Copy Invoice ID from PDF Source", actionType: "COPY", target: "Invoice ID", selector: "#source-invoiceId", appContext: "PDF INVOICE SOURCE", sampleValue: "INV-2026-9841", done: false },
-  { stepIndex: 2, title: "Paste Invoice ID into SAP ERP", actionType: "PASTE", target: "Invoice ID", selector: "#target-invoiceId", appContext: "SAP ERP FINANCIALS", sampleValue: "INV-2026-9841", done: false },
-  { stepIndex: 3, title: "Copy Amount from PDF Source", actionType: "COPY", target: "Amount", selector: "#source-amount", appContext: "PDF INVOICE SOURCE", sampleValue: "$14,850.00", done: false },
-  { stepIndex: 4, title: "Paste Amount into SAP ERP", actionType: "PASTE", target: "Amount", selector: "#target-amount", appContext: "SAP ERP FINANCIALS", sampleValue: "$14,850.00", done: false },
-  { stepIndex: 5, title: "Copy Vendor from PDF Source", actionType: "COPY", target: "Vendor", selector: "#source-vendor", appContext: "PDF INVOICE SOURCE", sampleValue: "Acme Cloud Logistics", done: false },
-  { stepIndex: 6, title: "Paste Vendor into SAP ERP", actionType: "PASTE", target: "Vendor", selector: "#target-vendor", appContext: "SAP ERP FINANCIALS", sampleValue: "Acme Cloud Logistics", done: false },
-  { stepIndex: 7, title: "Submit SAP ERP Entry & Post Receipt", actionType: "SUBMIT", target: "Submit Entry", selector: "#submit-erp", appContext: "SAP ERP FINANCIALS", sampleValue: "Post Entry", done: false },
-];
-
 export const GhostReplay: React.FC<GhostReplayProps> = ({
   onProceedToDeploy,
   workflowDNA,
@@ -46,7 +36,8 @@ export const GhostReplay: React.FC<GhostReplayProps> = ({
   const [isClicking, setIsClicking] = useState<boolean>(false);
   const [typedBuffer, setTypedBuffer] = useState<string>("");
   const [clipboardFlash, setClipboardFlash] = useState<string | null>(null);
-  const [steps, setSteps] = useState<ReplayStep[]>(DEFAULT_CANONICAL_STEPS);
+  const [steps, setSteps] = useState<ReplayStep[]>([]);
+  const [replayFrames, setReplayFrames] = useState<any[]>([]);
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [isCompleted, setIsCompleted] = useState<boolean>(false);
   const [transitionPhase, setTransitionPhase] = useState<"REPLAYING" | "VALIDATED" | "READY">("REPLAYING");
@@ -57,16 +48,28 @@ export const GhostReplay: React.FC<GhostReplayProps> = ({
       ? observationSynthesis.approved_workflow
       : (workflowDNA?.field_mappings || []);
 
+    fetch("http://127.0.0.1:8000/api/v1/replay/frames")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && data.frames && data.frames.length > 0) {
+          setReplayFrames(data.frames);
+        }
+      })
+      .catch(() => {});
+
     if (rawApproved.length > 0) {
       const approvedSeenKeys = new Set<string>();
       const canonicalSteps: ReplayStep[] = [];
       let sIdx = 1;
 
       rawApproved.forEach((m: any) => {
-        const srcApp = m.source_app || "PDF INVOICE SOURCE";
-        const destApp = m.destination_app || "SAP ERP FINANCIALS";
+        const srcApp = m.source_app || "Source App";
+        const destApp = m.destination_app || "Target App";
         const srcLbl = m.source_label || m.source_entity || "Source Field";
         const destLbl = m.destination_label || m.destination_entity || "Target Field";
+        const srcSel = m.source_selector || `#source-${srcLbl.toLowerCase().replace(/\s+/g, '-')}`;
+        const destSel = m.destination_selector || `#target-${destLbl.toLowerCase().replace(/\s+/g, '-')}`;
+        const val = m.pasted_value || "";
         const tupleKey = `${srcApp}::${srcLbl}::${destApp}::${destLbl}`;
 
         if (!approvedSeenKeys.has(tupleKey)) {
@@ -78,9 +81,9 @@ export const GhostReplay: React.FC<GhostReplayProps> = ({
             title: `Copy ${srcLbl} from ${srcApp}`,
             actionType: "COPY",
             target: srcLbl,
-            selector: `#source-${srcLbl.toLowerCase()}`,
+            selector: srcSel,
             appContext: srcApp,
-            sampleValue: m.pasted_value || `${srcLbl}-Sample`,
+            sampleValue: val,
             done: false,
           });
 
@@ -90,9 +93,9 @@ export const GhostReplay: React.FC<GhostReplayProps> = ({
             title: `Paste ${srcLbl} into ${destLbl} (${destApp})`,
             actionType: "PASTE",
             target: destLbl,
-            selector: `#target-${destLbl.toLowerCase()}`,
+            selector: destSel,
             appContext: destApp,
-            sampleValue: m.pasted_value || `${srcLbl}-Sample`,
+            sampleValue: val,
             done: false,
           });
         }
@@ -101,12 +104,12 @@ export const GhostReplay: React.FC<GhostReplayProps> = ({
       if (canonicalSteps.length > 0) {
         canonicalSteps.push({
           stepIndex: sIdx++,
-          title: "Submit & Post Entry to Target App",
+          title: "Submit Record & Advance Workflow",
           actionType: "SUBMIT",
-          target: "Submit Form",
-          selector: "#submit-btn",
-          appContext: "SAP ERP FINANCIALS",
-          sampleValue: "Post Entry",
+          target: "Next Record",
+          selector: "#btn-next-record",
+          appContext: "Target App",
+          sampleValue: "Next Record",
           done: false,
         });
         setSteps(canonicalSteps);
@@ -129,7 +132,7 @@ export const GhostReplay: React.FC<GhostReplayProps> = ({
     );
 
     return () => wsManager.close();
-  }, []);
+  }, [workflowDNA, observationSynthesis]);
 
   useEffect(() => {
     if (!isPlaying || steps.length === 0) return;
@@ -157,12 +160,24 @@ export const GhostReplay: React.FC<GhostReplayProps> = ({
         setActiveStepIdx(stepIdx);
         setCursorAction(currentStep?.actionType || "NAVIGATE");
 
-        // Human-like Easing Physics: Accelerate -> decelerate to target coordinate -> click ripple -> micro-pause
-        const rawX = 20 + ((stepIdx * 17) % 55);
-        const rawY = 25 + ((stepIdx * 23) % 45);
-        
-        // Easing interpolation (cubic ease-out)
-        setCursorPos({ x: rawX, y: rawY });
+        // Real Telemetry Position or DOM Bounding Box center fallback
+        let targetX = 25;
+        let targetY = 30;
+
+        if (replayFrames && replayFrames[stepIdx]) {
+          const frame = replayFrames[stepIdx];
+          targetX = Math.min(85, Math.max(15, Math.round((frame.x % 800) / 8)));
+          targetY = Math.min(80, Math.max(20, Math.round((frame.y % 600) / 7)));
+        } else if (currentStep?.selector && typeof document !== "undefined") {
+          const elem = document.querySelector(currentStep.selector);
+          if (elem) {
+            const rect = elem.getBoundingClientRect();
+            targetX = Math.min(85, Math.max(15, Math.round((rect.left + rect.width / 2) / 10)));
+            targetY = Math.min(80, Math.max(20, Math.round((rect.top + rect.height / 2) / 8)));
+          }
+        }
+
+        setCursorPos({ x: targetX, y: targetY });
 
         // Trigger subtle click ripple effect on step change
         if (stepIdx !== activeStepIdx) {
