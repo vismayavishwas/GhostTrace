@@ -101,22 +101,11 @@ class DeviationDetector:
 
             cycles_map[cyc].append(xfer)
 
-        # Establish baseline sequence from first complete cycle only when cycle 1 is complete
-        # (confirmed by source entity repetition or multiple cycles)
-        if not self.baseline_sequence and cycles_map:
-            has_repeat = len(cycles_map.keys()) >= 2
-            if not has_repeat:
-                seen_srcs = set()
-                for x in valid_transfers:
-                    sk = x.source_entity.lower()
-                    if sk in seen_srcs:
-                        has_repeat = True
-                        break
-                    seen_srcs.add(sk)
-
-            if has_repeat:
-                first_cyc_id = list(cycles_map.keys())[0]
-                self.set_sequence_template(cycles_map[first_cyc_id])
+        # Establish baseline sequence from cycle-1 only when at least 2 cycles are present
+        if len(cycles_map.keys()) >= 2 and "cycle-1" in cycles_map:
+            self.set_sequence_template(cycles_map["cycle-1"])
+        else:
+            self.baseline_sequence = []
 
         if not self.baseline_sequence:
             return deviations
