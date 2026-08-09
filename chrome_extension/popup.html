@@ -3,19 +3,42 @@
 <head>
   <meta charset="utf-8">
   <style>
-    body { width: 280px; font-family: system-ui, sans-serif; background: #0f172a; color: #f8fafc; padding: 16px; margin: 0; }
-    .header { font-size: 14px; font-weight: 800; color: #06b6d4; display: flex; align-items: center; gap: 8px; }
-    .status { font-size: 11px; margin-top: 4px; color: #94a3b8; }
-    .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; background: rgba(16,185,129,0.1); color: #10b981; font-weight: bold; font-size: 10px; border: 1px solid rgba(16,185,129,0.2); margin-top: 10px; }
-    .server-select { margin-top: 12px; font-size: 11px; }
-    label { font-weight: 600; color: #cbd5e1; display: block; margin-bottom: 4px; }
-    select { width: 100%; background: #1e293b; color: #06b6d4; border: 1px solid #334155; padding: 6px 8px; border-radius: 6px; font-size: 11px; outline: none; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { width: 300px; font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; padding: 16px; }
+    .header { font-size: 14px; font-weight: 800; color: #06b6d4; display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
+    .subtitle { font-size: 10px; color: #64748b; margin-bottom: 12px; font-mono; }
+    .status-card { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; }
+    .status-row { display: flex; align-items: center; justify-content: space-between; }
+    .status-label { font-size: 11px; font-weight: 600; color: #94a3b8; }
+    .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+    .status-text { font-size: 11px; font-weight: 700; display: flex; align-items: center; }
+    .status-text.online { color: #10b981; }
+    .status-text.offline { color: #ef4444; }
+    .status-text.checking { color: #f59e0b; }
+    .ping-time { font-size: 10px; color: #64748b; margin-top: 4px; font-family: monospace; }
+    .divider { border: none; border-top: 1px solid #1e293b; margin: 10px 0; }
+    .server-select { margin-bottom: 10px; }
+    label { font-size: 11px; font-weight: 600; color: #cbd5e1; display: block; margin-bottom: 5px; }
+    select { width: 100%; background: #0f172a; color: #06b6d4; border: 1px solid #334155; padding: 7px 9px; border-radius: 7px; font-size: 11px; outline: none; cursor: pointer; }
+    .refresh-btn { width: 100%; background: #0e7490; border: none; color: white; padding: 8px; border-radius: 7px; font-size: 11px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: background 0.2s; margin-top: 2px; }
+    .refresh-btn:hover { background: #0891b2; }
+    .footer { font-size: 9px; color: #475569; text-align: center; margin-top: 10px; }
   </style>
 </head>
 <body>
   <div class="header">👻 GhostTrace AI Observer</div>
-  <div class="status">Manifest v3 Telemetry Sidecar</div>
-  <div class="badge">● Active Observer Stream</div>
+  <div class="subtitle">Manifest v3 Telemetry Sidecar · Active</div>
+
+  <div class="status-card">
+    <div class="status-row">
+      <span class="status-label">Backend Status</span>
+      <span class="status-text checking" id="statusText">
+        <span class="status-dot" id="statusDot" style="background:#f59e0b"></span>
+        Checking...
+      </span>
+    </div>
+    <div class="ping-time" id="pingTime"></div>
+  </div>
 
   <div class="server-select">
     <label for="targetEndpoint">Target Backend Service:</label>
@@ -24,6 +47,10 @@
       <option value="http://127.0.0.1:8000/api/v1/telemetry/events">Local Development (127.0.0.1:8000)</option>
     </select>
   </div>
+
+  <button class="refresh-btn" id="pingBtn">🔄 Test Backend Connection</button>
+
+  <div class="footer">GhostTrace AI · ghost-trace-4c783.web.app</div>
 
   <script src="popup.js"></script>
 </body>

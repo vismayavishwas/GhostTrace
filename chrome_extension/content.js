@@ -1,13 +1,10 @@
 // GhostTrace AI Chrome Extension Content Script (Manifest v3)
 (function () {
-  console.log("GhostTrace AI Shadow Observer active on tab:", document.title);
+  const BACKEND_URL = "https://ghosttrace-bcp2.onrender.com/api/v1/telemetry/events";
 
   function getCssSelector(el) {
     if (!el || el.nodeType !== Node.ELEMENT_NODE) return "element";
-    if (el.id) {
-      return `#${el.id}`;
-    }
-
+    if (el.id) return `#${el.id}`;
     if (el.className && typeof el.className === "string") {
       const cls = el.className.split(" ").filter(Boolean).join(".");
       if (cls) return `${el.tagName.toLowerCase()}.${cls}`;
@@ -35,8 +32,10 @@
   }
 
   function captureAndSend(evtType, targetEl, inputValue) {
-    const rect = targetEl && targetEl.getBoundingClientRect ? targetEl.getBoundingClientRect() : { left: 0, top: 0, width: 0, height: 0 };
-    
+    const rect = targetEl && targetEl.getBoundingClientRect
+      ? targetEl.getBoundingClientRect()
+      : { left: 0, top: 0, width: 0, height: 0 };
+
     const payload = {
       event_type: evtType.toUpperCase(),
       active_tab: document.title,
@@ -52,33 +51,31 @@
       app_title: document.title,
     };
 
-    // Send telemetry through extension background service worker (bypasses HTTPS mixed-content CSP restrictions)
+    // Primary path: route through background service worker (avoids CSP/mixed-content issues)
     if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.id && chrome.runtime.sendMessage) {
       try {
         chrome.runtime.sendMessage({ action: "POST_TELEMETRY", payload }, (response) => {
           if (chrome.runtime.lastError) {
-            // Extension reloaded or context invalidated; fallback quietly on HTTP only
-            if (window.location.protocol === "http:") {
-              fetch("http://127.0.0.1:8000/api/v1/telemetry/events", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-              }).catch(() => {});
-            }
+            // Context invalidated — fall back to direct fetch to live backend
+            fetch(BACKEND_URL, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            }).catch(() => {});
           }
         });
+        return;
       } catch (e) {
-        // Extension context invalidated ignore
+        // Extension context invalidated — fall through to direct fetch
       }
-    } else if (window.location.protocol === "http:") {
-      fetch("http://127.0.0.1:8000/api/v1/telemetry/events", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      }).catch(() => {});
     }
 
-
+    // Fallback: direct fetch to live Render backend (works on http and https pages)
+    fetch(BACKEND_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }).catch(() => {});
   }
 
   // Click Event Listener

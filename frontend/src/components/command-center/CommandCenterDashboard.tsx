@@ -12,6 +12,7 @@ import { ReasoningTimeline } from "../reasoning/ReasoningTimeline";
 import { DigitalEmployeeCard } from "../employee/DigitalEmployeeCard";
 import { AutomationImpactCard } from "../impact/AutomationImpactCard";
 import { fetchGraphState, triggerGraphExecution, resetTelemetryState } from "@/lib/api";
+import { startBackendKeepAlive } from "@/lib/websocket";
 
 
 import { InteractiveSandboxApp } from "../sandbox/InteractiveSandboxApp";
@@ -64,6 +65,9 @@ export const CommandCenterDashboard: React.FC = () => {
     // Reset shadow mode state automatically on page refresh/mount
     resetTelemetryState();
 
+    // Keep Render backend warm — prevents 30-60s cold start latency
+    const keepAliveTimer = startBackendKeepAlive();
+
     // Poll graph state from backend
     const interval = setInterval(() => {
       fetchGraphState().then((state) => {
@@ -92,7 +96,10 @@ export const CommandCenterDashboard: React.FC = () => {
     }, 500);
 
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      clearInterval(keepAliveTimer);
+    };
   }, []);
 
   const handleGrantPermission = (selectedApps: string[]) => {
