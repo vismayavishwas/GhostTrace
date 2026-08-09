@@ -231,7 +231,7 @@ async def get_current_state():
         "canonical_cycle_count": canonical_cycle_count,
         "total_cycle_count": total_cycle_count,
         "outlier_count": outlier_count,
-        "outlier_cycle_ids": outlier_cycle_ids,
+        "outlier_cycle_ids": all_outlier_cycle_ids,
         "completed_cycles": canonical_cycle_count,
         "confidence_score": round(confidence, 2)
     }
