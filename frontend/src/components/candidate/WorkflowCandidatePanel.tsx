@@ -191,14 +191,14 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
   }
 
   return (
-    <div className="fixed bottom-6 left-6 z-50 w-full max-w-md animate-in slide-in-from-bottom-8 duration-300">
-      <div className="relative flex flex-col gap-4 w-full rounded-2xl border border-cyan-500/50 bg-gradient-to-br from-slate-900/95 via-slate-950/95 to-purple-950/95 p-5 shadow-2xl shadow-cyan-500/25 backdrop-blur-2xl max-h-[calc(100vh-8rem)] overflow-y-auto">
+    <div className="fixed bottom-3 left-3 sm:bottom-6 sm:left-6 z-50 w-full max-w-md animate-in slide-in-from-bottom-8 duration-300 max-w-[calc(100vw-1.5rem)]">
+      <div className="relative flex flex-col gap-3.5 w-full rounded-2xl border border-cyan-500/50 bg-gradient-to-br from-slate-900/95 via-slate-950/95 to-purple-950/95 p-4 sm:p-5 shadow-2xl shadow-cyan-500/25 backdrop-blur-2xl max-h-[82vh] overflow-y-auto pr-2 sm:pr-3 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-slate-900/50 [&::-webkit-scrollbar-thumb]:bg-cyan-500/50 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-cyan-400">
 
         {/* Dismiss Side Drawer Close Button */}
         <button
           suppressHydrationWarning
           onClick={handleCloseCollapse}
-          className="absolute top-3.5 right-3.5 rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white transition text-xs font-bold"
+          className="absolute top-3.5 right-3.5 rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white transition text-xs font-bold z-10"
         >
           ✕
         </button>
@@ -286,7 +286,7 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
 
       {/* Human-in-the-Loop Multi-Outlier Batch Checklist Review Panel */}
       {isReviewPending && (
-        <div className="flex flex-col gap-3 rounded-xl border border-amber-500/40 bg-amber-950/30 p-4 text-xs shadow-lg overflow-hidden w-full max-w-full">
+        <div className="flex flex-col gap-3 rounded-xl border border-amber-500/40 bg-amber-950/40 p-3.5 text-xs shadow-lg w-full max-w-full relative">
           <div className="flex items-center justify-between border-b border-amber-500/20 pb-2 flex-wrap gap-2">
             <div className="flex items-center gap-2 min-w-0">
               <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0" />
@@ -308,20 +308,20 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
           </div>
 
           {/* Outlier Checklist Items (1...N) */}
-          <div className="flex flex-col gap-2.5 max-h-56 overflow-y-auto py-1">
+          <div className="flex flex-col gap-2 max-h-36 overflow-y-auto py-1 pr-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-slate-900/50 [&::-webkit-scrollbar-thumb]:bg-amber-500/50 [&::-webkit-scrollbar-thumb]:rounded-full">
             {outlierList.map((item) => {
               const isChecked = selectedOutlierIds.has(item.id);
               return (
                 <div
                   key={item.id}
                   onClick={() => toggleItem(item.id)}
-                  className={`flex items-start justify-between rounded-xl border p-3 cursor-pointer transition select-none ${
+                  className={`flex items-start justify-between rounded-xl border p-2.5 cursor-pointer transition select-none ${
                     isChecked
                       ? "border-amber-500/60 bg-amber-500/10 text-amber-100 shadow-md"
                       : "border-slate-800 bg-slate-950/40 text-slate-400 hover:border-slate-700"
                   }`}
                 >
-                  <div className="flex items-start gap-3 flex-1 min-w-0 pr-2">
+                  <div className="flex items-start gap-2.5 flex-1 min-w-0 pr-2">
                     {isChecked ? (
                       <CheckSquare className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
                     ) : (
@@ -336,8 +336,8 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
                       </span>
                     </div>
                   </div>
-                  <span className="text-[10px] font-mono bg-slate-900/90 px-2 py-1 rounded border border-slate-700/80 text-cyan-300 font-semibold shrink-0 ml-1">
-                    {item.group ? `[ ${item.group} ]` : "[ Semantic Action ]"}
+                  <span className="text-[10px] font-mono bg-slate-900/90 px-2 py-0.5 rounded border border-slate-700/80 text-cyan-300 font-semibold shrink-0 ml-1">
+                    {item.group ? `[ ${item.group} ]` : "[ Action ]"}
                   </span>
 
                 </div>
@@ -345,9 +345,9 @@ export const WorkflowCandidatePanel: React.FC<WorkflowCandidatePanelProps> = ({
             })}
           </div>
 
-          {/* Batch Submit Action Buttons */}
-          <div className="flex flex-col gap-2.5 pt-2 border-t border-amber-500/20 w-full overflow-hidden">
-            <span className="text-[11px] text-slate-400 font-mono break-words">
+          {/* Sticky Batch Submit Action Buttons */}
+          <div className="sticky bottom-0 bg-slate-950/95 backdrop-blur-md flex flex-col gap-2 pt-2.5 pb-1 border-t border-amber-500/30 w-full z-10 rounded-b-xl">
+            <span className="text-[10px] text-slate-400 font-mono break-words">
               Actions selected above will be batch processed ({selectedOutlierIds.size} of {outlierList.length} selected).
             </span>
 
