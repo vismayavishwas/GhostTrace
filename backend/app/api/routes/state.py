@@ -74,36 +74,53 @@ async def get_current_state():
 
     from app.orchestration.nodes import get_global_continuous_observer
     c_observer = get_global_continuous_observer()
-    completed_cycles = 0
-    if c_observer and hasattr(c_observer, "discovery_engine"):
-        completed_cycles = c_observer.discovery_engine.get_completed_cycle_count()
 
     pd = get_global_pattern_discovery()
     candidates = pd.get_discovered_candidates() if pd else []
     if not candidates and c_observer:
         candidates = c_observer.get_candidates()
 
-    if completed_cycles > 0:
-        repetition_count = completed_cycles
-    elif candidates:
-        repetition_count = max(c.repetition_count for c in candidates)
-    else:
-        repetition_count = 0
+    # ── 1. Infer workflow domain from telemetry event metadata or app_title ──
+    # The frontend now sends domain, workflow_domain in metadata on every event.
+    workflow_domain = "FINANCE"
+    if events:
+        domain_found = False
+        for e in events[:20]:
+            meta = getattr(e, "metadata", None) or {}
+            if isinstance(meta, dict):
+                evt_domain = meta.get("workflow_domain") or meta.get("domain")
+                if evt_domain in ("HR", "SALES", "FINANCE"):
+                    workflow_domain = evt_domain
+                    domain_found = True
+                    break
+        if not domain_found:
+            # Fallback: parse app_title / active_tab for known domain keywords
+            titles = " ".join([
+                str(getattr(e, "app_title", "") or getattr(e, "active_tab", ""))
+                for e in events[:20]
+            ]).upper()
+            if any(x in titles for x in ["WORKDAY", "ATS", "CANDIDATE RESUME", "CANDIDATE NAME", "CGPA", "EXPERIENCE"]):
+                workflow_domain = "HR"
+            elif any(x in titles for x in ["SALESFORCE", "CRM", "EXCEL LEADS", "DEAL SIZE", "LEAD"]):
+                workflow_domain = "SALES"
 
-    from app.agents.pattern_discovery.mapping_memory import global_mapping_memory
-    confidence, mapping_status = global_mapping_memory.get_overall_semantic_consistency_confidence(repetition_count)
+    DOMAIN_CANDIDATE_NAMES = {
+        "FINANCE": "Finance Invoice → SAP ERP Processing Workflow",
+        "HR": "HR Candidate Screening & ATS Onboarding Workflow",
+        "SALES": "Sales Lead → Salesforce CRM Data Entry Workflow",
+    }
+    DOMAIN_SOURCE_APPS = {
+        "FINANCE": "PDF Invoice Portal",
+        "HR": "Candidate Resume PDF",
+        "SALES": "Excel Leads Spreadsheet",
+    }
+    DOMAIN_TARGET_APPS = {
+        "FINANCE": "SAP ERP Financials",
+        "HR": "Workday ATS Portal",
+        "SALES": "Salesforce CRM",
+    }
 
-
-
-
-
-
-    candidate_name = getattr(candidates[0], "name", None) or getattr(candidates[0], "workflow_name", None) or "Enterprise Cross-App Workflow" if candidates else "Enterprise Cross-App Workflow"
-
-
-    # Build dynamic field mappings from telemetry transfers
-    # Use a FRESH TransferBuilder to avoid stale _active_source_event state
-    # from previous telemetry.py event processing on the global singleton.
+    # ── 2. Build field mappings FIRST (needed for authoritative cycle count) ──
     from app.agents.telemetry.transfer_builder import TransferBuilder
     from app.agents.pattern_discovery.deviation_detector import global_deviation_detector, format_clean_entity_label
 
@@ -125,11 +142,47 @@ async def get_current_state():
             "destination_label": dest_lbl,
             "destination_app": xfer.destination_app,
             "pasted_value": xfer.pasted_value or "",
-            "display_mapping": f"{src_lbl} → {dest_lbl}"
+            "display_mapping": f"{src_lbl} → {dest_lbl}",
+            "cycle_id": xfer.cycle_id or "cycle-1",
         }
         field_mappings.append(xfer_dict)
         chronological_transfers.append(xfer_dict)
 
+    # ── 3. Authoritative cycle count from unique cycle_ids in field_mappings ──
+    # ContinuousObserver.get_completed_cycle_count() overcounts (counts per-field
+    # COPY→PASTE pair as a cycle, not per-record). cycle_id from telemetry is the
+    # ground truth: frontend sets cycle_id = "cycle-{sampleIndex+1}" per record.
+    unique_cycle_ids_set = {m.get("cycle_id") for m in field_mappings if m.get("cycle_id")}
+    cycles_from_transfers = len(unique_cycle_ids_set)
+
+    observer_completed_cycles = 0
+    if c_observer and hasattr(c_observer, "discovery_engine"):
+        observer_completed_cycles = c_observer.discovery_engine.get_completed_cycle_count()
+
+    # Prefer transfer-based count (1 cycle = 1 full record), cap observer count
+    if cycles_from_transfers > 0:
+        repetition_count = cycles_from_transfers
+    elif observer_completed_cycles > 0:
+        repetition_count = observer_completed_cycles
+    elif candidates:
+        repetition_count = max(c.repetition_count for c in candidates)
+    else:
+        repetition_count = 0
+
+    # ── 4. Confidence from mapping memory with corrected cycle count ──────────
+    from app.agents.pattern_discovery.mapping_memory import global_mapping_memory
+    confidence, mapping_status = global_mapping_memory.get_overall_semantic_consistency_confidence(repetition_count)
+
+    # ── 5. Domain-aware candidate name ───────────────────────────────────────
+    candidate_name_from_candidates = (
+        getattr(candidates[0], "name", None) or getattr(candidates[0], "workflow_name", None)
+    ) if candidates else None
+    candidate_name = candidate_name_from_candidates or DOMAIN_CANDIDATE_NAMES.get(workflow_domain, "Enterprise Cross-App Workflow")
+
+    source_app_default = DOMAIN_SOURCE_APPS.get(workflow_domain, "Source App")
+    target_app_default = DOMAIN_TARGET_APPS.get(workflow_domain, "Target App")
+
+    # ── 6. Deviation / outlier detection ─────────────────────────────────────
     all_detected_devs = []
     outlier_items = []
     if transfers:
@@ -138,7 +191,7 @@ async def get_current_state():
         detected_devs = global_deviation_detector.detect_deviations(transfers, return_all=False)
         outlier_items = detected_devs
 
-
+    # ── 7. Workflow DNA ───────────────────────────────────────────────────────
     dna_dict = None
     if candidates or field_mappings:
         try:
@@ -147,7 +200,6 @@ async def get_current_state():
             transformer = DNATransformer()
             cand = candidates[0] if candidates else WorkflowCandidate(
                 candidate_id="cand-dynamic-001",
-                name=candidate_name,
                 sequence=events,
                 repetition_count=max(1, repetition_count),
                 confidence_score=confidence
@@ -166,30 +218,35 @@ async def get_current_state():
         else:
             dna_dict = {
                 "name": candidate_name,
-                "description": "Dynamic semantic workflow mapping human-understood field flows.",
+                "description": f"Dynamic semantic {workflow_domain.lower()} workflow mapping learned from live telemetry.",
                 "field_mappings": field_mappings,
                 "chronological_transfers": chronological_transfers,
                 "metadata": {"field_mappings": field_mappings, "chronological_transfers": chronological_transfers}
             }
 
+    # ── 8. Business Process Analysis (Gemini — once per domain workflow) ─────
     business_process_dict = None
     if repetition_count >= 1:
         try:
             from app.agents.business_process.business_agent import business_process_agent
             step_strs = [f"{getattr(e, 'event_type', 'ACTION')} on {getattr(e, 'target_selector', 'element')}" for e in events[:5]]
+            source_app = field_mappings[0]["source_app"] if field_mappings else source_app_default
+            target_app = field_mappings[-1]["destination_app"] if field_mappings else target_app_default
             bp_meta = business_process_agent.analyze_process(
                 candidate_name=candidate_name,
                 steps=step_strs,
-                source_app=field_mappings[0]["source_app"] if field_mappings else "PDF Portal",
-                target_app=field_mappings[-1]["destination_app"] if field_mappings else "ERP System",
+                source_app=source_app,
+                target_app=target_app,
                 repetition_count=repetition_count,
-                avg_duration_sec=12.5
+                avg_duration_sec=12.5,
+                workflow_domain=workflow_domain,
             )
             business_process_dict = bp_meta.model_dump()
             _STORED_BUSINESS_PROCESS = business_process_dict
         except Exception as e:
             logger.warning(f"Error calling BusinessProcessAgent: {e}")
 
+    # ── 9. Observation synthesis ──────────────────────────────────────────────
     from app.agents.pattern_discovery.learning_planner import global_learning_planner
     lp_conf = getattr(global_learning_planner, "current_confidence", 0.0)
 
@@ -204,7 +261,6 @@ async def get_current_state():
     all_outlier_tids = {item.get("transfer_id") for item in all_detected_devs if item.get("transfer_id")}
     all_outlier_cycle_ids = sorted(list({item.get("cycle_id") for item in all_detected_devs if item.get("cycle_id")}))
 
-    # Authoritative canonical approved workflow step mappings from 1-cycle Workflow DNA
     approved_workflow = (
         dna_dict.get("field_mappings")
         if dna_dict and dna_dict.get("field_mappings")
@@ -219,7 +275,8 @@ async def get_current_state():
         for item in all_detected_devs
     ]
 
-    total_cycle_count = max(repetition_count, len(set(m.get("cycle_id", "cycle-1") for m in field_mappings)))
+    # Use corrected repetition_count (from cycle_ids) as authoritative total
+    total_cycle_count = repetition_count
     outlier_count = len(all_outlier_cycle_ids) if all_outlier_cycle_ids else len(excluded_outliers)
     canonical_cycle_count = max(0, total_cycle_count - outlier_count)
 
@@ -237,15 +294,17 @@ async def get_current_state():
     }
 
     logger.info(
-        f"🔍 [STATE POLL AUDIT] Commit={build_commit} | SessionID={obs_session_id} | MappingMemoryConf={confidence:.2f} | "
-        f"LearningPlannerConf={lp_conf:.2f} | StateConfidence={round(confidence, 2):.2f} | "
-        f"DetectorActiveOutliers={len(outlier_items)} | ApprovedWorkflowSteps={len(approved_workflow)}"
+        f"🔍 [STATE POLL AUDIT] Commit={build_commit} | Domain={workflow_domain} | SessionID={obs_session_id} | "
+        f"CyclesFromTransfers={cycles_from_transfers} | ObserverCycles={observer_completed_cycles} | "
+        f"RepetitionCount={repetition_count} | MappingConf={confidence:.2f} | "
+        f"CandidateName='{candidate_name}' | ApprovedSteps={len(approved_workflow)}"
     )
 
     return {
         **current_graph_state,
         "observation_session_id": obs_session_id,
         "build_commit": build_commit,
+        "workflow_domain": workflow_domain,
         "confidence_score": round(confidence, 2),
         "repetition_count": repetition_count,
         "noise_filtered_count": len([e for e in events if getattr(e, "event_type", "") == "NOISE"]),

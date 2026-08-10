@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Building2, Copy, Check, ArrowRight, Play, Sparkles, Bot, RotateCcw, UserCheck, Briefcase, DollarSign, FileText } from "lucide-react";
-import { postTelemetryEvent, fetchGraphState } from "@/lib/api";
+import { postTelemetryEvent, fetchGraphState, resetTelemetryState } from "@/lib/api";
 
 export type SandboxDomain = "FINANCE" | "HR" | "SALES";
 
@@ -129,10 +129,15 @@ export const InteractiveSandboxApp: React.FC<InteractiveSandboxAppProps> = ({ is
 
   const titles = getDomainTitles();
 
-  const handleSwitchDomain = (newDomain: SandboxDomain) => {
+  const handleSwitchDomain = async (newDomain: SandboxDomain) => {
+    // Reset backend state first so old domain telemetry doesn't pollute new domain
+    setStatusMsg(`[Switching Environment] Resetting state for ${newDomain}...`);
+    await resetTelemetryState();
     setDomain(newDomain);
     setSampleIndex(0);
     setFormData({ f1: "", f2: "", f3: "" });
+    setRemainingCount(8);
+    setAutoStarted(false);
     setStatusMsg(`[Environment Switched] Active Sandbox: ${newDomain}`);
   };
 
@@ -175,7 +180,19 @@ export const InteractiveSandboxApp: React.FC<InteractiveSandboxAppProps> = ({ is
       timestamp: new Date().toISOString(),
       app_title: appTitle,
       cycle_id: currentCycleId,
-      metadata: { is_sandbox: true, field_label: labelText, aria_label: labelText, app_title: appTitle, is_automated: isAutomated, cycle_id: currentCycleId }
+      // Domain context — backend uses this to derive correct workflow name, dept, and analysis
+      domain: domain,
+      workflow_domain: domain,
+      metadata: {
+        is_sandbox: true,
+        field_label: labelText,
+        aria_label: labelText,
+        app_title: appTitle,
+        is_automated: isAutomated,
+        cycle_id: currentCycleId,
+        domain: domain,
+        workflow_domain: domain,
+      }
     };
 
     setStatusMsg(`[Telemetry Transmitted] ${eventType} on ${selector} ${isAutomated ? "(Automated)" : ""}`);
