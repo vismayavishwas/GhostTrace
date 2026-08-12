@@ -69,6 +69,34 @@ class DeviationDetector:
     def detect_deviations(self, transfers: List[SemanticTransfer], return_all: bool = False) -> List[Dict[str, Any]]:
         """Detects deviations by comparing expected stable mappings & baseline sequences against observed transfers per cycle."""
         deviations: List[Dict[str, Any]] = []
+
+        # 1. Capture immediate corrections as deviations/outliers
+        for pos, xfer in enumerate(transfers, start=1):
+            if xfer.is_immediate_correction:
+                src = xfer.source_entity
+                obs_dest = xfer.superseded_destination or xfer.destination_entity
+                obs_dest_lower = obs_dest.lower()
+                target_expected = xfer.destination_entity
+
+                src_clean = format_clean_entity_label("", src)
+                exp_clean = format_clean_entity_label("", target_expected or "")
+                obs_clean = format_clean_entity_label("", obs_dest_lower)
+
+                cyc_id = getattr(xfer, "cycle_id", None) or "cycle-3"
+
+                deviations.append({
+                    "id": f"dev-wrong-dest-{cyc_id}-{pos}",
+                    "cycle_id": cyc_id,
+                    "source_entity": src,
+                    "expected_destination": target_expected,
+                    "observed_destination": obs_dest_lower,
+                    "label": f"Field ({src_clean}) pasted into Field ({obs_clean}) in {cyc_id}",
+                    "reason": f"Anomalous action was observed and corrected. Expected '{exp_clean}' but observed '{obs_clean}'",
+                    "selector": obs_clean,
+                    "transfer_id": xfer.transfer_id,
+                    "group": "Wrong Field Target"
+                })
+
         # Filter valid transfers (exclude immediate corrections and automated agent executions)
         valid_transfers = [
             x for x in transfers
