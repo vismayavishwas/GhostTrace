@@ -11,8 +11,8 @@ RUN npm ci --legacy-peer-deps || npm install
 # Copy frontend source code
 COPY . .
 
-# Ensure public folder exists so COPY command in runner stage doesn't fail
-RUN mkdir -p public
+# Ensure public folder exists and contains a file so COPY command in runner stage doesn't fail on empty directory
+RUN mkdir -p public && touch public/.gitkeep
 
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
