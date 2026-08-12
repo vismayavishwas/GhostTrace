@@ -1,6 +1,4 @@
-// GhostTrace AI REST API Client Service
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://ghosttrace-bcp2.onrender.com/api/v1";
+import { API_BASE_URL } from "./config";
 
 async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 5000): Promise<Response> {
   const controller = new AbortController();

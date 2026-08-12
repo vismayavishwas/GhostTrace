@@ -53,3 +53,13 @@ frontend/.env.local
 # OS files
 .DS_Store
 Thumbs.db
+
+# Test & coverage
+.coverage
+.pytest_cache/
+**/__pycache__/
+**/.pytest_cache/
+
+# Local databases
+*.db
+backend/*.db

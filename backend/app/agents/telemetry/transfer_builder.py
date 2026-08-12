@@ -93,6 +93,12 @@ class TransferBuilder:
                         pending_transfers[-1]["destination_entity"] = dest_entity
                         pending_transfers[-1]["destination_display_label"] = dest_display_label
                         pending_transfers[-1]["destination_selector"] = dest_selector
+                        if transfers:
+                            transfers[-1].is_immediate_correction = True
+                            transfers[-1].superseded_destination = prev_dest
+                            transfers[-1].destination_entity = dest_entity
+                            transfers[-1].destination_display_label = dest_display_label
+                            transfers[-1].destination_selector = dest_selector
 
                 pending_transfers.append({
                     "transfer_id": f"xfer-{len(pending_transfers)+1}",

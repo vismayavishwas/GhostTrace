@@ -64,6 +64,9 @@ export const InteractiveSandboxApp: React.FC<InteractiveSandboxAppProps> = ({ is
   const [statusMsg, setStatusMsg] = useState<string>("");
   const [isAutoFilling, setIsAutoFilling] = useState<boolean>(false);
   const [remainingCount, setRemainingCount] = useState<number>(8);
+  // Ref so the autofill loop can read the latest display index without stale closure
+  const displayIndexRef = React.useRef<number>(0);
+  const isAutoFillingRef = React.useRef<boolean>(false);
 
   useEffect(() => {
     setMounted(true);
@@ -72,6 +75,10 @@ export const InteractiveSandboxApp: React.FC<InteractiveSandboxAppProps> = ({ is
       setSampleIndex(0);
       setFormData({ f1: "", f2: "", f3: "" });
       setStatusMsg("");
+      setRemainingCount(8);
+      setAutoStarted(false);
+      isAutoFillingRef.current = false;
+      displayIndexRef.current = 0;
     };
 
     const handleGlobalCopy = () => {
@@ -130,6 +137,9 @@ export const InteractiveSandboxApp: React.FC<InteractiveSandboxAppProps> = ({ is
   const titles = getDomainTitles();
 
   const handleSwitchDomain = async (newDomain: SandboxDomain) => {
+    // Abort any ongoing autofill before switching domain
+    isAutoFillingRef.current = false;
+    displayIndexRef.current = 0;
     // Reset backend state first so old domain telemetry doesn't pollute new domain
     setStatusMsg(`[Switching Environment] Resetting state for ${newDomain}...`);
     await resetTelemetryState();
@@ -252,34 +262,37 @@ export const InteractiveSandboxApp: React.FC<InteractiveSandboxAppProps> = ({ is
   const [autoActionLabel, setAutoActionLabel] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isDeploymentMode && !autoStarted && !isAutoFilling && remainingCount > 0) {
+    if (isDeploymentMode && !autoStarted && !isAutoFillingRef.current) {
       setAutoStarted(true);
       const timer = setTimeout(() => {
         handleAutoFillRemaining();
       }, 700);
       return () => clearTimeout(timer);
     }
-  }, [isDeploymentMode, autoStarted, isAutoFilling, remainingCount]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDeploymentMode]);
 
   const handleAutoFillRemaining = async () => {
+    if (isAutoFillingRef.current) return; // Guard against double-trigger
+    isAutoFillingRef.current = true;
     setIsAutoFilling(true);
     setStatusMsg(`🤖 Ghost Digital Employee executing parameterized Workflow DNA on remaining records...`);
 
+    // Capture current index synchronously to avoid stale state in async loop
+    const startIdx = displayIndexRef.current;
+    const currentSamples = domain === "HR" ? HR_SAMPLES : domain === "SALES" ? SALES_SAMPLES : FINANCE_SAMPLES;
+    const totalRecords = currentSamples.length;
+
     try {
-      // Read current state to retrieve learned parameterized mappings
-      let mappings: any[] = [];
-      try {
-        const state = await fetchGraphState();
-        mappings = state?.observation_synthesis?.approved_workflow || state?.field_mappings || [];
-      } catch {}
+      for (let idx = startIdx; idx < totalRecords; idx++) {
+        if (!isAutoFillingRef.current) break; // Allow external abort
 
-      const remainingStart = sampleIndex < 3 ? 3 : sampleIndex;
-
-      for (let idx = remainingStart; idx < samples.length; idx++) {
+        displayIndexRef.current = idx;
         setSampleIndex(idx);
-        const item = samples[idx];
+        const item = currentSamples[idx];
 
         setFormData({ f1: "", f2: "", f3: "" });
+        setStatusMsg(`🤖 Ghost Auto-Filling Record ${idx + 1} of ${totalRecords}...`);
         await new Promise((r) => setTimeout(r, 250));
 
         // 1. Field 1 Copy & Paste
@@ -291,7 +304,7 @@ export const InteractiveSandboxApp: React.FC<InteractiveSandboxAppProps> = ({ is
         setAutoActionLabel(`PASTE ${item.field1Label}`);
         setFormData((prev) => ({ ...prev, f1: item.field1Value }));
         dispatchTelemetry("PASTE", `#target-${item.field1Key}`, item.field1Value, item.field1Label, true).catch(() => {});
-        await new Promise((r) => setTimeout(r, 300));
+        await new Promise((r) => setTimeout(r, 350));
 
         // 2. Field 2 Copy & Paste
         setAutoCursorPos({ x: 22, y: 55 });
@@ -302,7 +315,7 @@ export const InteractiveSandboxApp: React.FC<InteractiveSandboxAppProps> = ({ is
         setAutoActionLabel(`PASTE ${item.field2Label}`);
         setFormData((prev) => ({ ...prev, f2: item.field2Value }));
         dispatchTelemetry("PASTE", `#target-${item.field2Key}`, item.field2Value, item.field2Label, true).catch(() => {});
-        await new Promise((r) => setTimeout(r, 300));
+        await new Promise((r) => setTimeout(r, 350));
 
         // 3. Field 3 Copy & Paste
         setAutoCursorPos({ x: 22, y: 75 });
@@ -313,17 +326,22 @@ export const InteractiveSandboxApp: React.FC<InteractiveSandboxAppProps> = ({ is
         setAutoActionLabel(`PASTE ${item.field3Label}`);
         setFormData((prev) => ({ ...prev, f3: item.field3Value }));
         dispatchTelemetry("PASTE", `#target-${item.field3Key}`, item.field3Value, item.field3Label, true).catch(() => {});
-        await new Promise((r) => setTimeout(r, 300));
+        await new Promise((r) => setTimeout(r, 350));
 
-        // 4. Record Transition
-        setAutoCursorPos({ x: 50, y: 92 });
-        setAutoActionLabel("NEXT RECORD");
-        dispatchTelemetry("RECORD_TRANSITION", "#btn-next-record", `Record ${idx + 2}`, "Next Record", true).catch(() => {});
-        await new Promise((r) => setTimeout(r, 300));
+        // 4. Record Transition (only if not last record)
+        if (idx < totalRecords - 1) {
+          setAutoCursorPos({ x: 50, y: 92 });
+          setAutoActionLabel("NEXT RECORD");
+          dispatchTelemetry("RECORD_TRANSITION", "#btn-next-record", `Record ${idx + 2}`, "Next Record", true).catch(() => {});
+          await new Promise((r) => setTimeout(r, 350));
+        }
 
-        setRemainingCount(samples.length - 1 - idx);
+        // Update remaining counter
+        const newRemaining = totalRecords - 1 - idx;
+        setRemainingCount(newRemaining);
       }
-      setStatusMsg(`✅ Ghost completed autonomous execution across all remaining records! Remaining: 0`);
+      displayIndexRef.current = totalRecords - 1;
+      setStatusMsg(`✅ Ghost completed autonomous execution across all ${totalRecords} ${domain} records! Remaining: 0`);
     } catch (e) {
       console.error("AutoFill error:", e);
       setStatusMsg(`⚠️ AutoFill finished with notice.`);
@@ -331,6 +349,7 @@ export const InteractiveSandboxApp: React.FC<InteractiveSandboxAppProps> = ({ is
       setAutoCursorPos(null);
       setAutoActionLabel(null);
       setIsAutoFilling(false);
+      isAutoFillingRef.current = false;
     }
   };
 
@@ -409,7 +428,7 @@ export const InteractiveSandboxApp: React.FC<InteractiveSandboxAppProps> = ({ is
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-bold text-slate-100">Live Sandboxed Enterprise Environments</h3>
               <span className="rounded-full bg-cyan-500/20 px-2 py-0.5 text-[10px] font-mono text-cyan-300 border border-cyan-500/30">
-                Record {sampleIndex + 1} of 8
+                Record {sampleIndex + 1} of {samples.length}
               </span>
             </div>
             <p className="text-[10px] text-slate-400">Interchangeable sandbox environments — telemetry processed identically by backend</p>

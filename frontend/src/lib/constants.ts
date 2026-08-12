@@ -11,7 +11,9 @@ export const STATE_MACHINE_NODES = [
   { id: "CONTINUOUS_OBSERVATION", label: "Background Observer", phase: "Execution & Governance" },
 ] as const;
 
-export const DEFAULT_API_URL = process.env.NEXT_PUBLIC_API_URL || "https://ghosttrace-bcp2.onrender.com/api/v1";
-export const DEFAULT_WS_TELEMETRY = process.env.NEXT_PUBLIC_WS_TELEMETRY_URL || "wss://ghosttrace-bcp2.onrender.com/ws/telemetry";
-export const DEFAULT_WS_STATE = process.env.NEXT_PUBLIC_WS_STATE_URL || "wss://ghosttrace-bcp2.onrender.com/ws/state";
+import { API_BASE_URL, WS_TELEMETRY_URL, WS_STATE_URL } from "./config";
+
+export const DEFAULT_API_URL = API_BASE_URL;
+export const DEFAULT_WS_TELEMETRY = WS_TELEMETRY_URL;
+export const DEFAULT_WS_STATE = WS_STATE_URL;
 

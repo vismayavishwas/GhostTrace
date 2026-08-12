@@ -38,7 +38,13 @@ async def websocket_reasoning_endpoint(websocket: WebSocket):
 
     try:
         while True:
-            await websocket.receive_text()
+            try:
+                raw = await websocket.receive_text()
+                msg = json.loads(raw) if raw.strip().startswith("{") else {}
+                if msg.get("type") == "PING":
+                    await websocket.send_json({"type": "PONG"})
+            except Exception:
+                pass  # Non-JSON or irrelevant messages — ignore
     except WebSocketDisconnect:
         pattern_agent.publisher.unsubscribe(on_candidate)
         logger.info("Client disconnected from /ws/reasoning")
@@ -65,7 +71,13 @@ async def websocket_telemetry_endpoint(websocket: WebSocket):
 
     try:
         while True:
-            await websocket.receive_text()
+            try:
+                raw = await websocket.receive_text()
+                msg = json.loads(raw) if raw.strip().startswith("{") else {}
+                if msg.get("type") == "PING":
+                    await websocket.send_json({"type": "PONG"})
+            except Exception:
+                pass
     except WebSocketDisconnect:
         observer.publisher.unsubscribe(on_telemetry)
         logger.info("Client disconnected from /ws/telemetry")
@@ -173,7 +185,13 @@ async def websocket_pipeline_endpoint(websocket: WebSocket):
 
     try:
         while True:
-            await websocket.receive_text()
+            try:
+                raw = await websocket.receive_text()
+                msg = json.loads(raw) if raw.strip().startswith("{") else {}
+                if msg.get("type") == "PING":
+                    await websocket.send_json({"type": "PONG"})
+            except Exception:
+                pass
     except WebSocketDisconnect:
         compiler.publisher.unsubscribe(on_artifact)
         logger.info("Client disconnected from /ws/pipeline")

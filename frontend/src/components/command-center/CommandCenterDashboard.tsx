@@ -60,20 +60,34 @@ export const CommandCenterDashboard: React.FC = () => {
   const [observationSessionId, setObservationSessionId] = useState<string>("");
   const [lockedSnapshot, setLockedSnapshot] = useState<ObservationSnapshot | null>(null);
   const [isDeploymentMode, setIsDeploymentMode] = useState<boolean>(false);
+  const [extensionDetected, setExtensionDetected] = useState<boolean | null>(null);
+
+  // Ref — set true when user clicks Analyze so confidence stops being overwritten by polling
+  const confidenceLockedRef = React.useRef<boolean>(false);
 
   useEffect(() => {
     // Reset shadow mode state automatically on page refresh/mount
     resetTelemetryState();
+    confidenceLockedRef.current = false;
 
     // Keep Render backend warm — prevents 30-60s cold start latency
     const keepAliveTimer = startBackendKeepAlive();
 
-    // Poll graph state from backend
+    // Extension detection: listen for a ping from the content script within 3 seconds
+    const extPingHandler = () => setExtensionDetected(true);
+    window.addEventListener("ghosttrace:extension-ping", extPingHandler);
+    const extCheckTimer = setTimeout(() => {
+      setExtensionDetected((prev) => (prev === null ? false : prev));
+    }, 4000);
+
+    // Poll graph state from backend — 1500ms is gentle enough for Render free tier
     const interval = setInterval(() => {
       fetchGraphState().then((state) => {
         if (state) {
-
-          if (state.confidence_score !== undefined) setConfidenceScore(state.confidence_score);
+          // Only update confidence if it hasn't been locked by the user clicking Analyze
+          if (!confidenceLockedRef.current) {
+            if (state.confidence_score !== undefined) setConfidenceScore(state.confidence_score);
+          }
           if (state.repetition_count !== undefined) setRepetitionCount(state.repetition_count);
           if (state.noise_filtered_count !== undefined) setNoiseFilteredCount(state.noise_filtered_count);
           if (state.candidate_name) setCandidateName(state.candidate_name);
@@ -93,12 +107,14 @@ export const CommandCenterDashboard: React.FC = () => {
           }
         }
       });
-    }, 500);
+    }, 1500);
 
 
     return () => {
       clearInterval(interval);
       clearInterval(keepAliveTimer);
+      clearTimeout(extCheckTimer);
+      window.removeEventListener("ghosttrace:extension-ping", extPingHandler);
     };
   }, []);
 
@@ -108,6 +124,8 @@ export const CommandCenterDashboard: React.FC = () => {
   };
 
   const handleAnalyzeTrigger = async () => {
+    // Lock confidence so polling doesn't overwrite it after user clicks Analyze
+    confidenceLockedRef.current = true;
     const latestState = await fetchGraphState();
     const synth = latestState?.observation_synthesis || null;
 
@@ -163,6 +181,7 @@ export const CommandCenterDashboard: React.FC = () => {
 
   const handleResetShadowMode = () => {
     resetTelemetryState();
+    confidenceLockedRef.current = false; // Unlock confidence on reset
     setConfidenceScore(0.0);
     setRepetitionCount(0);
     setNoiseFilteredCount(0);
@@ -188,6 +207,27 @@ export const CommandCenterDashboard: React.FC = () => {
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-4 md:p-6 flex flex-col gap-6 selection:bg-cyan-500 selection:text-slate-950">
       {/* Onboarding Permission Modal */}
       {showPermissionModal && <AppAccessPermission onGrantPermission={handleGrantPermission} />}
+
+      {/* Extension Install CTA Banner — shown when extension is NOT detected */}
+      {extensionDetected === false && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-500/50 bg-gradient-to-r from-amber-950/80 via-slate-900 to-orange-950/80 px-5 py-3.5 shadow-2xl shadow-amber-500/10">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🔌</span>
+            <div>
+              <h4 className="text-sm font-extrabold text-amber-200">GhostTrace Extension Not Detected</h4>
+              <p className="text-xs text-amber-400/80">Install the Chrome extension to enable real browser telemetry capture &amp; shadow mode tracking on any web app.</p>
+            </div>
+          </div>
+          <a
+            href="https://chrome.google.com/webstore/category/extensions"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2 text-xs font-black text-slate-950 shadow-lg shadow-amber-500/30 hover:bg-amber-400 transition"
+          >
+            <span>⬇️ Install Extension</span>
+          </a>
+        </div>
+      )}
 
       {/* Top Enterprise Header */}
       <CommandCenterHeader

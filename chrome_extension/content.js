@@ -2,6 +2,12 @@
 (function () {
   const BACKEND_URL = "https://ghosttrace-bcp2.onrender.com/api/v1/telemetry/events";
 
+  // Signal to the GhostTrace dashboard that the extension is installed and active.
+  // The dashboard listens for this event to show/hide the "Install Extension" CTA.
+  try {
+    window.dispatchEvent(new CustomEvent("ghosttrace:extension-ping", { detail: { version: "1.0" } }));
+  } catch (_) {}
+
   function getCssSelector(el) {
     if (!el || el.nodeType !== Node.ELEMENT_NODE) return "element";
     if (el.id) return `#${el.id}`;

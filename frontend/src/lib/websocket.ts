@@ -1,4 +1,4 @@
-const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || "wss://ghosttrace-bcp2.onrender.com/ws";
+import { API_BASE_URL, WS_BASE_URL } from "./config";
 
 export type StreamType = "telemetry" | "reasoning" | "replay" | "state" | "pipeline";
 
@@ -43,6 +43,8 @@ export class WebSocketStreamManager {
       this.socket.onmessage = (event) => {
         try {
           const parsed = JSON.parse(event.data);
+          // Filter internal heartbeat messages — don't pass them to the consumer
+          if (parsed?.type === "PONG") return;
           this.onMessageCallback(parsed);
         } catch {
           // Parse error — ignore
@@ -83,12 +85,12 @@ export class WebSocketStreamManager {
 
   private startPing() {
     this.stopPing();
-    // Send a ping every 20s to keep the WS alive through Render's idle timeout
+    // Send a ping every 15s to keep the WS alive through Render's idle timeout
     this.pingTimer = setInterval(() => {
       if (this.socket && this.socket.readyState === WebSocket.OPEN) {
         try { this.socket.send(JSON.stringify({ type: "PING" })); } catch { /* ignore */ }
       }
-    }, 20000);
+    }, 15000);
   }
 
   private stopPing() {
@@ -109,7 +111,7 @@ export class WebSocketStreamManager {
     this.stopPing();
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
     if (this.socket) {
-      this.socket.close();
+      try { this.socket.close(1000, "Client closing cleanly"); } catch { /* ignore */ }
       this.socket = null;
     }
   }
@@ -120,8 +122,7 @@ export class WebSocketStreamManager {
  * Render free tier sleeps after ~15 min of inactivity — this prevents cold starts.
  */
 export function startBackendKeepAlive() {
-  const rootUrl = (process.env.NEXT_PUBLIC_API_URL || "https://ghosttrace-bcp2.onrender.com/api/v1")
-    .replace(/\/api\/v1\/?$/, "");
+  const rootUrl = API_BASE_URL.replace(/\/api\/v1\/?$/, "");
 
   const ping = () => {
     fetch(`${rootUrl}/health`, { method: "GET" }).catch(() => {});
