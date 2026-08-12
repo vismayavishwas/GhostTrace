@@ -113,7 +113,36 @@ The frontend dashboard will be available at `http://localhost:3000`.
 | Phase | Description | Status |
 | :--- | :--- | :--- |
 | **Phase 1** | Project Foundation, Scaffolding & WebSockets Skeleton | **COMPLETE** |
-| **Phase 2** | Perception Layer & Telemetry Ingestion Engine | *Pending* |
-| **Phase 3** | Intelligence Core (LangGraph + Vertex AI Gemini) | *Pending* |
-| **Phase 4** | Automation Factory (Compiler & Playwright Sandbox) | *Pending* |
-| **Phase 5** | Self-Healing Engine & Production Runner | *Pending* |
+| **Phase 2** | Perception Layer & Telemetry Ingestion Engine | **COMPLETE** |
+| **Phase 3** | Intelligence Core (LangGraph + Vertex AI Gemini) | **COMPLETE** |
+| **Phase 4** | Automation Factory (Compiler & Playwright Sandbox) | **COMPLETE** |
+| **Phase 5** | Self-Healing Engine & Production Runner | **COMPLETE** |
+
+---
+
+## 🚀 Newly Finished Features & Bug Fixes
+
+The platform has been fully hardened with key production-level enhancements:
+
+### 1. 🤖 Dynamic Ghost Auto-Fill & Replay Engine
+- Fixed dynamic record progression: Ghost now auto-fills all 8 sample records sequentially from the current index (instead of hardcoded skips).
+- Synchronized record counters: Record numbers (`Record X of Y`) track accurately using active references to prevent state latency.
+- State isolation: Fully reset execution triggers (`remainingCount`, `autoStarted`) on domain transitions.
+
+### 2. 🔌 Chrome Extension Detection & Installation
+- Direct connection confirmation: Extension `content.js` broadcasts custom ping signals on load.
+- User onboarding: The command center automatically shows an installation Call-to-Action banner if the extension is not detected within 4 seconds.
+
+### 3. 🌐 WebSocket Heartbeat & Connection Stability
+- Handled heartbeats (`PING`/`PONG` frames) on both back-end and front-end to prevent connections from dropping under Render's idle limits.
+- Configured clean disconnect headers (close code `1000`) for graceful teardown.
+
+### 🧪 Testing & CI/CD Validation
+- **Front-end**: Full unit testing suite via `Vitest` (`npm run test`).
+- **Back-end**: Functional/integration test suite via `pytest` testing telemetry mapping logic and API endpoints.
+- **CI/CD**: GitHub Actions pipeline (`.github/workflows/ci.yml`) runs linting, type-checks, tests, and validates Docker builds on every commit.
+
+### ☁️ Production Deployments
+- **Front-end Hosting**: Deployed to Firebase Hosting: [https://ghost-trace-4c783.web.app](https://ghost-trace-4c783.web.app)
+- **Back-end API & WS**: Deployed and active on Render.
+
