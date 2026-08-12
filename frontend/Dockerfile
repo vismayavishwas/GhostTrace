@@ -11,6 +11,9 @@ RUN npm ci --legacy-peer-deps || npm install
 # Copy frontend source code
 COPY . .
 
+# Ensure public folder exists so COPY command in runner stage doesn't fail
+RUN mkdir -p public
+
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
